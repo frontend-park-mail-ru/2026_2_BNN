@@ -1,5 +1,58 @@
-@import url("https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600&display=swap");
+@font-face {
+  font-family: "Comfortaa";
+  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("./assets/fonts/Comfortaa/static/Comfortaa-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("./assets/fonts/Nunito/static/Nunito-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("./assets/fonts/Nunito/static/Nunito-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
 
 body {
   margin: 0;
@@ -52,34 +105,30 @@ button {
   font-size: 14px;
 }
 
-.logo{
+.logo {
   display: block;
   margin: 0 auto 16px;
   width: 100px;
   height: 100px;
-  background-image: url("../assets/icons/web-app-manifest-192x192.png");
+  background-image: url("./assets/icons/favicon.svg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-.logo-text{
+.logo-text {
   text-align: center;
   font-size: 18px;
   font-weight: bold;
   color: #111111;
 }
 
-
 .login-page {
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  /* background-color: #B4D8C3; */
-  background-image:
-    linear-gradient(rgba(24, 10, 52, 0.12), rgba(24, 10, 52, 0.22)),
-    url("../assets/images/background_v1.png");
+  background-image: url("./assets/images/background_v1.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -259,7 +308,7 @@ button {
 
 .login-button {
   width: 100%;
-  height: 42px;
+  height: 64px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -327,18 +376,6 @@ button {
   text-decoration: underline;
 }
 
-.register-page .ios-glass-panel {
-  min-height: 560px;
-}
-
-.register-page .field {
-  margin-bottom: 18px;
-}
-
-.register-page .login-button {
-  margin-top: 6px;
-}
-
 @media (max-width: 640px) {
   .ios-glass-panel {
     min-height: 380px;
@@ -355,9 +392,5 @@ button {
 
   .login-button {
     font-size: 24px;
-  }
-
-  .register-page .ios-glass-panel {
-    min-height: 520px;
   }
 }
