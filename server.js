@@ -10,14 +10,6 @@ app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "index.html"))
 });
 
-app.get("/login.html", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "js", "pages", "login.html"));
-});
-  
-app.get("/register.html", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "js", "pages", "register.html"));
-});
-
 app.get("/{*any}",(req, res) => {
     res.sendFile(path.join(__dirname, "index.html"))
 });

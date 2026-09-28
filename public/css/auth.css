@@ -1,14 +1,6 @@
 @font-face {
   font-family: "Comfortaa";
-  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Light.ttf") format("truetype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Comfortaa";
-  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Regular.ttf") format("truetype");
+  src: url("../assets/fonts/Comfortaa/static/Comfortaa-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -16,15 +8,7 @@
 
 @font-face {
   font-family: "Comfortaa";
-  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Medium.ttf") format("truetype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Comfortaa";
-  src: url("./assets/fonts/Comfortaa/static/Comfortaa-SemiBold.ttf") format("truetype");
+  src: url("../assets/fonts/Comfortaa/static/Comfortaa-SemiBold.ttf") format("truetype");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -32,7 +16,7 @@
 
 @font-face {
   font-family: "Comfortaa";
-  src: url("./assets/fonts/Comfortaa/static/Comfortaa-Bold.ttf") format("truetype");
+  src: url("../assets/fonts/Comfortaa/static/Comfortaa-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -40,16 +24,8 @@
 
 @font-face {
   font-family: "Nunito";
-  src: url("./assets/fonts/Nunito/static/Nunito-Regular.ttf") format("truetype");
+  src: url("../assets/fonts/Nunito/static/Nunito-Regular.ttf") format("truetype");
   font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Nunito";
-  src: url("./assets/fonts/Nunito/static/Nunito-SemiBold.ttf") format("truetype");
-  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
@@ -58,7 +34,7 @@ body {
   margin: 0;
   font-family: "Comfortaa", sans-serif;
   background: #f2f2f2;
-  padding: 24px;
+  padding: 0;
 }
 
 .page-title {
@@ -110,7 +86,7 @@ button {
   margin: 0 auto 16px;
   width: 100px;
   height: 100px;
-  background-image: url("./assets/icons/favicon.svg");
+  background-image: url("../assets/icons/favicon.svg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -128,7 +104,7 @@ button {
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  background-image: url("./assets/images/background_v1.png");
+  background-image: url("../assets/images/background_v1.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -255,8 +231,9 @@ button {
   margin: 0;
 }
 
-.field.has-error input {
-  border-bottom-color: #b40000 !important;
+.login-page .field.has-error input,
+.login-page .field.has-error input:focus {
+  border-bottom-color: #b40000;
 }
 
 .login-page input[type="text"]:focus,
