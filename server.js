@@ -18,6 +18,10 @@ app.get("/register.html", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "js", "pages", "register.html"));
 });
 
+app.get("/notes", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "js", "pages", "main.html"));
+})
+
 app.get("/{*any}",(req, res) => {
     res.sendFile(path.join(__dirname, "index.html"))
 });
