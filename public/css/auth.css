@@ -1,0 +1,289 @@
+@font-face {
+  font-family: "Comfortaa";
+  src: url("../assets/fonts/Comfortaa/static/Comfortaa-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("../assets/fonts/Comfortaa/static/Comfortaa-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Comfortaa";
+  src: url("../assets/fonts/Comfortaa/static/Comfortaa-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("../assets/fonts/Nunito/static/Nunito-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+body {
+  margin: 0;
+  font-family: "Comfortaa", sans-serif;
+  background: #f2f2f2;
+  padding: 0;
+}
+
+.logo {
+  display: block;
+  margin: 0 auto 16px;
+  width: 100px;
+  height: 100px;
+  background-image: url("../assets/icons/favicon.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo-text {
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: #111111;
+}
+
+.login-page {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-image: url("../assets/images/background_v1.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.login-layout {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px 24px;
+  box-sizing: border-box;
+}
+
+.ios-glass-panel {
+  width: min(92vw, 490px);
+  min-height: 420px;
+  margin: 0 auto;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 22px 42px rgba(42, 17, 63, 0.2),
+    inset 3px 3px 0 rgba(0, 0, 0, 0.28),
+    inset -2px -2px 1px rgba(255, 255, 255, 0.62),
+    inset 2px 2px 1px rgba(255, 255, 255, 0.45),
+    inset 0 0 10px rgba(116, 105, 125, 0.28),
+    inset 0 0 22px rgba(255, 255, 255, 0.36);
+  backdrop-filter: blur(20px) saturate(130%);
+  -webkit-backdrop-filter: blur(20px) saturate(130%);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 54px 54px 24px;
+}
+
+.ios-glass-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.12) 42%,
+    rgba(255, 255, 255, 0.02) 68%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.ios-glass-panel::after {
+  content: "";
+  position: absolute;
+  left: -22%;
+  top: 56%;
+  width: 120%;
+  height: 70%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 166, 216, 0.25) 0%,
+    rgba(255, 255, 255, 0.12) 38%,
+    rgba(255, 255, 255, 0) 76%
+  );
+  filter: blur(12px);
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
+.ios-glass-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.login-form {
+  margin-top: 22px;
+}
+
+.login-page .page-title {
+  margin: 0;
+  text-align: center;
+  font-size: 42px;
+  font-weight: 700;
+  color: #111111;
+  letter-spacing: 0.4px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 24px;
+}
+
+.field.has-error .field-label {
+  color: #b40000;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #111111;
+}
+
+.login-page input[type="text"],
+.login-page input[type="password"] {
+  width: 100%;
+  padding: 0 0 8px 0;
+  border: none;
+  border-bottom: 2px solid #111111;
+  background: transparent;
+  color: #111111;
+  font-size: 17px;
+  font-family: "Nunito", sans-serif;
+  margin: 0;
+}
+
+.login-page .field.has-error input,
+.login-page .field.has-error input:focus {
+  border-bottom-color: #b40000;
+}
+
+.login-page input[type="text"]:focus,
+.login-page input[type="password"]:focus {
+  outline: none;
+  border-bottom-color: #000000;
+}
+
+.field-error {
+  display: block;
+  min-height: 16px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #b40000;
+}
+
+.login-button {
+  width: 100%;
+  height: 64px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: #99C5FF;
+  color: #3d2050;
+  font-family: "Comfortaa", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background-color 0.4s ease, transform 0.4s ease;
+}
+
+.login-button:hover {
+  background: #bcdcff;
+}
+
+.login-button:active {
+  transform: scale(0.985);
+}
+
+.login-button:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.login-button.is-loading {
+  background: #f3f3f3;
+}
+
+.form-feedback {
+  min-height: 18px;
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+.form-feedback.is-error {
+  color: #b40000;
+}
+
+.form-feedback.is-success {
+  color: #0f6d2f;
+}
+
+.login-page .hint {
+  margin: 18px 0 0;
+  text-align: center;
+  color: #111111;
+  font-size: 16px;
+}
+
+.login-page .hint a {
+  color: #111111;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.login-page .hint a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .ios-glass-panel {
+    min-height: 380px;
+    padding: 24px 20px 20px;
+  }
+
+  .login-page .page-title {
+    font-size: 34px;
+  }
+
+  .field-label {
+    font-size: 20px;
+  }
+
+  .login-button {
+    font-size: 24px;
+  }
+}

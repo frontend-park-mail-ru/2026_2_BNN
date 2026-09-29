@@ -1,0 +1,17 @@
+.register-page .ios-glass-panel {
+  min-height: 560px;
+}
+
+.register-page .field {
+  margin-bottom: 18px;
+}
+
+.register-page .login-button {
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .register-page .ios-glass-panel {
+    min-height: 520px;
+  }
+}
