@@ -1,5 +1,5 @@
-import { router, setupLinkHanling, setupPopStateHandling } from "./router.js";
+import { router, setupLinkHandling, setupPopStateHandling } from "./router.js";
 
 router();
-setupLinkHanling();
+setupLinkHandling();
 setupPopStateHandling();

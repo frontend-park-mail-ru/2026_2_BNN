@@ -20,7 +20,7 @@ export function navigate(url) {
     router();
 }
 
-export function setupLinkHanling() {
+export function setupLinkHandling() {
     document.addEventListener("click", (event) => {
         const link = event.target.closest("a[data-link]");
 

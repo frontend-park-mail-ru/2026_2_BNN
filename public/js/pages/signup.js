@@ -1,8 +1,6 @@
 export const SignupPage = {
     render() {
-        return `
-            <h1>Signup</h1>
-            <p><a href="/" data-link>Home</a></p>
-      `;
+        const template = Handlebars.templates["signup"];
+        return template({ title: "Signup" });
     },
 };
