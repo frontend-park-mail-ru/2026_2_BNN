@@ -126,13 +126,6 @@
   color: #111111;
 }
 
-.field-icon {
-  float: right;
-  margin-top: -30px;
-  color: #111111;
-  font-size: 15px;
-}
-
 .login-page input[type="text"],
 .login-page input[type="password"] {
   width: 100%;
@@ -163,39 +156,6 @@
   margin-top: 6px;
   font-size: 12px;
   color: #b40000;
-}
-
-.meta-row {
-  margin: 4px 0 26px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.remember {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  color: #111111;
-}
-
-.remember input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: #111111;
-}
-
-.forgot-link {
-  color: #111111;
-  text-decoration: none;
-  font-size: 16px;
-}
-
-.forgot-link:hover {
-  text-decoration: underline;
 }
 
 .login-button {
