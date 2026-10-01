@@ -1,16 +1,16 @@
-import { HomePage } from "./pages/home.js";
+import { NotesPage } from "./pages/notes.js";
 import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
 
 const routes = {
-    "/": HomePage,
+    "/": NotesPage,
     "/login": LoginPage,
     "/signup": SignupPage,
 };
 
 export function router() {
     const path = window.location.pathname;
-    const page = routes[path] ?? HomePage;
+    const page = routes[path] ?? NotesPage;
 
     document.querySelector("#app").innerHTML = page.render();
 }
