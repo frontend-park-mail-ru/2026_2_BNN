@@ -16,6 +16,12 @@ export function router() {
 }
 
 export function navigate(url) {
+    const currentPath = window.location.pathname + window.location.search + window.location.hash;
+    
+    if (url === currentPath) {
+        return;
+    }
+
     history.pushState(null, "", url);
     router();
 }
@@ -29,10 +35,16 @@ export function setupLinkHandling() {
         }
 
         event.preventDefault();
-        navigate(link.pathname);
+        navigate(link.getAttribute("href"));
     });
 }
 
 export function setupPopStateHandling() {
     window.addEventListener("popstate", router);
+}
+
+export function initRouter() {
+    router();
+    setupLinkHandling();
+    setupPopStateHandling();
 }

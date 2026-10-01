@@ -22,3 +22,6 @@ dist/
 build/
 coverage/
 .cache/
+
+# compiled templates
+public/js/templates.compiled.js

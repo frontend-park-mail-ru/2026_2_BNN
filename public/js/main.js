@@ -1,5 +1,3 @@
-import { router, setupLinkHandling, setupPopStateHandling } from "./router.js";
+import { initRouter } from "./router.js";
 
-router();
-setupLinkHandling();
-setupPopStateHandling();
+initRouter();
