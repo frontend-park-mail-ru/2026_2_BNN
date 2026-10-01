@@ -3,7 +3,7 @@
   margin: 0 auto 16px;
   width: 100px;
   height: 100px;
-  background-image: url("./assets/icons/favicon.svg");
+  background-image: url("../assets/icons/favicon.svg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -20,7 +20,7 @@
 .login-page {
   min-height: 100vh;
   padding: 0;
-  background-image: url("./assets/images/background_v1.png");
+  background-image: url("../assets/images/background_v1.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -146,8 +146,9 @@
   margin: 0;
 }
 
-.field.has-error input {
-  border-bottom-color: #b40000 !important;
+.login-page .field.has-error input,
+.login-page .field.has-error input:focus {
+  border-bottom-color: #b40000;
 }
 
 .login-page input[type="text"]:focus,

@@ -12,7 +12,7 @@
     position: fixed;
     inset: 0;
     z-index: -1;
-    background: url("./assets/images/background_v1.png") center / cover no-repeat;
+    background: url("../assets/images/background_v1.png") center / cover no-repeat;
     opacity: 0.1;
 }
 

@@ -4,18 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Регистрация</title>
-  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="stylesheet" href="/css/main.css" />
 </head>
-<body class="login-page register-page">
-  <main class="login-layout">
-    <section class="ios-glass-panel" aria-label="Стеклянная панель регистрации">
+<body>
+  <main class="login-layout login-page register-page">
+    <section class="ios-glass-panel">
       <div class="logo" aria-hidden="true"></div>
       <div class="logo-text">
         <h1>Brand New Notes</h1>
       </div>
       <h1 class="page-title">Регистрация</h1>
       <form class="login-form register-form" data-form-type="register" novalidate>
-
         <label class="field" for="reg-login">
           <span class="field-label">Логин</span>
           <input id="reg-login" name="login" type="text"/>
@@ -35,7 +34,7 @@
         </label>
 
         <button type="submit" class="login-button">Зарегистрироваться</button>
-        <p class="form-feedback" aria-live="polite"></p>
+        <p class="form-feedback"></p>
         <p class="hint">Уже есть аккаунт? <a href="./login.html">Войти</a></p>
       </form>
     </section>
