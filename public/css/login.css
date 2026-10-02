@@ -1,43 +1,4 @@
-@font-face {
-  font-family: "Comfortaa";
-  src: url("../assets/fonts/Comfortaa/static/Comfortaa-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Comfortaa";
-  src: url("../assets/fonts/Comfortaa/static/Comfortaa-SemiBold.ttf") format("truetype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Comfortaa";
-  src: url("../assets/fonts/Comfortaa/static/Comfortaa-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Nunito";
-  src: url("../assets/fonts/Nunito/static/Nunito-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-body {
-  margin: 0;
-  font-family: "Comfortaa", sans-serif;
-  background: #f2f2f2;
-  padding: 0;
-}
-
-.logo {
+.login-page .logo {
   display: block;
   margin: 0 auto 16px;
   width: 100px;
@@ -49,7 +10,7 @@ body {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-.logo-text {
+.login-page .logo-text {
   text-align: center;
   font-size: 18px;
   font-weight: bold;
@@ -58,7 +19,6 @@ body {
 
 .login-page {
   min-height: 100vh;
-  margin: 0;
   padding: 0;
   background-image: url("../assets/images/background_v1.png");
   background-size: cover;
@@ -72,7 +32,6 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0 24px 24px;
-  box-sizing: border-box;
 }
 
 .ios-glass-panel {
