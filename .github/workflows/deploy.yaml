@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - hbs-login-sighup
+      - hbs-login-signup
       - ready-login-signup-pages
 jobs:
   BNN-Deploy:
