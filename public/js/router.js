@@ -1,6 +1,7 @@
 import { NotesPage } from "./pages/notes.js";
 import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
+import { NotFoundPage } from "./pages/notefound.js";
 
 const routes = {
     "/": NotesPage,
@@ -10,7 +11,7 @@ const routes = {
 
 export async function router() {
     const path = window.location.pathname;
-    const page = routes[path] ?? NotesPage;
+    const page = routes[path] ?? NotFoundPage;
 
     document.querySelector("#app").innerHTML = await page.render();
 }

@@ -1,26 +1,32 @@
-const Handlebars = require("handlebars");
+const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
 const templatesDir = path.join(__dirname, "../public/templates");
+const partialsDir = path.join(templatesDir, "partials");
 const outputFile = path.join(__dirname, "../public/js/templates.compiled.js");
+const cli = path.join(__dirname, "../node_modules/handlebars/bin/handlebars");
 
-const files = fs
-    .readdirSync(templatesDir)
-    .filter((file) => file.endsWith(".hbs"));
+function hbsFiles(dir) {
+    return fs
+        .readdirSync(dir)
+        .filter((file) => file.endsWith(".hbs"))
+        .map((file) => path.join(dir, file));
+}
 
-const lines = files.map((file) => {
-    const name = path.basename(file, ".hbs");
-    const source = fs.readFileSync(path.join(templatesDir, file), "utf-8");
-    const precompiled = Handlebars.precompile(source);
+function compile(files, extraArgs) {
+    const tempFile = path.join(__dirname, "../public/js/.templates-part.js");
+    execFileSync(
+        process.execPath,
+        [cli, ...files, "-e", "hbs", "-f", tempFile, ...extraArgs],
+        { stdio: "inherit" }
+    );
+    const source = fs.readFileSync(tempFile, "utf-8");
+    fs.unlinkSync(tempFile);
+    return source;
+}
 
-    return `Handlebars.templates["${name}"] = Handlebars.template(${precompiled});`;
-});
+const pages = compile(hbsFiles(templatesDir), []);
+const partials = compile(hbsFiles(partialsDir), ["-p"]);
 
-const output = `(function () {
-    Handlebars.templates = Handlebars.templates || {};
-    ${lines.join("\n\n  ")}
-  })();`;
-
-fs.writeFileSync(outputFile, output, "utf-8");
-console.log(`Скомпилирована шаблонов: ${files.length}`);
+fs.writeFileSync(outputFile, `${pages}\n${partials}\n`, "utf-8");

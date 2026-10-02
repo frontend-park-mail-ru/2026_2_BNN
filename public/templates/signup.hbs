@@ -1,33 +1,29 @@
- <main class="login-layout login-page register-page">
+<main class="login-layout login-page register-page">
     <section class="ios-glass-panel">
-      <div class="logo" aria-hidden="true"></div>
-      <div class="logo-text">
-        <h1>Brand New Notes</h1>
-      </div>
-      <h1 class="page-title">{{title}}</h1>
-      <form class="login-form register-form" data-form-type="register" novalidate>
-
-        <label class="field" for="reg-login">
-          <span class="field-label">Логин</span>
-          <input id="reg-login" name="login" type="text"/>
-          <small class="field-error" data-error-for="login"></small>
-        </label>
-
-        <label class="field" for="reg-password">
-          <span class="field-label">Пароль</span>
-          <input id="reg-password" name="password" type="password"/>
-          <small class="field-error" data-error-for="password"></small>
-        </label>
-
-        <label class="field" for="reg-password-repeat">
-          <span class="field-label">Повторите пароль</span>
-          <input id="reg-password-repeat" name="repeatPassword" type="password"/>
-          <small class="field-error" data-error-for="repeatPassword"></small>
-        </label>
-
-        <button type="submit" class="login-button">Зарегистрироваться</button>
-        <p class="form-feedback"></p>
-        <p class="hint">Уже есть аккаунт? <a href="./login">Войти</a></p>
-      </form>
+        <div class="logo"></div>
+        <div class="logo-text">
+            <h1>Brand New Notes</h1>
+        </div>
+        <h1 class="page-title">{{title}}</h1>
+        <form class="login-form register-form" data-form-type="register" novalidate>
+            <label class="field" for="reg-login">
+                <span class="field-label">Логин</span>
+                <input id="reg-login" name="login" type="text">
+                <small class="field-error" data-error-for="login"></small>
+            </label>
+            <label class="field" for="reg-password">
+                <span class="field-label">Пароль</span>
+                <input id="reg-password" name="password" type="password">
+                <small class="field-error" data-error-for="password"></small>
+            </label>
+            <label class="field" for="reg-password-repeat">
+                <span class="field-label">Повторите пароль</span>
+                <input id="reg-password-repeat" name="repeatPassword" type="password">
+                <small class="field-error" data-error-for="repeatPassword"></small>
+            </label>
+            <button class="login-button" type="submit">Зарегистрироваться</button>
+            <p class="form-feedback"></p>
+            <p class="hint">Уже есть аккаунт? <a href="/login" data-link>Войти</a></p>
+        </form>
     </section>
-  </main>
+</main>
