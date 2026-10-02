@@ -33,7 +33,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.PRIVATE_KEY }}
-          script: sudo cp -rf /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/public/* /opt/public/
+          script: sudo cp -rf /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/public/* /opt/public/ && sudo cp /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/index.html /opt/public/
       - name: Synk frontend
         uses: appleboy/ssh-action@master
         with:
