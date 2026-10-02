@@ -8,7 +8,7 @@ on:
       - ready-login-signup-pages
 jobs:
   BNN-Deploy:
-    name: Deploy BNN
+    name: BNN-Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Pull code
@@ -25,15 +25,15 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.PRIVATE_KEY }}
-          script: cd /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN && npm run build
-      - name: Build frontend
+          script: cd /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN && npm install --include=dev && npm run build
+      - name: Copy frontend
         uses: appleboy/ssh-action@master
         with:
           timeout: 10m
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.PRIVATE_KEY }}
-          script: sudo cp -rf /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/public/* /opt/public/ && sudo cp /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/index.html /opt/public/
+          script: sudo cp -rf /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/public/* /opt/public/
       - name: Synk frontend
         uses: appleboy/ssh-action@master
         with:
@@ -41,4 +41,4 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.PRIVATE_KEY }}
-          script: sudo mkdir -p /opt/public/src && sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/assets/ /opt/public/assets/
+          script: sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/ /opt/public/
