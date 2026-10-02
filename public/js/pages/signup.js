@@ -1,6 +1,6 @@
 export const SignupPage = {
-    render() {
+    async render() {
         const template = Handlebars.templates["signup"];
-        return template({ title: "Signup" });
+        return template({ title: "Регистрация" });
     },
 };

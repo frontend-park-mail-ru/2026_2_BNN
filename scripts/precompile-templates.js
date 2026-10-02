@@ -19,7 +19,7 @@ const lines = files.map((file) => {
 
 const output = `(function () {
     Handlebars.templates = Handlebars.templates || {};
-    ${lines.join("\n  ")}
+    ${lines.join("\n\n  ")}
   })();`;
 
 fs.writeFileSync(outputFile, output, "utf-8");
