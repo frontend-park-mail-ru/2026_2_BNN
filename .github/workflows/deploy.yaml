@@ -1,0 +1,44 @@
+name: Brand New Notes
+
+on:
+  push:
+    branches:
+      - main
+      - hbs-login-sighup
+      - ready-login-signup-pages
+jobs:
+  BNN-Deploy:
+    name: Deploy BNN
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull code
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          script: cd /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN && git pull
+      - name: Build frontend
+        uses: appleboy/ssh-action@master
+        with:
+          timeout: 10m
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          script: cd /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN && npm run build
+      - name: Build frontend
+        uses: appleboy/ssh-action@master
+        with:
+          timeout: 10m
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          script: sudo cp -rf /home/${{ secrets.USERNAME}}/frontend/2026_2_BNN/public/* /opt/public/
+      - name: Synk frontend
+        uses: appleboy/ssh-action@master
+        with:
+          timeout: 10m
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          script: sudo mkdir -p /opt/public/src && sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/assets/ /opt/public/assets/

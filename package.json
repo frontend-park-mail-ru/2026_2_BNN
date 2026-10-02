@@ -18,7 +18,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "precompile": "node scripts/precompile-templates.js",
     "prestart": "npm run precompile",
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "node scripts/precompile-templates.js "
   },
   "dependencies": {
     "express": "^5.2.1"
@@ -26,5 +27,4 @@
   "devDependencies": {
     "handlebars": "^4.7.9"
   }
-  
 }

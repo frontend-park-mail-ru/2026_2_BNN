@@ -4,7 +4,7 @@ const path = require("path");
 
 const templatesDir = path.join(__dirname, "../public/templates");
 const partialsDir = path.join(templatesDir, "partials");
-const outputFile = path.join(__dirname, "../public/js/templates.compiled.js");
+const outputFile = path.join(__dirname, "../public/templates.compiled.js");
 const cli = path.join(__dirname, "../node_modules/handlebars/bin/handlebars");
 
 function hbsFiles(dir) {
