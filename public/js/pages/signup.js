@@ -54,7 +54,7 @@ export const SignupPage = {
 
         try {
             await api.signUp(login, password);
-            await navigate("/");
+            await navigate("/login");
         } catch (error) {
             if (!this.form) {
                 return;
