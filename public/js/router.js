@@ -39,6 +39,20 @@ function matchRoute(pattern, path) {
 
 let currentPage = null;
 let renderId = 0;
+let loggedIn = null;
+
+async function ensureAuth() {
+    if (loggedIn === true) {
+        return true;
+    }
+    try {
+        await api.getProfile();
+        loggedIn = true;
+    } catch (error) {
+        loggedIn = false;
+    }
+    return loggedIn;
+}
 
 export async function router() {
     const path = window.location.pathname;
@@ -55,20 +69,6 @@ export async function router() {
             params = match;
             break;
         }
-    }
-
-    let loggedIn = null;
-    async function ensureAuth() {
-        if (loggedIn === true) {
-            return true;
-        }
-        try {
-            await api.getProfile();
-            loggedIn = true;
-        } catch (error) {
-            loggedIn = false;
-        }
-        return loggedIn;
     }
 
     if (matchedRoute?.auth) {
