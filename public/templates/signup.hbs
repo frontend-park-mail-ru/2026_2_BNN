@@ -4,7 +4,6 @@
         <div class="logo-text">
             <h1>Brand New Notes</h1>
         </div>
-        <h1 class="page-title">{{title}}</h1>
         <form class="login-form register-form" data-form-type="register" novalidate>
             <label class="field" for="reg-login">
                 <span class="field-label">Логин</span>
@@ -21,7 +20,10 @@
                 <input id="reg-password-repeat" name="repeatPassword" type="password">
                 <small class="field-error" data-error-for="repeatPassword"></small>
             </label>
-            <button class="login-button" type="submit">Зарегистрироваться</button>
+            <button class="login-button" type="submit">
+                <span class="login-button-label">Зарегистрироваться</span>
+                <span class="login-button-spinner" aria-hidden="true"></span>
+            </button>
             <p class="form-feedback"></p>
             <p class="hint">Уже есть аккаунт? <a href="/login" data-link>Войти</a></p>
         </form>

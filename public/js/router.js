@@ -10,11 +10,18 @@ const routes = {
     "/signup": SignupPage,
 };
 
+let currentPage = null;
+
 export async function router() {
     const path = window.location.pathname;
     const page = routes[path] ?? NotFoundPage;
+    const app = document.querySelector("#app");
 
-    document.querySelector("#app").innerHTML = await page.render();
+    currentPage?.destroy?.();
+
+    app.innerHTML = await page.render();
+    page.mount?.(app);
+    currentPage = page;
 }
 
 export async function navigate(url) {

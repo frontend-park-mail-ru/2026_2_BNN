@@ -3,4 +3,8 @@ export const NotFoundPage = {
         const template = Handlebars.templates["notfound"];
         return template({ title: "404" });
     },
+
+    mount(root) {},
+
+    destroy() {},
 };
