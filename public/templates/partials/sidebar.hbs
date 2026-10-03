@@ -1,0 +1,30 @@
+<div class="sidebar">
+    <nav class="navigation">
+        <a href="/notes" class="icon-button is-active" data-link>
+            {{> icon name="file"}}
+        </a>
+        <a href="/notes/favourites" class="icon-button" data-link>
+            {{> icon name="heart"}}
+        </a>
+        <a href="/notes/folders" class="icon-button" data-link>
+            {{> icon name="folder"}}
+        </a>
+        <a href="/notes/trash" class="icon-button" data-link>
+            {{> icon name="trash"}}
+        </a>
+        <button class="icon-button" type="button">
+            {{> icon name="sunrise"}}
+        </button>
+    </nav>
+    <section class="library">
+        <h2>
+            {{sectionTitle}}
+            <span>{{notes.length}}</span>
+        </h2>
+        <ul class="list-of-notes">
+            {{#each notes}}
+                <li>{{> notecard}}</li>
+            {{/each}}
+        </ul>
+    </section>
+</div>

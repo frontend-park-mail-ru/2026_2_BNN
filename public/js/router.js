@@ -1,21 +1,23 @@
 import { NotesPage } from "./pages/notes.js";
 import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
+import { NotFoundPage } from "./pages/notfound.js";
 
 const routes = {
     "/": NotesPage,
+    "/notes": NotesPage,
     "/login": LoginPage,
     "/signup": SignupPage,
 };
 
-export function router() {
+export async function router() {
     const path = window.location.pathname;
-    const page = routes[path] ?? NotesPage;
+    const page = routes[path] ?? NotFoundPage;
 
-    document.querySelector("#app").innerHTML = page.render();
+    document.querySelector("#app").innerHTML = await page.render();
 }
 
-export function navigate(url) {
+export async function navigate(url) {
     const currentPath = window.location.pathname + window.location.search + window.location.hash;
     
     if (url === currentPath) {
@@ -23,7 +25,7 @@ export function navigate(url) {
     }
 
     history.pushState(null, "", url);
-    router();
+    await router();
 }
 
 export function setupLinkHandling() {
@@ -43,8 +45,8 @@ export function setupPopStateHandling() {
     window.addEventListener("popstate", router);
 }
 
-export function initRouter() {
-    router();
+export async function initRouter() {
+    await router();
     setupLinkHandling();
     setupPopStateHandling();
 }
