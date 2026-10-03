@@ -77,4 +77,8 @@ class Api {
     }
 }
 
-export const api = new Api("http://localhost:5458")
+const apiBaseUrl = location.hostname === "localhost" || location.hostname === "127.0.0.1"
+    ? "http://localhost:5458"
+    : "";
+
+export const api = new Api(apiBaseUrl);
