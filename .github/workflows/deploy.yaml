@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - ready-login-signup-pages
+      - notes-page-update
 jobs:
   BNN-Deploy:
     name: BNN-Deploy
@@ -19,7 +21,9 @@ jobs:
           script_stop: true
           script: |
             cd /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN
-            git pull
+            git fetch origin
+            git checkout -f ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
             npm install --include=dev
             npm run build
             sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/ /opt/public/

@@ -1,31 +1,34 @@
-<main>
-    <article class="notebook">
-        <div class="notebook-toolbar">
-            <nav>
-                <ol class="breadcrumbs">
-                    {{#each breadcrumbs}}
-                        <li>
-                            <a href="{{href}}" data-link>{{label}}</a>
-                        </li>
-                    {{/each}}
-                    <li>{{title}}</li>
-                </ol>
-            </nav>
-            <div class="notebook-actions">
-                <button class="icon-button" type="button">
-                    {{> icon name="heart"}}
-                </button>
-                <button class="icon-button" type="button">
-                    {{> icon name="share"}}
-                </button>
-                <button class="icon-button" type="button">
-                    {{> icon name="menu"}}
-                </button>
-            </div>
+<article class="notebook">
+    <div class="notebook-toolbar">
+        <nav>
+            <ol class="breadcrumbs">
+                {{#each breadcrumbs}}
+                    <li>
+                        <a href="{{href}}" data-link>{{label}}</a>
+                    </li>
+                {{/each}}
+                {{#if title}}<li>{{title}}</li>{{/if}}
+            </ol>
+        </nav>
+        <div class="notebook-actions">
+            <button class="icon-button" type="button">
+                {{> icon name="heart"}}
+            </button>
+            <button class="icon-button" type="button">
+                {{> icon name="share"}}
+            </button>
+            <button class="icon-button" type="button">
+                {{> icon name="menu"}}
+            </button>
         </div>
-        <div class="note-content">
-            <h1>{{title}}</h1>
-            <p>{{text}}</p>
+    </div>
+    <div class="note-content">
+        {{#if title}}<h1 class="note-title" contenteditable="true" data-note-title>
+            {{title}}
+        </h1>
+        <div class="note-body" contenteditable="true" data-note-body>
+            {{#each paragraphs}}<p>{{this}}</p>{{/each}}
         </div>
-    </article>
-</main>
+        {{/if}}
+    </div>
+</article>

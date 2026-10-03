@@ -1,0 +1,36 @@
+{{#if isLoading}}
+    <article class="notebook" aria-busy="true">
+        <div class="notebook-toolbar">
+            <span class="skeleton skeleton-line skeleton-crumbs"></span>
+            <div class="notebook-actions is-disabled">
+                {{> icon name="heart"}}
+                {{> icon name="share"}}
+                {{> icon name="menu"}}
+            </div>
+        </div>
+        <div class="note-content">
+            {{#each skeletonRows}}
+                <span class="skeleton skeleton-line"></span>
+            {{/each}}
+        </div>
+    </article>
+{{else if isNotFound}}
+    <article class="notebook notebook-state">
+        <div class="state-message">
+            <span class="state-icon">{{> icon name="search"}}</span>
+            <h2>Ничего не найдено</h2>
+            <p>Попробуйте изменить запрос или проверьте текст на опечатки</p>
+        </div>
+    </article>
+{{else if isEmpty}}
+    <article class="notebook notebook-state">
+        <div class="state-message">
+            <span class="state-icon">{{> icon name="file"}}</span>
+            <h2>У вас пока нет заметок</h2>
+            <p>Создайте первую заметку, и она появится здесь</p>
+            <button class="state-button" type="button">Создать заметку</button>
+        </div>
+    </article>
+{{else}}
+    {{> notebook}}
+{{/if}}
