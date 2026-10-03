@@ -16,7 +16,7 @@ class Api {
         if (!response.ok) {
             const text = await response.text();
             let message = `Ошибка запроса: ${response.status}`;
-    
+
             if (text) {
                 try {
                     const data = JSON.parse(text);
@@ -29,16 +29,25 @@ class Api {
             }
     
             const error = new Error(message);
-            error.response = response.status;
+            error.status = response.status;
             throw error;
         }
     
         if (response.status === 204) {
             return null;
         }
-    
+
         const text = await response.text();
-        return text ? JSON.parse(text) : null;
+
+        if (!text) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(text);
+        } catch {
+            throw new Error("Сервер вернул некорректный JSON");
+        }
     }
     
     signUp(login, password) {
