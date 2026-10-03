@@ -3,25 +3,81 @@ import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
 import { NotFoundPage } from "./pages/notfound.js";
 
-const routes = {
-    "/": NotesPage,
-    "/notes": NotesPage,
-    "/login": LoginPage,
-    "/signup": SignupPage,
-};
+const routes = [
+    { path: "/", page: LoginPage },
+    { path: "/notes", page: NotesPage },
+    { path: "/notes/favourites", page: NotesPage },
+    { path: "/notes/trash", page: NotesPage },
+    { path: "/notes/mail", page: NotesPage },
+    { path: "/notes/:id", page: NotesPage },
+    { path: "/login", page: LoginPage },
+    { path: "/signup", page: SignupPage },
+];
+
+
+function matchRoute(pattern, path) {
+    const patternParts = pattern.split("/").filter(Boolean);
+    const pathParts = path.split("/").filter(Boolean);
+
+    if (patternParts.length !== pathParts.length) {
+        return null;
+    }
+
+    const params = {};
+
+    for (let i = 0; i < patternParts.length; i++) {
+        if (patternParts[i].startsWith(":")) {
+            params[patternParts[i].slice(1)] = decodeURIComponent(pathParts[i]);
+        } else if (patternParts[i] !== pathParts[i]) {
+            return null;
+        }
+    }
+
+    return params;
+}
+
+let currentPage = null;
+let renderId = 0;
 
 let currentPage = null;
 
 export async function router() {
     const path = window.location.pathname;
-    const page = routes[path] ?? NotFoundPage;
-    const app = document.querySelector("#app");
+    let page = NotFoundPage;
+    let params = {};
 
-    currentPage?.destroy?.();
+    for (const route of routes) {
+        const match = matchRoute(route.path, path);
 
-    app.innerHTML = await page.render();
-    page.mount?.(app);
+        if (match) {
+            page = route.page;
+            params = match;
+            break;
+        }
+    }
+
+    if (currentPage && currentPage.destroy) {
+        currentPage.destroy();
+    }
+    currentPage = null;
+
+    renderId++;
+    const thisRender = renderId;
+
+    const context = { path, params };
+    const root = document.querySelector("#app");
+    const html = await page.render(context);
+
+    if (thisRender !== renderId) {
+        return;
+    }
+
+    root.innerHTML = html;
     currentPage = page;
+
+    if (page.mount) {
+        page.mount(root, context);
+    }
 }
 
 export async function navigate(url) {

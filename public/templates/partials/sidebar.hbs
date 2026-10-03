@@ -1,30 +1,25 @@
 <div class="sidebar">
     <nav class="navigation">
-        <a href="/notes" class="icon-button is-active" data-link>
-            {{> icon name="file"}}
-        </a>
-        <a href="/notes/favourites" class="icon-button" data-link>
-            {{> icon name="heart"}}
-        </a>
-        <a href="/notes/folders" class="icon-button" data-link>
-            {{> icon name="folder"}}
-        </a>
-        <a href="/notes/trash" class="icon-button" data-link>
-            {{> icon name="trash"}}
-        </a>
-        <button class="icon-button" type="button">
-            {{> icon name="sunrise"}}
-        </button>
+        {{#each sections}}
+            <a href="{{href}}" class="icon-button{{#if isActive}} is-active{{/if}}" aria-label="{{title}}" data-link>
+                {{> icon name=icon}}
+            </a>
+        {{/each}}
+        <div class="navigation-bottom">
+            {{#with mailSection}}
+                <a href="{{href}}" class="icon-button{{#if isActive}} is-active{{/if}}" aria-label="{{title}}" data-link>
+                    {{> icon name=icon}}
+                </a>
+            {{/with}}
+            <button class="icon-button theme-toggle" type="button" aria-label="Сменить тему" data-theme-toggle>
+                {{> icon name="sunrise"}}
+            </button>
+        </div>
     </nav>
     <section class="library">
-        <h2>
-            {{sectionTitle}}
-            <span>{{notes.length}}</span>
-        </h2>
-        <ul class="list-of-notes">
-            {{#each notes}}
-                <li>{{> notecard}}</li>
-            {{/each}}
-        </ul>
+        <h2 class="library-title">{{sectionTitle}}</h2>
+        <div class="library-body" data-notes-list>
+            {{> notes-list}}
+        </div>
     </section>
 </div>

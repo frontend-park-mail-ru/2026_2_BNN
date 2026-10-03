@@ -1,13 +1,18 @@
 <header class="header-block">
-    <a href="/" class="logo" data-link>
-        <img src="/assets/icons/logo-shape.svg">
+    <a href="/" class="logo" aria-label="На главную" data-link>
+        <img src="/assets/icons/logo-shape.svg" alt="Brand New Notes">
     </a>
     <search class="search-box">
         {{> icon name="search"}}
-        <input class="search-field" type="search" placeholder="Поиск по заметкам">
+        <input class="search-field" type="search" placeholder="Поиск по заметкам" aria-label="Поиск по заметкам" value="{{query}}" data-search>
+        <button class="search-clear" type="button" aria-label="Очистить поиск" data-search-clear>
+            {{> icon name="close"}}
+        </button>
     </search>
     <div class="header-actions">
         <button class="new-note-button" type="button">+ Новая заметка</button>
-        <a href="/user" class="avatar" data-link>{{userInitial}}</a>
+        <a href="/user" class="avatar" aria-label="Профиль" data-link>
+            <img src="/assets/images/avatar-default.svg" alt="">
+        </a>
     </div>
 </header>

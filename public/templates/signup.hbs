@@ -1,23 +1,24 @@
 <main class="login-layout login-page register-page">
+    {{> glass-filter}}
     <section class="ios-glass-panel">
-        <div class="logo"></div>
         <div class="logo-text">
             <h1>Brand New Notes</h1>
         </div>
+        <div class="logo"></div>
         <form class="login-form register-form" data-form-type="register" novalidate>
             <label class="field" for="reg-login">
                 <span class="field-label">Логин</span>
-                <input id="reg-login" name="login" type="text">
+                <input id="reg-login" name="login" type="text" placeholder=" ">
                 <small class="field-error" data-error-for="login"></small>
             </label>
             <label class="field" for="reg-password">
                 <span class="field-label">Пароль</span>
-                <input id="reg-password" name="password" type="password">
+                <input id="reg-password" name="password" type="password" placeholder=" ">
                 <small class="field-error" data-error-for="password"></small>
             </label>
             <label class="field" for="reg-password-repeat">
                 <span class="field-label">Повторите пароль</span>
-                <input id="reg-password-repeat" name="repeatPassword" type="password">
+                <input id="reg-password-repeat" name="repeatPassword" type="password" placeholder=" ">
                 <small class="field-error" data-error-for="repeatPassword"></small>
             </label>
             <button class="login-button" type="submit">

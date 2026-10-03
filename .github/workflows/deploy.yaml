@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - ready-login-signup-pages
+      - notes-page-updating
 jobs:
   BNN-Deploy:
     name: BNN-Deploy
