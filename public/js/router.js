@@ -69,10 +69,6 @@ export async function router() {
             await navigate("/login");
             return;
         }
-        if (matchedRoute.guest && loggedIn) {
-            await navigate("/");
-            return;
-        }
     }
 
     if (currentPage && currentPage.destroy) {
