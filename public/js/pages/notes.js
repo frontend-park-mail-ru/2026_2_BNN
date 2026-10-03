@@ -143,7 +143,7 @@ function buildView(context) {
     const hasNotes = store.notes.length > 0;
 
     function isActive(section) {
-        return path !== "/" && section === currentSection;
+        return section === currentSection;
     }
 
     const sections = [];

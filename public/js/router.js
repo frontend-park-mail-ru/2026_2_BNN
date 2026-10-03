@@ -2,16 +2,17 @@ import { NotesPage } from "./pages/notes.js";
 import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
 import { NotFoundPage } from "./pages/notfound.js";
+import { api } from "./api.js";
 
 const routes = [
-    { path: "/", page: LoginPage },
-    { path: "/notes", page: NotesPage },
-    { path: "/notes/favourites", page: NotesPage },
-    { path: "/notes/trash", page: NotesPage },
-    { path: "/notes/mail", page: NotesPage },
-    { path: "/notes/:id", page: NotesPage },
-    { path: "/login", page: LoginPage },
-    { path: "/signup", page: SignupPage },
+    { path: "/", page: NotesPage, auth: true },
+    { path: "/notes", page: NotesPage, auth: true },
+    { path: "/notes/favourites", page: NotesPage, auth: true },
+    { path: "/notes/trash", page: NotesPage, auth: true },
+    { path: "/notes/mail", page: NotesPage, auth: true },
+    { path: "/notes/:id", page: NotesPage, auth: true },
+    { path: "/login", page: LoginPage, guest: true },
+    { path: "/signup", page: SignupPage, guest: true },
 ];
 
 
@@ -39,20 +40,38 @@ function matchRoute(pattern, path) {
 let currentPage = null;
 let renderId = 0;
 
-let currentPage = null;
-
 export async function router() {
     const path = window.location.pathname;
     let page = NotFoundPage;
     let params = {};
+    let matchedRoute = null;
 
     for (const route of routes) {
         const match = matchRoute(route.path, path);
 
         if (match) {
+            matchedRoute = route;
             page = route.page;
             params = match;
             break;
+        }
+    }
+
+    if (matchedRoute?.auth || matchedRoute?.guest) {
+        let loggedIn = false;
+        try {
+            await api.getProfile();
+            loggedIn = true;
+        } catch (error) {
+            loggedIn = false;
+        }
+        if (matchedRoute.auth && !loggedIn) {
+            await navigate("/login");
+            return;
+        }
+        if (matchedRoute.guest && loggedIn) {
+            await navigate("/");
+            return;
         }
     }
 
