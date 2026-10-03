@@ -57,15 +57,23 @@ export async function router() {
         }
     }
 
-    if (matchedRoute?.auth || matchedRoute?.guest) {
-        let loggedIn = false;
+    let loggedIn = null;
+    async function ensureAuth() {
+        if (loggedIn === true) {
+            return true;
+        }
         try {
             await api.getProfile();
             loggedIn = true;
         } catch (error) {
             loggedIn = false;
         }
-        if (matchedRoute.auth && !loggedIn) {
+        return loggedIn;
+    }
+
+    if (matchedRoute?.auth) {
+        const ok = await ensureAuth();
+        if (!ok) {
             await navigate("/login");
             return;
         }
