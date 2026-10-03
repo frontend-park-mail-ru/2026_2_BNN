@@ -192,8 +192,34 @@
   cursor: not-allowed;
 }
 
-.login-button.is-loading {
+.login-button-spinner {
+  display: none;
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(61, 32, 80, 0.2);
+  border-top-color: #3d2050;
+  border-radius: 50%;
+  animation: login-button-spin 0.7s linear infinite;
+}
+
+.login-button.is-loading,
+.login-button.is-loading:hover {
   background: #f3f3f3;
+  transform: none;
+}
+
+.login-button.is-loading .login-button-label {
+  display: none;
+}
+
+.login-button.is-loading .login-button-spinner {
+  display: block;
+}
+
+@keyframes login-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .form-feedback {

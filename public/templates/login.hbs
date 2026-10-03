@@ -4,7 +4,6 @@
         <div class="logo-text">
             <h1>Brand New Notes</h1>
         </div>
-        <h1 class="page-title">{{title}}</h1>
         <form class="login-form" data-form-type="login" novalidate>
             <label class="field" for="login-username">
                 <span class="field-label">Логин</span>
@@ -16,7 +15,10 @@
                 <input id="login-password" name="password" type="password">
                 <small class="field-error" data-error-for="password"></small>
             </label>
-            <button class="login-button" type="submit">Войти</button>
+            <button class="login-button" type="submit">
+                <span class="login-button-label">Войти</span>
+                <span class="login-button-spinner" aria-hidden="true"></span>
+            </button>
             <p class="form-feedback"></p>
             <p class="hint">Нет аккаунта? <a href="/signup" data-link>Зарегистрироваться</a></p>
         </form>
