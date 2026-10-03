@@ -1,52 +1,80 @@
-const API_URL = "http://localhost:5458";
+class Api {
+    constructor(baseUrl) {
+        this.baseUrl = baseUrl;
+    }
 
-async function request(path, options = {}) {
-    const response = await fetch(`${API_URL}${path}`, {
-        ...options,
-        credentials: "include",
-        headers: {
-            "Content-Type": "application/json",
-            ...options.headers,
+    async request(path, options = {}) {
+        const response = await fetch(`${this.baseUrl}${path}`, {
+            ...options,
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                ...options.headers,
+            }
+        });
+    
+        if (!response.ok) {
+            const text = await response.text();
+            let message = `Ошибка запроса: ${response.status}`;
+
+            if (text) {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.message) {
+                        message = data.message;
+                    }
+                } catch {
+                    message = text;
+                }
+            }
+    
+            const error = new Error(message);
+            error.status = response.status;
+            throw error;
         }
-    });
+    
+        if (response.status === 204) {
+            return null;
+        }
 
-    if (!response.ok) {
-        const error = new Error(`Ошибка запроса: ${response.status}`);
-        error.response = response.status;
-        throw error;
+        const text = await response.text();
+
+        if (!text) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(text);
+        } catch {
+            throw new Error("Сервер вернул некорректный JSON");
+        }
     }
-
-    if (response.status === 204) {
-        return null;
+    
+    signUp(login, password) {
+        return this.request("/api/auth/signup", {
+            method: "POST",
+            body: JSON.stringify({ login, password }),
+        });
     }
-
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
+    
+    logIn(login, password) {
+        return this.request("/api/auth/signin", {
+            method: "POST",
+            body: JSON.stringify({ login, password }),
+        });
+    }
+    
+    getNotes(limit = 10, offset = 0) {
+        return this.request(`/api/notes/getall?limit=${limit}&offset=${offset}`);
+    }
+    
+    getNote(id) {
+        return this.request(`/api/notes/${id}`);
+    }
+    
+    getProfile() {
+        return this.request("/api/users/me");
+    }
 }
 
-export function signUp(login, password) {
-    return request("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify({ login, password }),
-    });
-}
-
-export function logIn(login, password) {
-    return request("/api/auth/signin", {
-        method: "POST",
-        body: JSON.stringify({ login, password }),
-    });
-}
-
-export function getNotes(limit = 10, offset = 0) {
-    return request(`/api/notes/getall?limit=${limit}&offset=${offset}`);
-}
-
-export function getNote(id) {
-    return request(`/api/notes/${id}`);
-}
-
-export function getProfile() {
-    return request("/api/users/me");
-}
-
+export const api = new Api("http://localhost:5458")

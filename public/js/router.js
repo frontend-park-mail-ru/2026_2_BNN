@@ -1,10 +1,11 @@
 import { NotesPage } from "./pages/notes.js";
 import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
-import { NotFoundPage } from "./pages/notefound.js";
+import { NotFoundPage } from "./pages/notfound.js";
 
 const routes = {
     "/": NotesPage,
+    "/notes": NotesPage,
     "/login": LoginPage,
     "/signup": SignupPage,
 };

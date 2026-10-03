@@ -1,0 +1,25 @@
+name: Brand New Notes
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  BNN-Deploy:
+    name: BNN-Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy frontend code
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          timeout: 10m
+          script_stop: true
+          script: |
+            cd /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN
+            git pull
+            npm install --include=dev
+            npm run build
+            sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/ /opt/public/
