@@ -13,28 +13,38 @@ const ALL_SECTIONS = [...SECTIONS, MAIL_SECTION];
 
 const NOTES_LIMIT = 100;
 const SEARCH_DELAY = 200;
-
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 
 const store = {
-    status: "idle",
-    notes: [],
-    error: "",
+  status: "idle",
+  notes: [],
+  error: "",
 };
 
 let notesRequest = null;
 let mounted = null;
-
 let loadVersion = 0;
 
+/**
+ * Сбрасывает локальное состояние notes-страницы.
+ * Используется при logout и смене пользователя.
+ *
+ * @returns {void}
+ */
 export function resetNotesStore() {
-    loadVersion++;
-    store.status = "idle";
-    store.notes = [];
-    store.error = "";
-    notesRequest = null;
+  loadVersion++;
+  store.status = "idle";
+  store.notes = [];
+  store.error = "";
+  notesRequest = null;
 }
 
+/**
+ * Извлекает текстовые блоки заметки в массив абзацев.
+ *
+ * @param {{ blocks?: Array<{ content?: string }> }} note Исходная заметка из API.
+ * @returns {string[]}
+ */
 function getParagraphs(note) {
   const paragraphs = [];
 
@@ -50,17 +60,15 @@ function getParagraphs(note) {
   return paragraphs;
 }
 
+/**
+ * Приводит заметку API к формату, удобному для UI.
+ *
+ * @param {{ id: string|number, title?: string, parent_note_id?: string|number|null, blocks?: Array<{ content?: string }> }} note
+ * @returns {{ id: string, parentId: string | null, title: string, paragraphs: string[], text: string }}
+ */
 function normalizeNote(note) {
-  let title = note.title;
-  if (!title) {
-    title = "Без названия";
-  }
-
-  let parentId = null;
-  if (note.parent_note_id) {
-    parentId = String(note.parent_note_id);
-  }
-
+  const title = note.title || "Без названия";
+  const parentId = note.parent_note_id ? String(note.parent_note_id) : null;
   const paragraphs = getParagraphs(note);
 
   return {
@@ -72,16 +80,18 @@ function normalizeNote(note) {
   };
 }
 
+/**
+ * Постранично загружает все заметки пользователя.
+ *
+ * @returns {Promise<Array<{ id: string, parentId: string | null, title: string, paragraphs: string[], text: string }>>}
+ */
 async function fetchAllNotes() {
   const notes = [];
   let offset = 0;
 
   while (true) {
     const response = await api.getNotes(NOTES_LIMIT, offset);
-    let list = [];
-    if (Array.isArray(response)) {
-      list = response;
-    }
+    const list = Array.isArray(response) ? response : [];
 
     for (const note of list) {
       notes.push(normalizeNote(note));
@@ -90,10 +100,17 @@ async function fetchAllNotes() {
     if (list.length < NOTES_LIMIT) {
       return notes;
     }
+
     offset += NOTES_LIMIT;
   }
 }
 
+/**
+ * Возвращает активный раздел по текущему пути.
+ *
+ * @param {string} path Текущий pathname.
+ * @returns {{ href: string, icon: string, title: string }}
+ */
 function getCurrentSection(path) {
   for (const section of ALL_SECTIONS) {
     if (section.href === path) {
@@ -103,6 +120,13 @@ function getCurrentSection(path) {
   return SECTIONS[0];
 }
 
+/**
+ * Фильтрует список заметок по поисковому запросу.
+ *
+ * @param {Array<{ title: string, text: string }>} notes Список заметок.
+ * @param {string} query Поисковая строка.
+ * @returns {Array<{ title: string, text: string }>}
+ */
 function filterNotes(notes, query) {
   const search = query.trim().toLowerCase();
 
@@ -120,20 +144,38 @@ function filterNotes(notes, query) {
   return result;
 }
 
+/**
+ * Считывает строку поиска из URL-параметра `q`.
+ *
+ * @returns {string}
+ */
 function getQueryFromUrl() {
-    return new URLSearchParams(window.location.search).get("q") ?? "";
+  return new URLSearchParams(window.location.search).get("q") ?? "";
 }
 
+/**
+ * Синхронизирует строку поиска с URL без перезагрузки страницы.
+ *
+ * @param {string} query Поисковый запрос.
+ * @returns {void}
+ */
 function setQueryToUrl(query) {
-    const url = new URL(window.location.href);
-    if (query) {
-        url.searchParams.set("q", query);
-    } else {
-        url.searchParams.delete("q");
-    }
-    history.replaceState(null, "", url);
+  const url = new URL(window.location.href);
+  if (query) {
+    url.searchParams.set("q", query);
+  } else {
+    url.searchParams.delete("q");
+  }
+  history.replaceState(null, "", url);
 }
 
+/**
+ * Ищет заметку по id в коллекции.
+ *
+ * @param {Array<{ id: string }>} notes Коллекция заметок.
+ * @param {string | undefined} id Идентификатор заметки из route params.
+ * @returns {{ id: string } | null}
+ */
 function findNote(notes, id) {
   if (!id) {
     return null;
@@ -144,35 +186,29 @@ function findNote(notes, id) {
       return note;
     }
   }
+
   return null;
 }
 
+/**
+ * Формирует view-model для Handlebars-шаблонов страницы заметок.
+ *
+ * @param {{ path: string, params: Record<string, string> }} context Роут-контекст.
+ * @returns {Record<string, unknown>}
+ */
 function buildView(context) {
-<<<<<<< HEAD
   const path = context.path;
   const params = context.params;
+  const query = getQueryFromUrl();
 
   const currentSection = getCurrentSection(path);
-  const searchQuery = getState().notes.searchQuery;
-  const foundNotes = filterNotes(store.notes, searchQuery);
+  const foundNotes = filterNotes(store.notes, query);
   const currentNote = findNote(store.notes, params.id);
 
-  const isLoading = store.status !== "ready";
+  const isReady = store.status === "ready";
+  const isError = store.status === "error";
+  const isLoading = !isReady && !isError;
   const hasNotes = store.notes.length > 0;
-=======
-    const path = context.path;
-    const params = context.params;
-    const query = getQueryFromUrl();
-
-    const currentSection = getCurrentSection(path);
-    const foundNotes = filterNotes(store.notes, query);
-    const currentNote = findNote(store.notes, params.id);
-
-    const isReady = store.status === "ready";
-    const isError = store.status === "error";
-    const isLoading = !isReady && !isError;
-    const hasNotes = store.notes.length > 0;
->>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
   function isActive(section) {
     return section === currentSection;
@@ -206,11 +242,11 @@ function buildView(context) {
     }
   }
 
-  const profile = getState().auth.user;
+  const profile = api.getCachedProfile();
   const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
 
   return {
-    query: searchQuery,
+    query: query,
     userLogin: userLogin,
 
     sectionTitle: currentSection.title,
@@ -218,11 +254,12 @@ function buildView(context) {
     mailSection: { ...MAIL_SECTION, isActive: isActive(MAIL_SECTION) },
 
     isLoading: isLoading,
-    isEmpty: !isLoading && !hasNotes,
+    isError: isError,
+    errorMessage: store.error,
+    isEmpty: isReady && !hasNotes,
     isNotFound: !isLoading && hasNotes && foundNotes.length === 0,
     skeletonRows: SKELETON_ROWS,
 
-<<<<<<< HEAD
     notes: notes,
     title: title,
     paragraphs: paragraphs,
@@ -230,86 +267,48 @@ function buildView(context) {
   };
 }
 
+/**
+ * Загружает заметки и обновляет store статуса:
+ * `loading -> ready/error/unauthorized`.
+ *
+ * @returns {Promise<void>}
+ */
 async function loadNotes() {
+  const version = loadVersion;
   store.status = "loading";
+  store.error = "";
 
   try {
-    store.notes = await fetchAllNotes();
-    store.isFallback = false;
+    const notes = await fetchAllNotes();
+
+    if (version !== loadVersion) {
+      return;
+    }
+
+    store.notes = notes;
     store.status = "ready";
-  } catch {
-    store.notes = DEFAULT_NOTES;
-    store.isFallback = true;
-    store.status = "ready";
+  } catch (error) {
+    if (version !== loadVersion) {
+      return;
+    }
+
+    store.notes = [];
+
+    if (error.status === 401) {
+      store.status = "unauthorized";
+      return;
+    }
+
+    store.status = "error";
+    store.error = error.status ? error.message : "Не удалось связаться с сервером";
   }
-=======
-        const parentNote = findNote(store.notes, currentNote.parentId);
-        if (parentNote) {
-            breadcrumbs.push({ href: "/notes/" + parentNote.id, label: parentNote.title });
-        }
-    }
-
-    const profile = api.getCachedProfile();
-    const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
-
-    return {
-        query: query,
-        userLogin: userLogin,
-
-        sectionTitle: currentSection.title,
-        sections: sections,
-        mailSection: { ...MAIL_SECTION, isActive: isActive(MAIL_SECTION) },
-
-        isLoading: isLoading,
-        isError: isError,
-        errorMessage: store.error,
-        isEmpty: isReady && !hasNotes,
-        isNotFound: !isLoading && hasNotes && foundNotes.length === 0,
-        skeletonRows: SKELETON_ROWS,
-
-        notes: notes,
-        title: title,
-        paragraphs: paragraphs,
-        breadcrumbs: breadcrumbs,
-    };
 }
 
-async function loadNotes() {
-    const version = loadVersion;
-    store.status = "loading";
-    store.error = "";
-
-    try {
-        const notes = await fetchAllNotes();
-
-        if (version !== loadVersion) {
-            return;
-        }
-
-        store.notes = notes;
-        store.status = "ready";
-    } catch (error) {
-        if (version !== loadVersion) {
-            return;
-        }
-
-        store.notes = [];
-
-        if (error.status === 401) {
-            store.status = "unauthorized";
-            return;
-        }
-
-        store.status = "error";
-        if (error.status) {
-            store.error = error.message;
-        } else {
-            store.error = "Не удалось связаться с сервером";
-        }
-    }
->>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
-}
-
+/**
+ * Возвращает текущий запрос заметок или запускает новый.
+ *
+ * @returns {Promise<void>}
+ */
 function waitForNotes() {
   if (store.status !== "loading") {
     notesRequest = loadNotes();
@@ -317,13 +316,29 @@ function waitForNotes() {
   return notesRequest;
 }
 
+/**
+ * SPA-страница списка/чтения заметок.
+ */
 export const NotesPage = {
+  /**
+   * Рендерит полный шаблон страницы заметок.
+   *
+   * @param {{ path: string, params: Record<string, string> }} context Роут-контекст.
+   * @returns {Promise<string>}
+   */
   async render(context) {
     const template = Handlebars.templates["notes"];
     const view = buildView(context);
     return template(view);
   },
 
+  /**
+   * Монтирует обработчики страницы и запускает начальную загрузку данных.
+   *
+   * @param {ParentNode} root Корневой узел текущей страницы.
+   * @param {{ path: string, params: Record<string, string> }} context Роут-контекст.
+   * @returns {Promise<void>}
+   */
   async mount(root, context) {
     const page = root.querySelector(".notes-page");
     const listRegion = page.querySelector("[data-notes-list]");
@@ -344,101 +359,53 @@ export const NotesPage = {
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
     }
 
-<<<<<<< HEAD
-    function runSearch() {
-      instance.searchTimer = null;
-      setState({ notes: { searchQuery: search.value } });
+    async function loadAndShow() {
+      await waitForNotes();
+
+      if (mounted !== instance) {
+        return;
+      }
+
+      if (store.status === "unauthorized") {
+        resetAuthState();
+        history.replaceState(null, "", "/login");
+        router();
+        return;
+      }
+
       update();
     }
-=======
-        async function loadAndShow() {
-            await waitForNotes();
-        
-            if (mounted !== instance) {
-                return;
-            }
-        
-            if (store.status === "unauthorized") {
-                resetAuthState();
-                history.replaceState(null, "", "/login");
-                router();
-                return;
-            }
-        
-            update();
-        }
 
-        function runSearch() {
-            instance.searchTimer = null;
-            setQueryToUrl(search.value.trim());
-            update();
-        }
->>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
+    function runSearch() {
+      instance.searchTimer = null;
+      setQueryToUrl(search.value.trim());
+      update();
+    }
 
     function onSearchInput() {
       clearTimeout(instance.searchTimer);
       instance.searchTimer = setTimeout(runSearch, SEARCH_DELAY);
     }
 
-<<<<<<< HEAD
     function onPageClick(event) {
+      if (event.target.closest("[data-retry]")) {
+        store.status = "idle";
+        update();
+        loadAndShow();
+        return;
+      }
+
       const clearButton = event.target.closest("[data-search-clear]");
 
       if (clearButton) {
         clearTimeout(instance.searchTimer);
         instance.searchTimer = null;
         search.value = "";
-        setState({ notes: { searchQuery: "" } });
+        setQueryToUrl("");
         update();
         search.focus();
         return;
       }
-=======
-        function onPageClick(event) {
-            if (event.target.closest("[data-retry]")) {
-                store.status = "idle";
-                update();
-                loadAndShow();
-                return;
-            }
-
-            const clearButton = event.target.closest("[data-search-clear]");
-
-            if (clearButton) {
-                clearTimeout(instance.searchTimer);
-                instance.searchTimer = null;
-                search.value = "";
-                setQueryToUrl("");
-                update();
-                search.focus();
-                return;
-            }
-
-            const logoutButton = event.target.closest("[data-logout]");
-            if (!logoutButton) {
-                return;
-            }
-
-            logoutButton.disabled = true;
-            document.cookie = "bnn_jwt=; Max-Age=0; path=/; SameSite=Lax";
-            document.cookie = "bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
-
-            resetAuthState();
-            navigate("/login");
-        }
-
-        search.addEventListener("input", onSearchInput);
-        page.addEventListener("click", onPageClick);
-
-        mounted = instance;
-
-        if (store.status === "ready") {
-            return;
-        }
-        
-        await loadAndShow();
-    },
->>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
       const logoutButton = event.target.closest("[data-logout]");
       if (!logoutButton) {
@@ -449,11 +416,7 @@ export const NotesPage = {
       document.cookie = "bnn_jwt=; Max-Age=0; path=/; SameSite=Lax";
       document.cookie = "bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
 
-      setState({
-        notes: {
-          searchQuery: "",
-        },
-      });
+      setQueryToUrl("");
       resetAuthState();
       navigate("/login");
     }
@@ -463,19 +426,18 @@ export const NotesPage = {
 
     mounted = instance;
 
-    if (store.status === "ready" && !store.isFallback) {
+    if (store.status === "ready") {
       return;
     }
 
-    await waitForNotes();
-
-    if (mounted !== instance) {
-      return;
-    }
-
-    update();
+    await loadAndShow();
   },
 
+  /**
+   * Демонтирует обработчики и таймеры страницы.
+   *
+   * @returns {void}
+   */
   destroy() {
     if (!mounted) {
       return;

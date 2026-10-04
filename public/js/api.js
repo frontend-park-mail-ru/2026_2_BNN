@@ -11,6 +11,13 @@ const DEFAULT_ERROR_MESSAGES = {
 
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
 
+/**
+ * Возвращает базовый URL API:
+ * - для localhost используется локальный бэкенд;
+ * - для прода — относительные пути текущего хоста.
+ *
+ * @returns {string}
+ */
 function getApiUrl() {
   if (window.location.hostname === "localhost") {
     return LOCAL_API_URL;
@@ -18,21 +25,41 @@ function getApiUrl() {
   return "";
 }
 
+/**
+ * Подбирает сообщение об ошибке по HTTP-статусу.
+ *
+ * @param {number} status HTTP-статус ответа.
+ * @param {Record<number, string>} messages Локальная карта сообщений конкретного запроса.
+ * @returns {string}
+ */
 function getErrorMessage(status, messages) {
-    return messages[status] ??
-    
+  return (
+    messages[status] ??
     DEFAULT_ERROR_MESSAGES[status] ??
-    
     (status >= 500 ? SERVER_ERROR_MESSAGE : null) ??
-    
-    `Ошибка запроса: ${status}`;
+    `Ошибка запроса: ${status}`
+  );
 }
 
+/**
+ * HTTP-клиент приложения.
+ */
 class Api {
+  /**
+   * @param {string} baseUrl Базовый URL для всех API-запросов.
+   */
   constructor(baseUrl) {
     this.baseUrl = baseUrl;
   }
 
+  /**
+   * Выполняет запрос с единым парсингом JSON и нормализацией ошибок.
+   *
+   * @param {string} path Путь запроса (без baseUrl).
+   * @param {RequestInit} [options={}] Опции fetch.
+   * @param {Record<number, string>} [messages={}] Переопределения текстов ошибок по статусам.
+   * @returns {Promise<unknown | null>}
+   */
   async request(path, options = {}, messages = {}) {
     const headers = { ...options.headers };
 
@@ -83,6 +110,13 @@ class Api {
     }
   }
 
+  /**
+   * Регистрирует пользователя.
+   *
+   * @param {string} login Логин.
+   * @param {string} password Пароль.
+   * @returns {Promise<unknown>}
+   */
   signUp(login, password) {
     return this.request(
       "/api/auth/signup",
@@ -97,6 +131,13 @@ class Api {
     );
   }
 
+  /**
+   * Авторизует пользователя.
+   *
+   * @param {string} login Логин.
+   * @param {string} password Пароль.
+   * @returns {Promise<unknown>}
+   */
   logIn(login, password) {
     return this.request(
       "/api/auth/signin",
@@ -110,10 +151,23 @@ class Api {
     );
   }
 
+  /**
+   * Запрашивает список заметок постранично.
+   *
+   * @param {number} [limit=10] Лимит заметок в запросе.
+   * @param {number} [offset=0] Смещение.
+   * @returns {Promise<unknown>}
+   */
   getNotes(limit = 10, offset = 0) {
     return this.request(`/api/notes/getall?limit=${limit}&offset=${offset}`);
   }
 
+  /**
+   * Запрашивает одну заметку по id.
+   *
+   * @param {string | number} id Идентификатор заметки.
+   * @returns {Promise<unknown>}
+   */
   getNote(id) {
     return this.request(
       `/api/notes/${encodeURIComponent(id)}`,
@@ -125,6 +179,11 @@ class Api {
     );
   }
 
+  /**
+   * Загружает профиль текущего пользователя и синхронизирует auth-состояние в store.
+   *
+   * @returns {Promise<unknown>}
+   */
   getProfile() {
     return this.request("/api/users/me").then((profile) => {
       setState({
@@ -138,10 +197,20 @@ class Api {
     });
   }
 
+  /**
+   * Возвращает профиль из локального store без сетевого запроса.
+   *
+   * @returns {unknown | null}
+   */
   getCachedProfile() {
     return getState().auth.user;
   }
 
+  /**
+   * Сбрасывает данные авторизации в store.
+   *
+   * @returns {void}
+   */
   clearCachedProfile() {
     setState({
       auth: {
@@ -153,4 +222,8 @@ class Api {
   }
 }
 
+/**
+ * Единый экземпляр API-клиента приложения.
+ * @type {Api}
+ */
 export const api = new Api(getApiUrl());

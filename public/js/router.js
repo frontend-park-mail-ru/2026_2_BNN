@@ -5,6 +5,15 @@ import { NotFoundPage } from "./pages/notfound.js";
 import { api } from "./api.js";
 import { getState, setState } from "./store/app-store.js";
 
+/**
+ * @typedef {Object} RouteRecord
+ * @property {string} path Маска URL.
+ * @property {{ render: Function, mount?: Function, destroy?: Function }} page Объект страницы.
+ * @property {boolean} [auth] Требуется авторизация.
+ * @property {boolean} [guest] Доступно только гостям.
+ */
+
+/** @type {RouteRecord[]} */
 const routes = [
   { path: "/", page: NotesPage, auth: true },
   { path: "/notes", page: NotesPage, auth: true },
@@ -16,6 +25,13 @@ const routes = [
   { path: "/signup", page: SignupPage, guest: true },
 ];
 
+/**
+ * Сопоставляет URL-путь с route-паттерном и извлекает params.
+ *
+ * @param {string} pattern Паттерн маршрута (например `/notes/:id`).
+ * @param {string} path Текущий URL-путь.
+ * @returns {Record<string, string> | null}
+ */
 function matchRoute(pattern, path) {
   const patternParts = pattern.split("/").filter(Boolean);
   const pathParts = path.split("/").filter(Boolean);
@@ -40,6 +56,12 @@ function matchRoute(pattern, path) {
 let currentPage = null;
 let renderId = 0;
 
+/**
+ * Проверяет авторизацию пользователя:
+ * использует кэш store и при необходимости делает запрос профиля.
+ *
+ * @returns {Promise<boolean>}
+ */
 async function ensureAuth() {
   const auth = getState().auth;
   if (auth.status === "authenticated" && auth.isLoggedIn) {
@@ -73,6 +95,14 @@ async function ensureAuth() {
   return getState().auth.isLoggedIn;
 }
 
+/**
+ * Главный роутер SPA:
+ * - выбирает страницу по URL,
+ * - проверяет доступ (auth/guest),
+ * - рендерит и монтирует страницу.
+ *
+ * @returns {Promise<void>}
+ */
 export async function router() {
   const path = window.location.pathname;
   let page = NotFoundPage;
@@ -130,6 +160,12 @@ export async function router() {
   }
 }
 
+/**
+ * Переходит на URL внутри SPA без перезагрузки страницы.
+ *
+ * @param {string} url Целевой URL.
+ * @returns {Promise<void>}
+ */
 export async function navigate(url) {
   const currentPath = window.location.pathname + window.location.search + window.location.hash;
 
@@ -141,12 +177,21 @@ export async function navigate(url) {
   await router();
 }
 
+/**
+ * Сбрасывает auth- и notes-состояние при смене пользователя/выходе.
+ *
+ * @returns {void}
+ */
 export function resetAuthState() {
-    loggedIn = null;
-    api.clearCachedProfile();
-    resetNotesStore();
+  api.clearCachedProfile();
+  resetNotesStore();
 }
 
+/**
+ * Включает делегирование кликов по ссылкам с `data-link` для SPA-навигации.
+ *
+ * @returns {void}
+ */
 export function setupLinkHandling() {
   document.addEventListener("click", (event) => {
     const link = event.target.closest("a[data-link]");
@@ -160,10 +205,20 @@ export function setupLinkHandling() {
   });
 }
 
+/**
+ * Подписывает роутер на события browser history (назад/вперёд).
+ *
+ * @returns {void}
+ */
 export function setupPopStateHandling() {
   window.addEventListener("popstate", router);
 }
 
+/**
+ * Инициализирует роутинг приложения.
+ *
+ * @returns {Promise<void>}
+ */
 export async function initRouter() {
   await router();
   setupLinkHandling();

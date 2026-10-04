@@ -9,20 +9,47 @@ import {
   setFormLoading,
 } from "./auth-form.js";
 
+/**
+ * SPA-страница регистрации.
+ * Реализует render/mount/destroy контракт роутера.
+ */
 export const SignupPage = {
+  /**
+   * Рендерит HTML страницы регистрации.
+   *
+   * @returns {Promise<string>} Готовая HTML-строка страницы.
+   */
   async render() {
     const template = Handlebars.templates["signup"];
     return template({ title: "Регистрация" });
   },
 
+  /**
+   * Подключает обработчики формы после вставки страницы в DOM.
+   *
+   * @param {ParentNode} root Корневой узел отрисованной страницы.
+   * @returns {void}
+   */
   mount(root) {
     mountAuthForm(this, root);
   },
 
+  /**
+   * Снимает обработчики страницы при уходе с роута.
+   *
+   * @returns {void}
+   */
   destroy() {
     destroyAuthForm(this);
   },
 
+  /**
+   * Обрабатывает отправку формы регистрации:
+   * валидирует поля, вызывает API, сбрасывает кэш auth/notes и переводит пользователя на логин.
+   *
+   * @param {SubmitEvent} event Событие submit от формы.
+   * @returns {Promise<void>}
+   */
   async handleSubmit(event) {
     event.preventDefault();
     clearFormErrors(this.form);
@@ -54,14 +81,14 @@ export const SignupPage = {
 
     setFormLoading(this.form, true);
 
-        try {
-            await api.signUp(login, password);
-            resetAuthState();
-            await navigate("/login");
-        } catch (error) {
-            if (!this.form) {
-                return;
-            }
+    try {
+      await api.signUp(login, password);
+      resetAuthState();
+      await navigate("/login");
+    } catch (error) {
+      if (!this.form) {
+        return;
+      }
 
       if (error.status === 409) {
         setFormFieldError(this.form, "login", error.message || "Такой логин уже занят");

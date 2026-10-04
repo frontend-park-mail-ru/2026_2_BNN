@@ -9,20 +9,47 @@ import {
   setFormLoading,
 } from "./auth-form.js";
 
+/**
+ * SPA-страница авторизации.
+ * Реализует render/mount/destroy контракт роутера.
+ */
 export const LoginPage = {
+  /**
+   * Рендерит HTML страницы авторизации.
+   *
+   * @returns {Promise<string>} Готовая HTML-строка страницы.
+   */
   async render() {
     const template = Handlebars.templates["login"];
     return template({ title: "Авторизация" });
   },
 
+  /**
+   * Подключает обработчики формы после вставки страницы в DOM.
+   *
+   * @param {ParentNode} root Корневой узел отрисованной страницы.
+   * @returns {void}
+   */
   mount(root) {
     mountAuthForm(this, root);
   },
 
+  /**
+   * Снимает обработчики страницы при уходе с роута.
+   *
+   * @returns {void}
+   */
   destroy() {
     destroyAuthForm(this);
   },
 
+  /**
+   * Обрабатывает отправку формы логина:
+   * валидирует поля, вызывает API, сбрасывает кэш auth/notes и перенаправляет пользователя.
+   *
+   * @param {SubmitEvent} event Событие submit от формы.
+   * @returns {Promise<void>}
+   */
   async handleSubmit(event) {
     event.preventDefault();
     clearFormErrors(this.form);
@@ -48,25 +75,14 @@ export const LoginPage = {
 
     setFormLoading(this.form, true);
 
-<<<<<<< HEAD
     try {
       await api.logIn(login, password);
-      await api.getProfile();
+      resetAuthState();
       await navigate("/");
     } catch (error) {
       if (!this.form) {
         return;
       }
-=======
-        try {
-            await api.logIn(login, password);
-            resetAuthState();
-            await navigate("/");
-        } catch (error) {
-            if (!this.form) {
-                return;
-            }
->>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
       if (error.status === 401) {
         setFormFieldError(this.form, "password", "Неверный логин или пароль");

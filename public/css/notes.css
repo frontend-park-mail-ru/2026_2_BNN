@@ -11,12 +11,12 @@
 }
 
 .notes-page::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: url("../assets/images/background_v1.svg") center / cover no-repeat;
-    opacity: 0.1;
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url("../assets/images/background_v1.svg") center / cover no-repeat;
+  opacity: 0.1;
 }
 
 .header-block {
@@ -514,13 +514,13 @@
 
 .library-message.is-error,
 .state-icon.is-error {
-    color: #A63234;
+  color: #a63234;
 }
 
 .state-button.is-secondary {
-    background-color: var(--dark-bg);
+  background-color: var(--dark-bg);
 }
 
 .state-button.is-secondary:hover {
-    background-color: var(--accent-soft);
+  background-color: var(--accent-soft);
 }
