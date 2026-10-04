@@ -169,9 +169,12 @@ function buildView(context) {
         }
     }
 
+    const profile = api.getCachedProfile();
+    const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
+
     return {
         query: store.query,
-        userLogin: api.getCachedProfile()?.login ?? "",
+        userLogin: userLogin,
 
         sectionTitle: currentSection.title,
         sections: sections,
