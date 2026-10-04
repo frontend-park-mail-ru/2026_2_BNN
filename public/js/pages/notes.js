@@ -170,25 +170,6 @@ function setQueryToUrl(query) {
 }
 
 /**
- * Пытается удалить auth-cookie с наиболее частыми комбинациями атрибутов.
- *
- * @returns {void}
- */
-function clearAuthCookies() {
-  const host = window.location.hostname;
-  const domains = [undefined, host, "." + host];
-  const attrs = ["path=/", "path=/; SameSite=Lax", "path=/; SameSite=None; Secure"];
-
-  for (const domain of domains) {
-    for (const attr of attrs) {
-      const domainPart = domain ? `; domain=${domain}` : "";
-      document.cookie = `bnn_jwt=; Max-Age=0; ${attr}${domainPart}`;
-      document.cookie = `bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${attr}${domainPart}`;
-    }
-  }
-}
-
-/**
  * Ищет заметку по id в коллекции.
  *
  * @param {Array<{ id: string }>} notes Коллекция заметок.
@@ -432,11 +413,13 @@ export const NotesPage = {
       }
 
       logoutButton.disabled = true;
-      clearAuthCookies();
-
-      setQueryToUrl("");
-      resetAuthState("unauthenticated");
-      await navigate("/login");
+      try {
+        await api.logOut();
+      } finally {
+        setQueryToUrl("");
+        resetAuthState("unauthenticated");
+        await navigate("/login");
+      }
     }
 
     search.addEventListener("input", onSearchInput);

@@ -152,6 +152,17 @@ class Api {
   }
 
   /**
+   * Завершает пользовательскую сессию на бэкенде.
+   *
+   * @returns {Promise<unknown | null>}
+   */
+  logOut() {
+    return this.request("/api/auth/logout", {
+      method: "POST",
+    });
+  }
+
+  /**
    * Запрашивает список заметок постранично.
    *
    * @param {number} [limit=10] Лимит заметок в запросе.
