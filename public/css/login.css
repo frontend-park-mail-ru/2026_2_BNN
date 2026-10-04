@@ -53,9 +53,13 @@
     rgba(255, 255, 255, 0.15) 70%,
     rgba(255, 255, 255, 0.8) 100%
   );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
   pointer-events: none;
 }
 
@@ -100,7 +104,9 @@
   font-weight: 400;
   line-height: 40px;
   transform-origin: left top;
-  transition: transform 0.2s ease, color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease;
   pointer-events: none;
 }
 
@@ -182,7 +188,9 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  transition:
+    background-color 0.3s ease,
+    transform 0.2s ease;
 }
 
 .login-button-label {

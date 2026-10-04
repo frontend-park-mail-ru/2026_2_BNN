@@ -1,0 +1,3 @@
+node_modules
+public/js/templates.compiled.js
+public/templates/**/*.hbs

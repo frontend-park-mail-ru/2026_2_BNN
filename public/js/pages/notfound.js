@@ -1,10 +1,10 @@
 export const NotFoundPage = {
-    async render() {
-        const template = Handlebars.templates["notfound"];
-        return template({ title: "404" });
-    },
+  async render() {
+    const template = Handlebars.templates["notfound"];
+    return template({ title: "404" });
+  },
 
-    mount(root) {},
+  mount(_root) {},
 
-    destroy() {},
+  destroy() {},
 };

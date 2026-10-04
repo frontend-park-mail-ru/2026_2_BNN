@@ -7,16 +7,16 @@ const partialsDir = path.join(templatesDir, "partials");
 const outputFile = path.join(__dirname, "../public/js/templates.compiled.js");
 
 function compileDir(dir, namespace) {
-    return fs
-        .readdirSync(dir)
-        .filter((file) => file.endsWith(".hbs"))
-        .map((file) => {
-            const name = path.basename(file, ".hbs");
-            const source = fs.readFileSync(path.join(dir, file), "utf-8");
-            const precompiled = Handlebars.precompile(source);
+  return fs
+    .readdirSync(dir)
+    .filter((file) => file.endsWith(".hbs"))
+    .map((file) => {
+      const name = path.basename(file, ".hbs");
+      const source = fs.readFileSync(path.join(dir, file), "utf-8");
+      const precompiled = Handlebars.precompile(source);
 
-            return `${namespace}["${name}"] = Handlebars.template(${precompiled});`;
-        });
+      return `${namespace}["${name}"] = Handlebars.template(${precompiled});`;
+    });
 }
 
 const templates = compileDir(templatesDir, "Handlebars.templates");

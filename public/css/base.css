@@ -1,30 +1,35 @@
-*, *::after, *::before {
-    box-sizing: border-box;
+*,
+*::after,
+*::before {
+  box-sizing: border-box;
 }
 
 :root {
-    --bg: #FFFFFF;
-    --dark-bg: #F2F7FD;
-    --accent: #73B0FF;
-    --accent-soft: #99C5FF;
-    --text: #0F2140;
-    --light-text: #0F2140B3;
-    --font-main: "Comfortaa", sans-serif;
-    --font-input: "Nunito", sans-serif;
-    --button-rad: 20px;
-    --card-rad: 36px;
-    --space-s: 16px;
-    --space-m: 24px;
-    --space-l: 32px;
-    --space-xl: 48px;
+  --bg: #ffffff;
+  --dark-bg: #f2f7fd;
+  --accent: #73b0ff;
+  --accent-soft: #99c5ff;
+  --text: #0f2140;
+  --light-text: #0f2140b3;
+  --font-main: "Comfortaa", sans-serif;
+  --font-input: "Nunito", sans-serif;
+  --button-rad: 20px;
+  --card-rad: 36px;
+  --space-s: 16px;
+  --space-m: 24px;
+  --space-l: 32px;
+  --space-xl: 48px;
 }
 
 body {
-    font-family: var(--font-main);
-    margin: 0;
-    color: var(--text);
+  font-family: var(--font-main);
+  margin: 0;
+  color: var(--text);
 }
 
-input, button, textarea, select {
-    font: inherit;
+input,
+button,
+textarea,
+select {
+  font: inherit;
 }

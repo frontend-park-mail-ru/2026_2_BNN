@@ -8,9 +8,9 @@ const publicDir = path.join(__dirname, "public");
 app.use(express.static(publicDir));
 
 app.get("/{*any}", (req, res) => {
-    res.sendFile(path.join(publicDir, "index.html"));
+  res.sendFile(path.join(publicDir, "index.html"));
 });
 
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на http://localhost:${PORT}`);
+  console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
