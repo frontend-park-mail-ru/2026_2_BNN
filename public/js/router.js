@@ -180,10 +180,11 @@ export async function navigate(url) {
 /**
  * Сбрасывает auth- и notes-состояние при смене пользователя/выходе.
  *
+ * @param {"unknown" | "unauthenticated"} [authStatus="unknown"] Целевой auth-статус.
  * @returns {void}
  */
-export function resetAuthState() {
-  api.clearCachedProfile();
+export function resetAuthState(authStatus = "unknown") {
+  api.clearCachedProfile(authStatus);
   resetNotesStore();
 }
 

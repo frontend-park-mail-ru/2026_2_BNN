@@ -209,12 +209,13 @@ class Api {
   /**
    * Сбрасывает данные авторизации в store.
    *
+   * @param {"unknown" | "unauthenticated"} [status="unknown"] Целевой auth-статус после сброса.
    * @returns {void}
    */
-  clearCachedProfile() {
+  clearCachedProfile(status = "unknown") {
     setState({
       auth: {
-        status: "unknown",
+        status: status,
         isLoggedIn: false,
         user: null,
       },

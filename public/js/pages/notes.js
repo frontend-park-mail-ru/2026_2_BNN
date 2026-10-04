@@ -170,6 +170,25 @@ function setQueryToUrl(query) {
 }
 
 /**
+ * Пытается удалить auth-cookie с наиболее частыми комбинациями атрибутов.
+ *
+ * @returns {void}
+ */
+function clearAuthCookies() {
+  const host = window.location.hostname;
+  const domains = [undefined, host, "." + host];
+  const attrs = ["path=/", "path=/; SameSite=Lax", "path=/; SameSite=None; Secure"];
+
+  for (const domain of domains) {
+    for (const attr of attrs) {
+      const domainPart = domain ? `; domain=${domain}` : "";
+      document.cookie = `bnn_jwt=; Max-Age=0; ${attr}${domainPart}`;
+      document.cookie = `bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; ${attr}${domainPart}`;
+    }
+  }
+}
+
+/**
  * Ищет заметку по id в коллекции.
  *
  * @param {Array<{ id: string }>} notes Коллекция заметок.
@@ -367,7 +386,7 @@ export const NotesPage = {
       }
 
       if (store.status === "unauthorized") {
-        resetAuthState();
+        resetAuthState("unauthenticated");
         history.replaceState(null, "", "/login");
         router();
         return;
@@ -387,7 +406,7 @@ export const NotesPage = {
       instance.searchTimer = setTimeout(runSearch, SEARCH_DELAY);
     }
 
-    function onPageClick(event) {
+    async function onPageClick(event) {
       if (event.target.closest("[data-retry]")) {
         store.status = "idle";
         update();
@@ -413,12 +432,11 @@ export const NotesPage = {
       }
 
       logoutButton.disabled = true;
-      document.cookie = "bnn_jwt=; Max-Age=0; path=/; SameSite=Lax";
-      document.cookie = "bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
+      clearAuthCookies();
 
       setQueryToUrl("");
-      resetAuthState();
-      navigate("/login");
+      resetAuthState("unauthenticated");
+      await navigate("/login");
     }
 
     search.addEventListener("input", onSearchInput);
