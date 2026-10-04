@@ -114,6 +114,11 @@ export async function navigate(url) {
     await router();
 }
 
+export function resetAuthState() {
+    loggedIn = null;
+    api.clearCachedProfile();
+}
+
 export function setupLinkHandling() {
     document.addEventListener("click", (event) => {
         const link = event.target.closest("a[data-link]");

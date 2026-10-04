@@ -161,6 +161,7 @@
 }
 
 .login-button {
+  position: relative;
   align-self: center;
   min-width: 100%;
   height: 58px;
@@ -184,6 +185,22 @@
   transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
+.login-button-label {
+  transition: opacity 0.2s ease;
+}
+
+.login-button-spinner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid rgba(15, 33, 64, 0.3);
+  border-top-color: #0f2140;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
 .login-button:hover {
   background: var(--accent-soft);
 }
@@ -199,6 +216,21 @@
 
 .login-button.is-loading {
   background: var(--dark-bg);
+}
+
+.login-button.is-loading .login-button-label {
+  opacity: 0;
+}
+
+.login-button.is-loading .login-button-spinner {
+  opacity: 1;
+  animation: login-spinner 0.8s linear infinite;
+}
+
+@keyframes login-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .form-feedback {

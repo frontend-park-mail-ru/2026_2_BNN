@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { navigate, resetAuthState } from "../router.js";
 
 const SECTIONS = [
     { href: "/notes", icon: "file", title: "Все заметки" },
@@ -176,6 +177,7 @@ function buildView(context) {
 
     return {
         query: store.query,
+        userLogin: api.getCachedProfile()?.login ?? "",
 
         sectionTitle: currentSection.title,
         sections: sections,
@@ -254,16 +256,28 @@ export const NotesPage = {
 
         function onPageClick(event) {
             const clearButton = event.target.closest("[data-search-clear]");
-            if (!clearButton) {
+
+            if (clearButton) {
+                clearTimeout(instance.searchTimer);
+                instance.searchTimer = null;
+                search.value = "";
+                store.query = "";
+                update();
+                search.focus();
                 return;
             }
 
-            clearTimeout(instance.searchTimer);
-            instance.searchTimer = null;
-            search.value = "";
-            store.query = "";
-            update();
-            search.focus();
+            const logoutButton = event.target.closest("[data-logout]");
+            if (!logoutButton) {
+                return;
+            }
+
+            logoutButton.disabled = true;
+            document.cookie = "bnn_jwt=; Max-Age=0; path=/; SameSite=Lax";
+            document.cookie = "bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
+
+            resetAuthState();
+            navigate("/login");
         }
 
         search.addEventListener("input", onSearchInput);
