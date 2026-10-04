@@ -444,3 +444,16 @@
 .note-body {
     outline: none;
 }
+
+.library-message.is-error,
+.state-icon.is-error {
+    color: #A63234;
+}
+
+.state-button.is-secondary {
+    background-color: var(--dark-bg);
+}
+
+.state-button.is-secondary:hover {
+    background-color: var(--accent-soft);
+}

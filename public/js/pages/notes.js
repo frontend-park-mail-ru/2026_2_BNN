@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { router } from "../router.js";
 
 const SECTIONS = [
     { href: "/notes", icon: "file", title: "Все заметки" },
@@ -15,18 +16,10 @@ const SEARCH_DELAY = 200;
 
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 
-const DEFAULT_NOTES = [
-    { id: "1", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-    { id: "2", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-    { id: "3", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-    { id: "4", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-    { id: "5", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-];
-
 const store = {
     status: "idle",
     notes: [],
-    isFallback: false,
+    error: "",
     query: "",
 };
 
@@ -139,7 +132,9 @@ function buildView(context) {
     const foundNotes = filterNotes(store.notes, store.query);
     const currentNote = findNote(store.notes, params.id);
 
-    const isLoading = store.status !== "ready";
+    const isReady = store.status === "ready";
+    const isError = store.status === "error";
+    const isLoading = !isReady && !isError;
     const hasNotes = store.notes.length > 0;
 
     function isActive(section) {
@@ -182,7 +177,9 @@ function buildView(context) {
         mailSection: { ...MAIL_SECTION, isActive: isActive(MAIL_SECTION) },
 
         isLoading: isLoading,
-        isEmpty: !isLoading && !hasNotes,
+        isError: isError,
+        errorMessage: store.error,
+        isEmpty: isReady && !hasNotes,
         isNotFound: !isLoading && hasNotes && foundNotes.length === 0,
         skeletonRows: SKELETON_ROWS,
 
@@ -195,15 +192,25 @@ function buildView(context) {
 
 async function loadNotes() {
     store.status = "loading";
+    store.error = "";
 
     try {
         store.notes = await fetchAllNotes();
-        store.isFallback = false;
         store.status = "ready";
     } catch (error) {
-        store.notes = DEFAULT_NOTES;
-        store.isFallback = true;
-        store.status = "ready";
+        store.notes = [];
+
+        if (error.status === 401) {
+            store.status = "unauthorized";
+            return;
+        }
+
+        store.status = "error";
+        if (error.status) {
+            store.status = error.message;
+        } else {
+            store.error = "Не удалось связаться с сервером";
+        }
     }
 }
 
@@ -241,6 +248,23 @@ export const NotesPage = {
             mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
         }
 
+        async function loadAndShow() {
+            await waitForNotes();
+        
+            if (mounted !== instance) {
+                return;
+            }
+        
+            if (store.status === "unauthorized") {
+                store.status = "idle";
+                history.replaceState(null, "", "/login");
+                router();
+                return;
+            }
+        
+            update();
+        }
+
         function runSearch() {
             instance.searchTimer = null;
             store.query = search.value;
@@ -253,6 +277,13 @@ export const NotesPage = {
         }
 
         function onPageClick(event) {
+            if (event.target.closest("[data-retry]")) {
+                store.status = "idle";
+                update();
+                loadAndShow();
+                return;
+            }
+
             const clearButton = event.target.closest("[data-search-clear]");
             if (!clearButton) {
                 return;
@@ -271,11 +302,11 @@ export const NotesPage = {
 
         mounted = instance;
 
-        if (store.status === "ready" && !store.isFallback) {
+        if (store.status === "ready") {
             return;
         }
-
-        await waitForNotes();
+        
+        await loadAndShow();
 
         if (mounted !== instance) {
             return;
