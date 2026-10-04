@@ -11,8 +11,12 @@
     </search>
     <div class="header-actions">
         <button class="new-note-button" type="button">+ Новая заметка</button>
-        <a href="/user" class="avatar" aria-label="Профиль" data-link>
+        <a href="/user" class="avatar" aria-label="Профиль {{userLogin}}" data-link>
             <img src="/assets/images/avatar-default.svg" alt="">
+            {{#if userLogin}}
+                <span class="avatar-tooltip">{{userLogin}}</span>
+            {{/if}}
         </a>
+        <button class="logout-button" type="button" data-logout>Выйти</button>
     </div>
 </header>

@@ -8,6 +8,7 @@ const DEFAULT_ERROR_MESSAGES = {
 };
 
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
+let cachedProfile = null;
 
 function getApiUrl() {
     if (window.location.hostname === "localhost") {
@@ -112,7 +113,18 @@ class Api {
     }
 
     getProfile() {
-        return this.request("/api/users/me");
+        return this.request("/api/users/me").then((profile) => {
+            cachedProfile = profile;
+            return profile;
+        });
+    }
+
+    getCachedProfile() {
+        return cachedProfile;
+    }
+
+    clearCachedProfile() {
+        cachedProfile = null;
     }
 }
 

@@ -1,5 +1,13 @@
 import { api } from "../api.js";
 import { navigate } from "../router.js";
+import {
+    mountAuthForm,
+    destroyAuthForm,
+    clearFormErrors,
+    setFormFieldError,
+    setFormFeedback,
+    setFormLoading,
+} from "./auth-form.js";
 
 export const LoginPage = {
     async render() {
@@ -8,20 +16,16 @@ export const LoginPage = {
     },
 
     mount(root) {
-        this.form = root.querySelector("form");
-        this.onSubmit = (event) => this.handleSubmit(event);
-        this.form.addEventListener("submit", this.onSubmit);
+        mountAuthForm(this, root);
     },
 
     destroy() {
-        this.form?.removeEventListener("submit", this.onSubmit);
-        this.form = null;
-        this.onSubmit = null;
+        destroyAuthForm(this);
     },
 
     async handleSubmit(event) {
         event.preventDefault();
-        this.clearErrors();
+        clearFormErrors(this.form);
 
         const data = new FormData(this.form);
         const login = String(data.get("login") ?? "").trim();
@@ -29,12 +33,12 @@ export const LoginPage = {
         let valid = true;
 
         if (login.length < 3 || login.length > 20) {
-            this.setFieldError("login", "Логин должен быть от 3 до 20 символов");
+            setFormFieldError(this.form, "login", "Логин должен быть от 3 до 20 символов");
             valid = false;
         }
 
         if (password.length < 8 || password.length > 128) {
-            this.setFieldError("password", "Пароль должен быть от 8 до 128 символов");
+            setFormFieldError(this.form, "password", "Пароль должен быть от 8 до 128 символов");
             valid = false;
         }
 
@@ -42,9 +46,7 @@ export const LoginPage = {
             return;
         }
 
-        const button = this.form.querySelector(".login-button");
-        button.disabled = true;
-        button.classList.add("is-loading");
+        setFormLoading(this.form, true);
 
         try {
             await api.logIn(login, password);
@@ -55,42 +57,16 @@ export const LoginPage = {
             }
 
             if (error.status === 401) {
-                this.setFieldError("password", "Неверный логин или пароль");
+                setFormFieldError(this.form, "password", "Неверный логин или пароль");
             } else {
-                this.setFeedback(error.status ? error.message : "Не удалось связаться с сервером");
+                setFormFeedback(this.form, error.status ? error.message : "Не удалось связаться с сервером");
             }
         } finally {
             if (!this.form) {
                 return;
             }
 
-            button.disabled = false;
-            button.classList.remove("is-loading");
+            setFormLoading(this.form, false);
         }
-    },
-
-    clearErrors() {
-        this.form.querySelectorAll(".field").forEach((field) => {
-            field.classList.remove("has-error");
-        });
-        this.form.querySelectorAll(".field-error").forEach((error) => {
-            error.textContent = "";
-        });
-
-        const feedback = this.form.querySelector(".form-feedback");
-        feedback.textContent = "";
-        feedback.classList.remove("is-error", "is-success");
-    },
-
-    setFieldError(name, message) {
-        const error = this.form.querySelector(`[data-error-for="${name}"]`);
-        error.textContent = message;
-        error.closest(".field").classList.add("has-error");
-    },
-
-    setFeedback(message) {
-        const feedback = this.form.querySelector(".form-feedback");
-        feedback.textContent = message;
-        feedback.classList.add("is-error");
     },
 };
