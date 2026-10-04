@@ -80,8 +80,8 @@ class Api {
       if (text) {
         try {
           const data = JSON.parse(text);
-          if (data.message) {
-            message = data?.message;
+          if (data?.message) {
+            message = data.message;
           }
         } catch {
           message = text;

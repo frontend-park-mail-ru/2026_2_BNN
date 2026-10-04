@@ -7,7 +7,7 @@ import {
   setFormFieldError,
   setFormFeedback,
   setFormLoading,
-} from "./auth-form.js";
+} from "../utils/auth-form.js";
 
 /**
  * SPA-страница регистрации.
