@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { navigate } from "../router.js";
+import { navigate, resetAuthState } from "../router.js";
 import {
   mountAuthForm,
   destroyAuthForm,
@@ -54,13 +54,14 @@ export const SignupPage = {
 
     setFormLoading(this.form, true);
 
-    try {
-      await api.signUp(login, password);
-      await navigate("/login");
-    } catch (error) {
-      if (!this.form) {
-        return;
-      }
+        try {
+            await api.signUp(login, password);
+            resetAuthState();
+            await navigate("/login");
+        } catch (error) {
+            if (!this.form) {
+                return;
+            }
 
       if (error.status === 409) {
         setFormFieldError(this.form, "login", error.message || "Такой логин уже занят");

@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { navigate } from "../router.js";
+import { navigate, resetAuthState } from "../router.js";
 import {
   mountAuthForm,
   destroyAuthForm,
@@ -48,6 +48,7 @@ export const LoginPage = {
 
     setFormLoading(this.form, true);
 
+<<<<<<< HEAD
     try {
       await api.logIn(login, password);
       await api.getProfile();
@@ -56,6 +57,16 @@ export const LoginPage = {
       if (!this.form) {
         return;
       }
+=======
+        try {
+            await api.logIn(login, password);
+            resetAuthState();
+            await navigate("/");
+        } catch (error) {
+            if (!this.form) {
+                return;
+            }
+>>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
       if (error.status === 401) {
         setFormFieldError(this.form, "password", "Неверный логин или пароль");

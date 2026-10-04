@@ -19,16 +19,13 @@ function getApiUrl() {
 }
 
 function getErrorMessage(status, messages) {
-  if (messages[status]) {
-    return messages[status];
-  }
-  if (DEFAULT_ERROR_MESSAGES[status]) {
-    return DEFAULT_ERROR_MESSAGES[status];
-  }
-  if (status >= 500) {
-    return SERVER_ERROR_MESSAGE;
-  }
-  return `Ошибка запроса: ${status}`;
+    return messages[status] ??
+    
+    DEFAULT_ERROR_MESSAGES[status] ??
+    
+    (status >= 500 ? SERVER_ERROR_MESSAGE : null) ??
+    
+    `Ошибка запроса: ${status}`;
 }
 
 class Api {

@@ -2,7 +2,7 @@
   min-height: 100vh;
   padding: 0;
   background-color: var(--bg);
-  background-image: url("../assets/images/background_v1.png");
+  background-image: url("../assets/images/background_v1.svg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

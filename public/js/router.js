@@ -1,4 +1,4 @@
-import { NotesPage } from "./pages/notes.js";
+import { NotesPage, resetNotesStore } from "./pages/notes.js";
 import { LoginPage } from "./pages/login.js";
 import { SignupPage } from "./pages/signup.js";
 import { NotFoundPage } from "./pages/notfound.js";
@@ -142,16 +142,9 @@ export async function navigate(url) {
 }
 
 export function resetAuthState() {
-  setState({
-    auth: {
-      status: "unknown",
-      isLoggedIn: false,
-      user: null,
-    },
-    notes: {
-      searchQuery: "",
-    },
-  });
+    loggedIn = null;
+    api.clearCachedProfile();
+    resetNotesStore();
 }
 
 export function setupLinkHandling() {

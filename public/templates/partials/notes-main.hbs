@@ -14,6 +14,15 @@
             {{/each}}
         </div>
     </article>
+{{else if isError}}
+    <article class="notebook notebook-state">
+        <div class="state-message">
+            <span class="state-icon is-error">{{> icon name="alert"}}</span>
+            <h2>Не удалось загрузить заметки</h2>
+            <p>{{errorMessage}}</p>
+            <button class="state-button is-secondary" type="button" data-retry>Повторить</button>
+        </div>
+    </article>
 {{else if isNotFound}}
     <article class="notebook notebook-state">
         <div class="state-message">

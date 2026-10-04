@@ -1,6 +1,5 @@
 import { api } from "../api.js";
-import { navigate, resetAuthState } from "../router.js";
-import { getState, setState } from "../store/app-store.js";
+import { router, navigate, resetAuthState } from "../router.js";
 
 const SECTIONS = [
   { href: "/notes", icon: "file", title: "Все заметки" },
@@ -17,23 +16,24 @@ const SEARCH_DELAY = 200;
 
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 
-const DEFAULT_NOTES = [
-  { id: "1", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-  { id: "2", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-  { id: "3", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-  { id: "4", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-  { id: "5", parentId: null, title: "Название заметки", paragraphs: [], text: "" },
-];
-
 const store = {
-  status: "idle",
-  notes: [],
-  isFallback: false,
-  query: "",
+    status: "idle",
+    notes: [],
+    error: "",
 };
 
 let notesRequest = null;
 let mounted = null;
+
+let loadVersion = 0;
+
+export function resetNotesStore() {
+    loadVersion++;
+    store.status = "idle";
+    store.notes = [];
+    store.error = "";
+    notesRequest = null;
+}
 
 function getParagraphs(note) {
   const paragraphs = [];
@@ -120,6 +120,20 @@ function filterNotes(notes, query) {
   return result;
 }
 
+function getQueryFromUrl() {
+    return new URLSearchParams(window.location.search).get("q") ?? "";
+}
+
+function setQueryToUrl(query) {
+    const url = new URL(window.location.href);
+    if (query) {
+        url.searchParams.set("q", query);
+    } else {
+        url.searchParams.delete("q");
+    }
+    history.replaceState(null, "", url);
+}
+
 function findNote(notes, id) {
   if (!id) {
     return null;
@@ -134,6 +148,7 @@ function findNote(notes, id) {
 }
 
 function buildView(context) {
+<<<<<<< HEAD
   const path = context.path;
   const params = context.params;
 
@@ -144,6 +159,20 @@ function buildView(context) {
 
   const isLoading = store.status !== "ready";
   const hasNotes = store.notes.length > 0;
+=======
+    const path = context.path;
+    const params = context.params;
+    const query = getQueryFromUrl();
+
+    const currentSection = getCurrentSection(path);
+    const foundNotes = filterNotes(store.notes, query);
+    const currentNote = findNote(store.notes, params.id);
+
+    const isReady = store.status === "ready";
+    const isError = store.status === "error";
+    const isLoading = !isReady && !isError;
+    const hasNotes = store.notes.length > 0;
+>>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
   function isActive(section) {
     return section === currentSection;
@@ -193,6 +222,7 @@ function buildView(context) {
     isNotFound: !isLoading && hasNotes && foundNotes.length === 0,
     skeletonRows: SKELETON_ROWS,
 
+<<<<<<< HEAD
     notes: notes,
     title: title,
     paragraphs: paragraphs,
@@ -212,6 +242,72 @@ async function loadNotes() {
     store.isFallback = true;
     store.status = "ready";
   }
+=======
+        const parentNote = findNote(store.notes, currentNote.parentId);
+        if (parentNote) {
+            breadcrumbs.push({ href: "/notes/" + parentNote.id, label: parentNote.title });
+        }
+    }
+
+    const profile = api.getCachedProfile();
+    const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
+
+    return {
+        query: query,
+        userLogin: userLogin,
+
+        sectionTitle: currentSection.title,
+        sections: sections,
+        mailSection: { ...MAIL_SECTION, isActive: isActive(MAIL_SECTION) },
+
+        isLoading: isLoading,
+        isError: isError,
+        errorMessage: store.error,
+        isEmpty: isReady && !hasNotes,
+        isNotFound: !isLoading && hasNotes && foundNotes.length === 0,
+        skeletonRows: SKELETON_ROWS,
+
+        notes: notes,
+        title: title,
+        paragraphs: paragraphs,
+        breadcrumbs: breadcrumbs,
+    };
+}
+
+async function loadNotes() {
+    const version = loadVersion;
+    store.status = "loading";
+    store.error = "";
+
+    try {
+        const notes = await fetchAllNotes();
+
+        if (version !== loadVersion) {
+            return;
+        }
+
+        store.notes = notes;
+        store.status = "ready";
+    } catch (error) {
+        if (version !== loadVersion) {
+            return;
+        }
+
+        store.notes = [];
+
+        if (error.status === 401) {
+            store.status = "unauthorized";
+            return;
+        }
+
+        store.status = "error";
+        if (error.status) {
+            store.error = error.message;
+        } else {
+            store.error = "Не удалось связаться с сервером";
+        }
+    }
+>>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 }
 
 function waitForNotes() {
@@ -248,17 +344,43 @@ export const NotesPage = {
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
     }
 
+<<<<<<< HEAD
     function runSearch() {
       instance.searchTimer = null;
       setState({ notes: { searchQuery: search.value } });
       update();
     }
+=======
+        async function loadAndShow() {
+            await waitForNotes();
+        
+            if (mounted !== instance) {
+                return;
+            }
+        
+            if (store.status === "unauthorized") {
+                resetAuthState();
+                history.replaceState(null, "", "/login");
+                router();
+                return;
+            }
+        
+            update();
+        }
+
+        function runSearch() {
+            instance.searchTimer = null;
+            setQueryToUrl(search.value.trim());
+            update();
+        }
+>>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
     function onSearchInput() {
       clearTimeout(instance.searchTimer);
       instance.searchTimer = setTimeout(runSearch, SEARCH_DELAY);
     }
 
+<<<<<<< HEAD
     function onPageClick(event) {
       const clearButton = event.target.closest("[data-search-clear]");
 
@@ -271,6 +393,52 @@ export const NotesPage = {
         search.focus();
         return;
       }
+=======
+        function onPageClick(event) {
+            if (event.target.closest("[data-retry]")) {
+                store.status = "idle";
+                update();
+                loadAndShow();
+                return;
+            }
+
+            const clearButton = event.target.closest("[data-search-clear]");
+
+            if (clearButton) {
+                clearTimeout(instance.searchTimer);
+                instance.searchTimer = null;
+                search.value = "";
+                setQueryToUrl("");
+                update();
+                search.focus();
+                return;
+            }
+
+            const logoutButton = event.target.closest("[data-logout]");
+            if (!logoutButton) {
+                return;
+            }
+
+            logoutButton.disabled = true;
+            document.cookie = "bnn_jwt=; Max-Age=0; path=/; SameSite=Lax";
+            document.cookie = "bnn_jwt=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax";
+
+            resetAuthState();
+            navigate("/login");
+        }
+
+        search.addEventListener("input", onSearchInput);
+        page.addEventListener("click", onPageClick);
+
+        mounted = instance;
+
+        if (store.status === "ready") {
+            return;
+        }
+        
+        await loadAndShow();
+    },
+>>>>>>> eb52fe4500ad1894594e48c0ad072c68b270b4e5
 
       const logoutButton = event.target.closest("[data-logout]");
       if (!logoutButton) {
