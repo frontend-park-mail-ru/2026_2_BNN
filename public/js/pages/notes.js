@@ -20,11 +20,20 @@ const store = {
     status: "idle",
     notes: [],
     error: "",
-    query: "",
 };
 
 let notesRequest = null;
 let mounted = null;
+
+let loadVersion = 0;
+
+export function resetNotesStore() {
+    loadVersion++;
+    store.status = "idle";
+    store.notes = [];
+    store.error = "";
+    notesRequest = null;
+}
 
 function getParagraphs(note) {
     const paragraphs = [];
@@ -111,6 +120,20 @@ function filterNotes(notes, query) {
     return result;
 }
 
+function getQueryFromUrl() {
+    return new URLSearchParams(window.location.search).get("q") ?? "";
+}
+
+function setQueryToUrl(query) {
+    const url = new URL(window.location.href);
+    if (query) {
+        url.searchParams.set("q", query);
+    } else {
+        url.searchParams.delete("q");
+    }
+    history.replaceState(null, "", url);
+}
+
 function findNote(notes, id) {
     if (!id) {
         return null;
@@ -127,9 +150,10 @@ function findNote(notes, id) {
 function buildView(context) {
     const path = context.path;
     const params = context.params;
+    const query = getQueryFromUrl();
 
     const currentSection = getCurrentSection(path);
-    const foundNotes = filterNotes(store.notes, store.query);
+    const foundNotes = filterNotes(store.notes, query);
     const currentNote = findNote(store.notes, params.id);
 
     const isReady = store.status === "ready";
@@ -173,7 +197,7 @@ function buildView(context) {
     const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
 
     return {
-        query: store.query,
+        query: query,
         userLogin: userLogin,
 
         sectionTitle: currentSection.title,
@@ -195,13 +219,24 @@ function buildView(context) {
 }
 
 async function loadNotes() {
+    const version = loadVersion;
     store.status = "loading";
     store.error = "";
 
     try {
-        store.notes = await fetchAllNotes();
+        const notes = await fetchAllNotes();
+
+        if (version !== loadVersion) {
+            return;
+        }
+
+        store.notes = notes;
         store.status = "ready";
     } catch (error) {
+        if (version !== loadVersion) {
+            return;
+        }
+
         store.notes = [];
 
         if (error.status === 401) {
@@ -211,7 +246,7 @@ async function loadNotes() {
 
         store.status = "error";
         if (error.status) {
-            store.status = error.message;
+            store.error = error.message;
         } else {
             store.error = "Не удалось связаться с сервером";
         }
@@ -260,7 +295,7 @@ export const NotesPage = {
             }
         
             if (store.status === "unauthorized") {
-                store.status = "idle";
+                resetAuthState();
                 history.replaceState(null, "", "/login");
                 router();
                 return;
@@ -271,7 +306,7 @@ export const NotesPage = {
 
         function runSearch() {
             instance.searchTimer = null;
-            store.query = search.value;
+            setQueryToUrl(search.value.trim());
             update();
         }
 
@@ -294,7 +329,7 @@ export const NotesPage = {
                 clearTimeout(instance.searchTimer);
                 instance.searchTimer = null;
                 search.value = "";
-                store.query = "";
+                setQueryToUrl("");
                 update();
                 search.focus();
                 return;
@@ -323,12 +358,6 @@ export const NotesPage = {
         }
         
         await loadAndShow();
-
-        if (mounted !== instance) {
-            return;
-        }
-
-        update();
     },
 
     destroy() {

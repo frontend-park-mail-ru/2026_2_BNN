@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { navigate } from "../router.js";
+import { navigate, resetAuthState } from "../router.js";
 import {
     mountAuthForm,
     destroyAuthForm,
@@ -56,6 +56,7 @@ export const SignupPage = {
 
         try {
             await api.signUp(login, password);
+            resetAuthState();
             await navigate("/login");
         } catch (error) {
             if (!this.form) {
