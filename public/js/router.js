@@ -19,7 +19,7 @@ const routes = [
   { path: "/notes", page: NotesPage, auth: true },
   { path: "/notes/favourites", page: NotesPage, auth: true },
   { path: "/notes/trash", page: NotesPage, auth: true },
-  { path: "/notes/mail", page: NotesPage, auth: true },
+  { path: "/notes/notifications", page: NotesPage, auth: true },
   { path: "/notes/:id", page: NotesPage, auth: true },
   { path: "/login", page: LoginPage, guest: true },
   { path: "/signup", page: SignupPage, guest: true },
