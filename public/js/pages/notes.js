@@ -7,7 +7,7 @@ const SECTIONS = [
   { href: "/notes/trash", icon: "trash", title: "Корзина" },
 ];
 
-const MAIL_SECTION = { href: "/notes/mail", icon: "mail", title: "Почта" };
+const MAIL_SECTION = { href: "/notes/mail", icon: "bell", title: "Почта" };
 
 const ALL_SECTIONS = [...SECTIONS, MAIL_SECTION];
 

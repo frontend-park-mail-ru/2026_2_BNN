@@ -26,11 +26,30 @@
   <symbol id="mail" viewBox="0 0 24 24" fill="none">
     <path d="M22.9167 6.25008C22.9167 5.10425 21.9792 4.16675 20.8333 4.16675H4.16668C3.02084 4.16675 2.08334 5.10425 2.08334 6.25008M22.9167 6.25008V18.7501C22.9167 19.8959 21.9792 20.8334 20.8333 20.8334H4.16668C3.02084 20.8334 2.08334 19.8959 2.08334 18.7501V6.25008M22.9167 6.25008L12.5 13.5417L2.08334 6.25008" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>
+  <symbol id="bell" viewBox="0 0 24 24" fill="none">
+    <path d="M15 17H9M18 17H6C6.53043 17 7.03914 16.7893 7.41421 16.4142C7.78929 16.0391 8 15.5304 8 15V11C8 9.93913 8.42143 8.92172 9.17157 8.17157C9.92172 7.42143 10.9391 7 12 7C13.0609 7 14.0783 7.42143 14.8284 8.17157C15.5786 8.92172 16 9.93913 16 11V15C16 15.5304 16.2107 16.0391 16.5858 16.4142C16.9609 16.7893 17.4696 17 18 17Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10.5 20C10.6764 20.3043 10.9298 20.5569 11.2346 20.7323C11.5393 20.9078 11.8849 21.0001 12.2366 21C12.5882 20.9999 12.9337 20.9073 13.2383 20.7316C13.5429 20.556 13.7961 20.3033 13.9723 19.9989" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
   <symbol id="close" viewBox="0 0 24 24" fill="none">
     <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>
   <symbol id="alert" viewBox="0 0 24 24" fill="none">
   <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
   <path d="M12 7V13M12 16.5V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+</symbol>
+<symbol id="sun" viewBox="0 0 24 24" fill="none">
+  <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2.2" />
+  <path d="M12 2V4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M12 20V22" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M4.93 4.93L6.34 6.34" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M17.66 17.66L19.07 19.07" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M2 12H4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M20 12H22" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M4.93 19.07L6.34 17.66" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M17.66 6.34L19.07 4.93" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+</symbol>
+<symbol id="moon-half" viewBox="0 0 24 24" fill="none">
+  <path d="M12 3V21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 3C9.61305 3 7.32387 3.94821 5.63604 5.63604C3.94821 7.32387 3 9.61305 3 12C3 14.3869 3.94821 16.6761 5.63604 18.364C7.32387 20.0518 9.61305 21 12 21C14.3869 21 16.6761 20.0518 18.364 18.364C20.0518 16.6761 21 14.3869 21 12C21 9.61305 20.0518 7.32387 18.364 5.63604C16.6761 3.94821 14.3869 3 12 3Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
 </symbol>
 </svg>
