@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - disabled-icons
 jobs:
   BNN-Deploy:
     name: BNN-Deploy
