@@ -1,18 +1,35 @@
 <div class="sidebar">
     <nav class="navigation">
         {{#each sections}}
-            <a href="{{href}}" class="icon-button{{#if isActive}} is-active{{/if}}" aria-label="{{title}}" data-link>
+            <a
+                href="{{href}}"
+                class="icon-button{{#if isActive}} is-active{{/if}}{{#unless @first}} is-disabled{{/unless}}"
+                aria-label="{{title}}"
+                {{#if @first}}data-link{{else}}aria-disabled="true" tabindex="-1"{{/if}}
+            >
                 {{> icon name=icon}}
             </a>
         {{/each}}
         <div class="navigation-bottom">
             {{#with mailSection}}
-                <a href="{{href}}" class="icon-button{{#if isActive}} is-active{{/if}}" aria-label="{{title}}" data-link>
+                <a
+                    href="{{href}}"
+                    class="icon-button{{#if isActive}} is-active{{/if}} is-disabled"
+                    aria-label="{{title}}"
+                    aria-disabled="true"
+                    tabindex="-1"
+                >
                     {{> icon name=icon}}
                 </a>
             {{/with}}
-            <button class="icon-button theme-toggle" type="button" aria-label="Сменить тему" data-theme-toggle>
-                {{> icon name="sunrise"}}
+            <button
+                class="icon-button theme-toggle is-disabled"
+                type="button"
+                aria-label="Сменить тему"
+                data-theme-toggle
+                disabled
+            >
+                {{> icon name="moon-half"}}
             </button>
         </div>
     </nav>

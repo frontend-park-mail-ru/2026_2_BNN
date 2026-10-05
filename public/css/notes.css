@@ -524,3 +524,13 @@
 .state-button.is-secondary:hover {
   background-color: var(--accent-soft);
 }
+
+.icon-button.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.icon-button.is-disabled:hover {
+  background-color: transparent;
+}

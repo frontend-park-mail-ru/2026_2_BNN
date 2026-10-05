@@ -7,9 +7,9 @@ const SECTIONS = [
   { href: "/notes/trash", icon: "trash", title: "Корзина" },
 ];
 
-const MAIL_SECTION = { href: "/notes/mail", icon: "mail", title: "Почта" };
+const NOTIFICATIONS_SECTION = { href: "/notes/notifications", icon: "bell", title: "Уведомления" };
 
-const ALL_SECTIONS = [...SECTIONS, MAIL_SECTION];
+const ALL_SECTIONS = [...SECTIONS, NOTIFICATIONS_SECTION];
 
 const NOTES_LIMIT = 100;
 const SEARCH_DELAY = 200;
@@ -251,7 +251,7 @@ function buildView(context) {
 
     sectionTitle: currentSection.title,
     sections: sections,
-    mailSection: { ...MAIL_SECTION, isActive: isActive(MAIL_SECTION) },
+    mailSection: { ...NOTIFICATIONS_SECTION, isActive: isActive(NOTIFICATIONS_SECTION) },
 
     isLoading: isLoading,
     isError: isError,
