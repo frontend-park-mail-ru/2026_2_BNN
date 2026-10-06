@@ -196,7 +196,7 @@ class Api {
    * @returns {Promise<unknown>}
    */
   getProfile() {
-    return this.request("/api/users/me").then((profile) => {
+    return this.request("/api/auth/me").then((profile) => {
       setState({
         auth: {
           status: "authenticated",
