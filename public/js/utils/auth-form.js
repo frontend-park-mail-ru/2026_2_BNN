@@ -2,11 +2,13 @@
  * @typedef {Object} AuthPage
  * @property {HTMLFormElement | null} [form] Текущая форма страницы авторизации/регистрации.
  * @property {(event: SubmitEvent) => void | Promise<void> | null} [onSubmit] Ссылка на обработчик submit.
+ * @property {(event: Event) => void | null} [onInput] Ссылка на обработчик ввода.
+ * @property {(name: string) => boolean} validateField Проверка одного поля.
  * @property {(event: SubmitEvent) => void | Promise<void>} handleSubmit Бизнес-обработчик submit.
  */
 
 /**
- * Находит форму на странице и подключает обработчик submit.
+ * Находит форму на странице и подключает обработчики submit и input.
  *
  * @param {AuthPage} page Объект страницы, где хранится состояние формы.
  * @param {ParentNode} root Корневой DOM-узел отрендеренной страницы.
@@ -15,19 +17,30 @@
 export function mountAuthForm(page, root) {
   page.form = root.querySelector("form");
   page.onSubmit = (event) => page.handleSubmit(event);
+  page.onInput = (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.name) {
+      return;
+    }
+    page.validateField(input.name);
+  };
+
   page.form.addEventListener("submit", page.onSubmit);
+  page.form.addEventListener("input", page.onInput);
 }
 
 /**
- * Снимает обработчик submit и очищает ссылки на элементы формы.
+ * Снимает обработчики формы и очищает ссылки на её элементы.
  *
  * @param {AuthPage} page Объект страницы, на котором ранее вызывался {@link mountAuthForm}.
  * @returns {void}
  */
 export function destroyAuthForm(page) {
   page.form?.removeEventListener("submit", page.onSubmit);
+  page.form?.removeEventListener("input", page.onInput);
   page.form = null;
   page.onSubmit = null;
+  page.onInput = null;
 }
 
 /**
@@ -62,6 +75,19 @@ export function setFormFieldError(form, name, message) {
   const error = form.querySelector(`[data-error-for="${name}"]`);
   error.textContent = message;
   error.closest(".field").classList.add("has-error");
+}
+
+/**
+ * Снимает ошибку с конкретного поля формы.
+ *
+ * @param {HTMLFormElement} form HTML-форма.
+ * @param {string} name Имя поля (совпадает со значением `data-error-for`).
+ * @returns {void}
+ */
+export function clearFormFieldError(form, name) {
+  const error = form.querySelector(`[data-error-for="${name}"]`);
+  error.textContent = "";
+  error.closest(".field").classList.remove("has-error");
 }
 
 /**

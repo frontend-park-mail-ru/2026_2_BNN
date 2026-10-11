@@ -5,6 +5,7 @@ import {
   destroyAuthForm,
   clearFormErrors,
   setFormFieldError,
+  clearFormFieldError,
   setFormFeedback,
   setFormLoading,
 } from "../utils/auth-form.js";
@@ -44,6 +45,40 @@ export const SignupPage = {
   },
 
   /**
+   * Проверяет поле регистрации и показывает или снимает ошибку.
+   * При проверке пароля заодно сверяет повтор пароля.
+   *
+   * @param {string} name Имя поля: `login`, `password` или `repeatPassword`.
+   * @returns {boolean} `true`, если проверенные поля прошли проверку.
+   */
+  validateField(name) {
+    const data = new FormData(this.form);
+    const login = String(data.get("login") ?? "").trim();
+    const password = String(data.get("password") ?? "");
+    const repeatPassword = String(data.get("repeatPassword") ?? "");
+    
+    const messages = {
+      login: login.length < 3 || login.length > 20 ? "Логин должен быть от 3 до 20 символов" : "",
+      password: password.length < 8 || password.length > 128 ? "Пароль должен быть от 8 до 128 символов" : "",
+      repeatPassword: password !== repeatPassword ? "Пароли не совпадают" : "",
+    };
+
+    const names = name === "password" ? ["password", "repeatPassword"] : [name];
+    let valid = true;
+
+    for (const fieldName of names) {
+      const message = messages[fieldName] ?? "";
+      if (message) {
+        setFormFieldError(this.form, fieldName, message);
+        valid = false;
+      } else {
+        clearFormFieldError(this.form, fieldName);
+      }
+    }
+    return valid;
+  },
+
+  /**
    * Обрабатывает отправку формы регистрации:
    * валидирует поля, вызывает API, сбрасывает кэш auth/notes и переводит пользователя на логин.
    *
@@ -54,30 +89,16 @@ export const SignupPage = {
     event.preventDefault();
     clearFormErrors(this.form);
 
+    const loginOk = this.validateField("login");
+    const passwordOk = this.validateField("password");
+    const repeatPasswordOk = this.validateField("repeatPassword");
+    if (!loginOk || !passwordOk || !repeatPasswordOk) {
+      return;
+    }
+
     const data = new FormData(this.form);
     const login = String(data.get("login") ?? "").trim();
     const password = String(data.get("password") ?? "");
-    const repeatPassword = String(data.get("repeatPassword") ?? "");
-    let valid = true;
-
-    if (login.length < 3 || login.length > 20) {
-      setFormFieldError(this.form, "login", "Логин должен быть от 3 до 20 символов");
-      valid = false;
-    }
-
-    if (password.length < 8 || password.length > 128) {
-      setFormFieldError(this.form, "password", "Пароль должен быть от 8 до 128 символов");
-      valid = false;
-    }
-
-    if (password !== repeatPassword) {
-      setFormFieldError(this.form, "repeatPassword", "Пароли не совпадают");
-      valid = false;
-    }
-
-    if (!valid) {
-      return;
-    }
 
     setFormLoading(this.form, true);
 
