@@ -627,7 +627,7 @@
 }
 
 .modal-card p {
-  max-width: 260px;
+  max-width: 320px;
   margin: 8px 0 0;
   color: var(--light-text);
   font-size: 16px;
