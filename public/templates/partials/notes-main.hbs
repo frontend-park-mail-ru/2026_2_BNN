@@ -23,20 +23,21 @@
             <button class="state-button is-secondary" type="button" data-retry>Повторить</button>
         </div>
     </article>
-{{else if isNotFound}}
-    <article class="notebook notebook-state">
-        <div class="state-message">
-            <span class="state-icon">{{> icon name="search"}}</span>
-            <h2>Ничего не найдено</h2>
-            <p>Попробуйте изменить запрос или проверьте текст на опечатки</p>
-        </div>
-    </article>
 {{else if isEmpty}}
     <article class="notebook notebook-state">
         <div class="state-message">
             <span class="state-icon">{{> icon name="file"}}</span>
             <h2>У вас пока нет заметок</h2>
             <p>Создайте первую заметку, и она появится здесь</p>
+            <button class="state-button" type="button">Создать заметку</button>
+        </div>
+    </article>
+{{else if isWelcome}}
+    <article class="notebook notebook-state">
+        <div class="state-message">
+            <span class="state-icon">{{> icon name="file"}}</span>
+            <h2>Добро пожаловать</h2>
+            <p>Выберите заметку<br>или создайте новую</p>
             <button class="state-button" type="button">Создать заметку</button>
         </div>
     </article>
