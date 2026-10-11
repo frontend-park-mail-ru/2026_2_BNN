@@ -22,6 +22,14 @@ export function mountAuthForm(page, root) {
     if (!(input instanceof HTMLInputElement) || !input.name) {
       return;
     }
+
+    const isEmpty = input.name === "login" ? input.value.trim() === "" : input.value === "";
+    if (isEmpty) {
+      clearFormFieldError(page.form, input.name);
+      return;
+    } 
+
+    console.log(input.name);
     page.validateField(input.name);
   };
 
