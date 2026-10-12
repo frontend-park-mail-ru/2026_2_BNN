@@ -30,7 +30,7 @@ export function mountAuthForm(page, root) {
     if (isEmpty) {
       clearFormFieldError(page.form, input.name);
       return;
-    } 
+    }
 
     page.validateField(input.name, input.value);
   };

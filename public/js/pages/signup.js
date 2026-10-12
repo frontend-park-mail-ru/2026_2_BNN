@@ -56,11 +56,13 @@ export const SignupPage = {
    */
   validateField(name, value) {
     const password = name === "password" ? value : this.form.elements.password.value;
-    const repeatPassword = name === "repeatPassword" ? value : this.form.elements.repeatPassword.value;
+    const repeatPassword =
+      name === "repeatPassword" ? value : this.form.elements.repeatPassword.value;
     const messages = {
       login: getLoginError(name === "login" ? value.trim() : ""),
       password: getPasswordError(name === "password" ? value : ""),
-      repeatPassword: repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
+      repeatPassword:
+        repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
     };
 
     const names = name === "password" ? ["password", "repeatPassword"] : [name];
@@ -100,7 +102,7 @@ export const SignupPage = {
     const loginOk = this.validateField("login", login);
     const passwordOk = this.validateField("password", password);
     const repeatPasswordOk = this.validateField("repeatPassword", repeatPassword);
-    
+
     if (!loginOk || !passwordOk || !repeatPasswordOk) {
       return;
     }
