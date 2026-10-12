@@ -8,6 +8,8 @@ import {
   clearFormFieldError,
   setFormFeedback,
   setFormLoading,
+  getLoginError,
+  getPasswordError,
 } from "../utils/auth-form.js";
 
 /**
@@ -49,24 +51,27 @@ export const SignupPage = {
    * При проверке пароля заодно сверяет повтор пароля.
    *
    * @param {string} name Имя поля: `login`, `password` или `repeatPassword`.
+   * @param {string} value Текущее значение этого поля.
    * @returns {boolean} `true`, если проверенные поля прошли проверку.
    */
-  validateField(name) {
-    const data = new FormData(this.form);
-    const login = String(data.get("login") ?? "").trim();
-    const password = String(data.get("password") ?? "");
-    const repeatPassword = String(data.get("repeatPassword") ?? "");
-    
+  validateField(name, value) {
+    const password = name === "password" ? value : this.form.elements.password.value;
+    const repeatPassword = name === "repeatPassword" ? value : this.form.elements.repeatPassword.value;
     const messages = {
-      login: login.length < 3 || login.length > 20 ? "Логин должен быть от 3 до 20 символов" : "",
-      password: password.length < 8 || password.length > 128 ? "Пароль должен быть от 8 до 128 символов" : "",
-      repeatPassword: password !== repeatPassword ? "Пароли не совпадают" : "",
+      login: getLoginError(name === "login" ? value.trim() : ""),
+      password: getPasswordError(name === "password" ? value : ""),
+      repeatPassword: repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
     };
 
     const names = name === "password" ? ["password", "repeatPassword"] : [name];
     let valid = true;
 
     for (const fieldName of names) {
+      if (fieldName === "repeatPassword" && repeatPassword === "") {
+        clearFormFieldError(this.form, fieldName);
+        valid = false;
+        continue;
+      }
       const message = messages[fieldName] ?? "";
       if (message) {
         setFormFieldError(this.form, fieldName, message);
@@ -89,16 +94,16 @@ export const SignupPage = {
     event.preventDefault();
     clearFormErrors(this.form);
 
-    const loginOk = this.validateField("login");
-    const passwordOk = this.validateField("password");
-    const repeatPasswordOk = this.validateField("repeatPassword");
+    const login = this.form.elements.login.value.trim();
+    const password = this.form.elements.password.value;
+    const repeatPassword = this.form.elements.repeatPassword.value;
+    const loginOk = this.validateField("login", login);
+    const passwordOk = this.validateField("password", password);
+    const repeatPasswordOk = this.validateField("repeatPassword", repeatPassword);
+    
     if (!loginOk || !passwordOk || !repeatPasswordOk) {
       return;
     }
-
-    const data = new FormData(this.form);
-    const login = String(data.get("login") ?? "").trim();
-    const password = String(data.get("password") ?? "");
 
     setFormLoading(this.form, true);
 

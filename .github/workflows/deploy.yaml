@@ -1,4 +1,4 @@
-name: Brand New Notes
+name: Brand New Notes Deploy
 
 on:
   push:
@@ -24,7 +24,5 @@ jobs:
             git checkout -f ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
             npm install --include=dev
-            npm run lint
-            npm run format:check
             npm run build
             sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/ /opt/public/

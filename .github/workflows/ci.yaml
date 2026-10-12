@@ -1,0 +1,19 @@
+name: Brand New Notes CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dynamic-validation
+jobs:
+  check:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --include=dev
+      - run: npm run lint
+      - run: npm run format:check
