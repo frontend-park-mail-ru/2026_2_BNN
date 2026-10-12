@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-      - dynamic-validation
+    
 jobs:
   check:
     name: Lint and format
