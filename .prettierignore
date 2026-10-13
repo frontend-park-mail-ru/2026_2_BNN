@@ -1,3 +1,5 @@
 node_modules
-public/js/templates.compiled.js
-public/templates/**/*.hbs
+dist
+build
+public/templates.compiled.js
+templates

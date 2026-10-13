@@ -3,6 +3,16 @@ const globals = require("globals");
 
 module.exports = [
   {
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      "public/templates.compiled.js",
+    ],
+  },
+
+  {
     files: ["eslint.config.js"],
     languageOptions: {
       ecmaVersion: "latest",
@@ -13,14 +23,10 @@ module.exports = [
     },
   },
 
-  {
-    ignores: ["node_modules/**", "public/js/templates.compiled.js", "dist/**", "coverage/**"],
-  },
-
   js.configs.recommended,
 
   {
-    files: ["public/js/**/*.js"],
+    files: ["src/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
@@ -35,20 +41,7 @@ module.exports = [
   },
 
   {
-    files: ["server.js", "scripts/**/*.js"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "commonjs",
-      globals: {
-        ...globals.node,
-      },
-    },
-  },
-
-  {
-    rules: {
-      // отключает конфликтующие с Prettier stylistic-правила
-    },
+    rules: {},
     ...require("eslint-config-prettier"),
   },
 ];

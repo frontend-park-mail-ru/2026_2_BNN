@@ -1,8 +1,8 @@
-import { getState, setState } from "./store/app-store.js";
+import { getState, setState, type AuthStatus } from "./store/app-store.js";
 
 const LOCAL_API_URL = "http://localhost:5458";
 
-const DEFAULT_ERROR_MESSAGES = {
+const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   400: "Проверьте введённые данные",
   401: "Нужно войти в аккаунт",
   404: "Ничего не найдено",
@@ -11,14 +11,23 @@ const DEFAULT_ERROR_MESSAGES = {
 
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
 
+class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 /**
  * Возвращает базовый URL API:
- * - для localhost используется локальный бэкенд;
- * - для прода — относительные пути текущего хоста.
+ * для localhost используется локальный бэкенд, для прода — относительные пути текущего хоста.
  *
- * @returns {string}
+ * @returns Базовый URL без завершающего слэша. Пустая строка означает текущий хост.
  */
-function getApiUrl() {
+function getApiUrl(): string {
   if (window.location.hostname === "localhost") {
     return LOCAL_API_URL;
   }
@@ -26,13 +35,23 @@ function getApiUrl() {
 }
 
 /**
+ * Проверяет, что значение является обычным объектом.
+ *
+ * @param value Проверяемое значение.
+ * @returns `true`, если это объект и не массив.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
  * Подбирает сообщение об ошибке по HTTP-статусу.
  *
- * @param {number} status HTTP-статус ответа.
- * @param {Record<number, string>} messages Локальная карта сообщений конкретного запроса.
- * @returns {string}
+ * @param status HTTP-статус ответа.
+ * @param messages Локальная карта сообщений конкретного запроса.
+ * @returns Текст ошибки для этого статуса.
  */
-function getErrorMessage(status, messages) {
+function getErrorMessage(status: number, messages: Record<number, string>): string {
   return (
     messages[status] ??
     DEFAULT_ERROR_MESSAGES[status] ??
@@ -45,23 +64,31 @@ function getErrorMessage(status, messages) {
  * HTTP-клиент приложения.
  */
 class Api {
+  private readonly baseUrl: string;
+
   /**
-   * @param {string} baseUrl Базовый URL для всех API-запросов.
+   * @param baseUrl Базовый URL для всех API-запросов.
    */
-  constructor(baseUrl) {
+  constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
   }
 
   /**
    * Выполняет запрос с единым парсингом JSON и нормализацией ошибок.
    *
-   * @param {string} path Путь запроса (без baseUrl).
-   * @param {RequestInit} [options={}] Опции fetch.
-   * @param {Record<number, string>} [messages={}] Переопределения текстов ошибок по статусам.
-   * @returns {Promise<unknown | null>}
+   * @param path Путь запроса без базового URL.
+   * @param options Опции fetch.
+   * @param messages Переопределения текстов ошибок по статусам.
+   * @returns Разобранный JSON, либо `null` для пустого ответа и статуса 204.
    */
-  async request(path, options = {}, messages = {}) {
-    const headers = { ...options.headers };
+  async request(
+    path: string,
+    options: RequestInit = {},
+    messages: Record<number, string> = {}
+  ): Promise<unknown | null> {
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> | undefined),
+    };
 
     if (options.body) {
       headers["Content-Type"] = "application/json";
@@ -70,7 +97,7 @@ class Api {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...options,
       credentials: "include",
-      headers: headers,
+      headers,
     });
 
     if (!response.ok) {
@@ -79,18 +106,16 @@ class Api {
 
       if (text) {
         try {
-          const data = JSON.parse(text);
-          if (data?.message) {
-            message = data.message;
+          const data: unknown = JSON.parse(text);
+          if (isRecord(data) && data.message) {
+            message = String(data.message);
           }
         } catch {
           message = text;
         }
       }
 
-      const error = new Error(message);
-      error.status = response.status;
-      throw error;
+      throw new ApiError(message, response.status);
     }
 
     if (response.status === 204) {
@@ -104,7 +129,7 @@ class Api {
     }
 
     try {
-      return JSON.parse(text);
+      return JSON.parse(text) as unknown;
     } catch {
       throw new Error("Сервер вернул некорректный JSON");
     }
@@ -113,11 +138,11 @@ class Api {
   /**
    * Регистрирует пользователя.
    *
-   * @param {string} login Логин.
-   * @param {string} password Пароль.
-   * @returns {Promise<unknown>}
+   * @param login Логин.
+   * @param password Пароль.
+   * @returns Ответ сервера.
    */
-  signUp(login, password) {
+  signUp(login: string, password: string): Promise<unknown | null> {
     return this.request(
       "/api/auth/signup",
       {
@@ -134,11 +159,11 @@ class Api {
   /**
    * Авторизует пользователя.
    *
-   * @param {string} login Логин.
-   * @param {string} password Пароль.
-   * @returns {Promise<unknown>}
+   * @param login Логин.
+   * @param password Пароль.
+   * @returns Ответ сервера.
    */
-  logIn(login, password) {
+  logIn(login: string, password: string): Promise<unknown | null> {
     return this.request(
       "/api/auth/signin",
       {
@@ -154,9 +179,9 @@ class Api {
   /**
    * Завершает пользовательскую сессию на бэкенде.
    *
-   * @returns {Promise<unknown | null>}
+   * @returns Ответ сервера или `null`, если тела нет.
    */
-  logOut() {
+  logOut(): Promise<unknown | null> {
     return this.request("/api/auth/logout", {
       method: "POST",
     });
@@ -165,21 +190,21 @@ class Api {
   /**
    * Запрашивает список заметок постранично.
    *
-   * @param {number} [limit=10] Лимит заметок в запросе.
-   * @param {number} [offset=0] Смещение.
-   * @returns {Promise<unknown>}
+   * @param limit Лимит заметок в запросе.
+   * @param offset Смещение.
+   * @returns Список заметок в формате ответа сервера.
    */
-  getNotes(limit = 10, offset = 0) {
+  getNotes(limit = 10, offset = 0): Promise<unknown | null> {
     return this.request(`/api/notes/getall?limit=${limit}&offset=${offset}`);
   }
 
   /**
    * Запрашивает одну заметку по id.
    *
-   * @param {string | number} id Идентификатор заметки.
-   * @returns {Promise<unknown>}
+   * @param id Идентификатор заметки.
+   * @returns Заметка в формате ответа сервера.
    */
-  getNote(id) {
+  getNote(id: string | number): Promise<unknown | null> {
     return this.request(
       `/api/notes/${encodeURIComponent(id)}`,
       {},
@@ -191,11 +216,11 @@ class Api {
   }
 
   /**
-   * Загружает профиль текущего пользователя и синхронизирует auth-состояние в store.
+   * Загружает профиль текущего пользователя и записывает его в store.
    *
-   * @returns {Promise<unknown>}
+   * @returns Профиль пользователя.
    */
-  getProfile() {
+  getProfile(): Promise<unknown | null> {
     return this.request("/api/auth/me").then((profile) => {
       setState({
         auth: {
@@ -211,22 +236,21 @@ class Api {
   /**
    * Возвращает профиль из локального store без сетевого запроса.
    *
-   * @returns {unknown | null}
+   * @returns Сохранённый профиль или `null`.
    */
-  getCachedProfile() {
+  getCachedProfile(): unknown {
     return getState().auth.user;
   }
 
   /**
    * Сбрасывает данные авторизации в store.
    *
-   * @param {"unknown" | "unauthenticated"} [status="unknown"] Целевой auth-статус после сброса.
-   * @returns {void}
+   * @param status Целевой auth-статус после сброса.
    */
-  clearCachedProfile(status = "unknown") {
+  clearCachedProfile(status: Extract<AuthStatus, "unknown" | "unauthenticated"> = "unknown"): void {
     setState({
       auth: {
-        status: status,
+        status,
         isLoggedIn: false,
         user: null,
       },
@@ -236,6 +260,5 @@ class Api {
 
 /**
  * Единый экземпляр API-клиента приложения.
- * @type {Api}
  */
 export const api = new Api(getApiUrl());
