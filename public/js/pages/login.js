@@ -5,8 +5,11 @@ import {
   destroyAuthForm,
   clearFormErrors,
   setFormFieldError,
+  clearFormFieldError,
   setFormFeedback,
   setFormLoading,
+  getLoginError,
+  getPasswordError,
 } from "../utils/auth-form.js";
 
 /**
@@ -44,6 +47,24 @@ export const LoginPage = {
   },
 
   /**
+   * Проверяет одно поле логина и показывает или снимает ошибку.
+   *
+   * @param {string} name Имя поля: `login` или `password`.
+   * @param {string} value Текущее значение этого поля.
+   * @returns {boolean} `true`, если поле прошло проверку.
+   */
+  validateField(name, value) {
+    const message = name === "login" ? getLoginError(value.trim()) : getPasswordError(value);
+
+    if (message) {
+      setFormFieldError(this.form, name, message);
+    } else {
+      clearFormFieldError(this.form, name);
+    }
+    return message === "";
+  },
+
+  /**
    * Обрабатывает отправку формы логина:
    * валидирует поля, вызывает API, сбрасывает кэш auth/notes и перенаправляет пользователя.
    *
@@ -54,22 +75,12 @@ export const LoginPage = {
     event.preventDefault();
     clearFormErrors(this.form);
 
-    const data = new FormData(this.form);
-    const login = String(data.get("login") ?? "").trim();
-    const password = String(data.get("password") ?? "");
-    let valid = true;
+    const login = this.form.elements.login.value.trim();
+    const password = this.form.elements.password.value;
+    const loginOk = this.validateField("login", login);
+    const passwordOk = this.validateField("password", password);
 
-    if (login.length < 3 || login.length > 20) {
-      setFormFieldError(this.form, "login", "Логин должен быть от 3 до 20 символов");
-      valid = false;
-    }
-
-    if (password.length < 8 || password.length > 128) {
-      setFormFieldError(this.form, "password", "Пароль должен быть от 8 до 128 символов");
-      valid = false;
-    }
-
-    if (!valid) {
+    if (!loginOk || !passwordOk) {
       return;
     }
 

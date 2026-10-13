@@ -145,31 +145,6 @@ function filterNotes(notes, query) {
 }
 
 /**
- * Считывает строку поиска из URL-параметра `q`.
- *
- * @returns {string}
- */
-function getQueryFromUrl() {
-  return new URLSearchParams(window.location.search).get("q") ?? "";
-}
-
-/**
- * Синхронизирует строку поиска с URL без перезагрузки страницы.
- *
- * @param {string} query Поисковый запрос.
- * @returns {void}
- */
-function setQueryToUrl(query) {
-  const url = new URL(window.location.href);
-  if (query) {
-    url.searchParams.set("q", query);
-  } else {
-    url.searchParams.delete("q");
-  }
-  history.replaceState(null, "", url);
-}
-
-/**
  * Ищет заметку по id в коллекции.
  *
  * @param {Array<{ id: string }>} notes Коллекция заметок.
@@ -199,10 +174,8 @@ function findNote(notes, id) {
 function buildView(context) {
   const path = context.path;
   const params = context.params;
-  const query = getQueryFromUrl();
 
   const currentSection = getCurrentSection(path);
-  const foundNotes = filterNotes(store.notes, query);
   const currentNote = findNote(store.notes, params.id);
 
   const isReady = store.status === "ready";
@@ -220,7 +193,7 @@ function buildView(context) {
   }
 
   const notes = [];
-  for (const note of foundNotes) {
+  for (const note of store.notes) {
     notes.push({
       href: "/notes/" + note.id,
       title: note.title,
@@ -246,7 +219,6 @@ function buildView(context) {
   const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
 
   return {
-    query: query,
     userLogin: userLogin,
 
     sectionTitle: currentSection.title,
@@ -257,7 +229,7 @@ function buildView(context) {
     isError: isError,
     errorMessage: store.error,
     isEmpty: isReady && !hasNotes,
-    isNotFound: !isLoading && hasNotes && foundNotes.length === 0,
+    isWelcome: isReady && hasNotes && !currentNote,
     skeletonRows: SKELETON_ROWS,
 
     notes: notes,
@@ -344,13 +316,20 @@ export const NotesPage = {
     const listRegion = page.querySelector("[data-notes-list]");
     const mainRegion = page.querySelector("[data-notes-main]");
     const search = page.querySelector("[data-search]");
+    const searchBox = page.querySelector(".search-box");
+    const searchResults = page.querySelector("[data-search-results]");
+    const logoutDialog = page.querySelector("[data-logout-dialog]");
 
     const instance = {
       page: page,
       search: search,
+      searchBox: searchBox,
       searchTimer: null,
       onSearchInput: onSearchInput,
+      onSearchFocus: onSearchFocus,
+      onSearchFocusOut: onSearchFocusOut,
       onPageClick: onPageClick,
+      onPageKeyDown: onPageKeyDown,
     };
 
     function update() {
@@ -374,17 +353,66 @@ export const NotesPage = {
       }
 
       update();
+      renderSearchResults();
+    }
+
+    /**
+     * Показывает под полем поиска заметки, в которых есть введенный текст.
+     *
+     * @returns {void}
+     */
+    function renderSearchResults() {
+      const query = search.value.trim();
+      const results = [];
+
+      if (query && store.status === "ready") {
+        const found = filterNotes(store.notes, query);
+        const limit = found.length > 8 ? 8 : found.length;
+
+        for (let index = 0; index < limit; index++) {
+          results.push({
+            href: "/notes/" + found[index].id,
+            title: found[index].title,
+          });
+        }
+      }
+
+      const canSearch = query !== "" && store.status === "ready";
+      const isSearchActive = searchBox.contains(document.activeElement);
+
+      searchResults.hidden = !canSearch || !isSearchActive;
+      searchResults.innerHTML = canSearch
+        ? Handlebars.partials["search-results"]({
+            hasResults: results.length > 0,
+            results: results,
+          })
+        : "";
     }
 
     function runSearch() {
       instance.searchTimer = null;
-      setQueryToUrl(search.value.trim());
-      update();
+      renderSearchResults();
     }
 
     function onSearchInput() {
       clearTimeout(instance.searchTimer);
       instance.searchTimer = setTimeout(runSearch, SEARCH_DELAY);
+    }
+
+    function onSearchFocus() {
+      renderSearchResults();
+    }
+
+    function onSearchFocusOut(event) {
+      if (searchBox.contains(event.relatedTarget)) {
+        return;
+      }
+
+      searchResults.hidden = true;
+    }
+
+    function closeLogoutDialog() {
+      logoutDialog.hidden = true;
     }
 
     async function onPageClick(event) {
@@ -401,9 +429,18 @@ export const NotesPage = {
         clearTimeout(instance.searchTimer);
         instance.searchTimer = null;
         search.value = "";
-        setQueryToUrl("");
-        update();
+        renderSearchResults();
         search.focus();
+        return;
+      }
+
+      if (event.target.closest("[data-logout-open]")) {
+        logoutDialog.hidden = false;
+        return;
+      }
+
+      if (event.target.closest("[data-logout-cancel]") || event.target === logoutDialog) {
+        closeLogoutDialog();
         return;
       }
 
@@ -416,14 +453,25 @@ export const NotesPage = {
       try {
         await api.logOut();
       } finally {
-        setQueryToUrl("");
         resetAuthState("unauthenticated");
         await navigate("/login");
       }
     }
 
+    function onPageKeyDown(event) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      searchResults.hidden = true;
+      closeLogoutDialog();
+    }
+
     search.addEventListener("input", onSearchInput);
+    search.addEventListener("focus", onSearchFocus);
+    searchBox.addEventListener("focusout", onSearchFocusOut);
     page.addEventListener("click", onPageClick);
+    page.addEventListener("keydown", onPageKeyDown);
 
     mounted = instance;
 
@@ -446,7 +494,10 @@ export const NotesPage = {
 
     clearTimeout(mounted.searchTimer);
     mounted.search.removeEventListener("input", mounted.onSearchInput);
+    mounted.search.removeEventListener("focus", mounted.onSearchFocus);
+    mounted.searchBox.removeEventListener("focusout", mounted.onSearchFocusOut);
     mounted.page.removeEventListener("click", mounted.onPageClick);
+    mounted.page.removeEventListener("keydown", mounted.onPageKeyDown);
     mounted = null;
   },
 };

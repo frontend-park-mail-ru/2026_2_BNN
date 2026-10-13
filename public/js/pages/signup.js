@@ -5,8 +5,11 @@ import {
   destroyAuthForm,
   clearFormErrors,
   setFormFieldError,
+  clearFormFieldError,
   setFormFeedback,
   setFormLoading,
+  getLoginError,
+  getPasswordError,
 } from "../utils/auth-form.js";
 
 /**
@@ -44,6 +47,50 @@ export const SignupPage = {
   },
 
   /**
+   * Проверяет поле регистрации и показывает или снимает ошибку.
+   * При проверке пароля заодно сверяет повтор пароля.
+   *
+   * @param {string} name Имя поля: `login`, `password` или `repeatPassword`.
+   * @param {string} value Текущее значение этого поля.
+   * @returns {boolean} `true`, если проверенные поля прошли проверку.
+   */
+  validateField(name, value) {
+    const password = name === "password" ? value : this.form.elements.password.value;
+    const repeatPassword =
+      name === "repeatPassword" ? value : this.form.elements.repeatPassword.value;
+    const messages = {
+      login: getLoginError(name === "login" ? value.trim() : ""),
+      password: getPasswordError(name === "password" ? value : ""),
+      repeatPassword:
+        repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
+    };
+
+    const names = name === "password" ? ["password", "repeatPassword"] : [name];
+    let valid = true;
+
+    for (const fieldName of names) {
+      if (fieldName === "repeatPassword" && repeatPassword === "") {
+        if (name === "repeatPassword") {
+          setFormFieldError(this.form, fieldName, "Повторите пароль");
+          valid = false;
+          continue;
+        } else {
+          clearFormFieldError(this.form, fieldName);
+        }
+        continue;
+      }
+      const message = messages[fieldName] ?? "";
+      if (message) {
+        setFormFieldError(this.form, fieldName, message);
+        valid = false;
+      } else {
+        clearFormFieldError(this.form, fieldName);
+      }
+    }
+    return valid;
+  },
+
+  /**
    * Обрабатывает отправку формы регистрации:
    * валидирует поля, вызывает API, сбрасывает кэш auth/notes и переводит пользователя на логин.
    *
@@ -54,28 +101,14 @@ export const SignupPage = {
     event.preventDefault();
     clearFormErrors(this.form);
 
-    const data = new FormData(this.form);
-    const login = String(data.get("login") ?? "").trim();
-    const password = String(data.get("password") ?? "");
-    const repeatPassword = String(data.get("repeatPassword") ?? "");
-    let valid = true;
+    const login = this.form.elements.login.value.trim();
+    const password = this.form.elements.password.value;
+    const repeatPassword = this.form.elements.repeatPassword.value;
+    const loginOk = this.validateField("login", login);
+    const passwordOk = this.validateField("password", password);
+    const repeatPasswordOk = this.validateField("repeatPassword", repeatPassword);
 
-    if (login.length < 3 || login.length > 20) {
-      setFormFieldError(this.form, "login", "Логин должен быть от 3 до 20 символов");
-      valid = false;
-    }
-
-    if (password.length < 8 || password.length > 128) {
-      setFormFieldError(this.form, "password", "Пароль должен быть от 8 до 128 символов");
-      valid = false;
-    }
-
-    if (password !== repeatPassword) {
-      setFormFieldError(this.form, "repeatPassword", "Пароли не совпадают");
-      valid = false;
-    }
-
-    if (!valid) {
+    if (!loginOk || !passwordOk || !repeatPasswordOk) {
       return;
     }
 

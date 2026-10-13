@@ -1,9 +1,10 @@
-name: Brand New Notes
+name: Brand New Notes Deploy
 
 on:
   push:
     branches:
       - main
+
 jobs:
   BNN-Deploy:
     name: BNN-Deploy

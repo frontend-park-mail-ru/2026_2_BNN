@@ -2,11 +2,13 @@
  * @typedef {Object} AuthPage
  * @property {HTMLFormElement | null} [form] Текущая форма страницы авторизации/регистрации.
  * @property {(event: SubmitEvent) => void | Promise<void> | null} [onSubmit] Ссылка на обработчик submit.
+ * @property {(event: Event) => void | null} [onInput] Ссылка на обработчик ввода.
+ * @property {(name: string, value: string) => boolean} validateField Проверка одного поля.
  * @property {(event: SubmitEvent) => void | Promise<void>} handleSubmit Бизнес-обработчик submit.
  */
 
 /**
- * Находит форму на странице и подключает обработчик submit.
+ * Находит форму на странице и подключает обработчики submit и input.
  *
  * @param {AuthPage} page Объект страницы, где хранится состояние формы.
  * @param {ParentNode} root Корневой DOM-узел отрендеренной страницы.
@@ -14,20 +16,41 @@
  */
 export function mountAuthForm(page, root) {
   page.form = root.querySelector("form");
+  if (!page.form) {
+    return;
+  }
   page.onSubmit = (event) => page.handleSubmit(event);
+  page.onInput = (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.name) {
+      return;
+    }
+
+    const isEmpty = input.name === "login" ? input.value.trim() === "" : input.value === "";
+    if (isEmpty) {
+      clearFormFieldError(page.form, input.name);
+      return;
+    }
+
+    page.validateField(input.name, input.value);
+  };
+
   page.form.addEventListener("submit", page.onSubmit);
+  page.form.addEventListener("input", page.onInput);
 }
 
 /**
- * Снимает обработчик submit и очищает ссылки на элементы формы.
+ * Снимает обработчики формы и очищает ссылки на её элементы.
  *
  * @param {AuthPage} page Объект страницы, на котором ранее вызывался {@link mountAuthForm}.
  * @returns {void}
  */
 export function destroyAuthForm(page) {
   page.form?.removeEventListener("submit", page.onSubmit);
+  page.form?.removeEventListener("input", page.onInput);
   page.form = null;
   page.onSubmit = null;
+  page.onInput = null;
 }
 
 /**
@@ -46,6 +69,9 @@ export function clearFormErrors(form) {
   });
 
   const feedback = form.querySelector(".form-feedback");
+  if (!feedback) {
+    return;
+  }
   feedback.textContent = "";
   feedback.classList.remove("is-error", "is-success");
 }
@@ -60,8 +86,27 @@ export function clearFormErrors(form) {
  */
 export function setFormFieldError(form, name, message) {
   const error = form.querySelector(`[data-error-for="${name}"]`);
+  if (!error) {
+    return;
+  }
   error.textContent = message;
-  error.closest(".field").classList.add("has-error");
+  error.closest(".field")?.classList.add("has-error");
+}
+
+/**
+ * Снимает ошибку с конкретного поля формы.
+ *
+ * @param {HTMLFormElement} form HTML-форма.
+ * @param {string} name Имя поля (совпадает со значением `data-error-for`).
+ * @returns {void}
+ */
+export function clearFormFieldError(form, name) {
+  const error = form.querySelector(`[data-error-for="${name}"]`);
+  if (!error) {
+    return;
+  }
+  error.textContent = "";
+  error.closest(".field")?.classList.remove("has-error");
 }
 
 /**
@@ -73,6 +118,9 @@ export function setFormFieldError(form, name, message) {
  */
 export function setFormFeedback(form, message) {
   const feedback = form.querySelector(".form-feedback");
+  if (!feedback) {
+    return;
+  }
   feedback.textContent = message;
   feedback.classList.remove("is-success");
   feedback.classList.add("is-error");
@@ -87,6 +135,37 @@ export function setFormFeedback(form, message) {
  */
 export function setFormLoading(form, isLoading) {
   const button = form.querySelector(".login-button");
+  if (!button) {
+    return;
+  }
   button.disabled = isLoading;
   button.classList.toggle("is-loading", isLoading);
+}
+
+/**
+ * @param {string} login Логин без пробелов по краям.
+ * @returns {string} Текст ошибки или пустая строка, если длина допустима.
+ */
+export function getLoginError(login) {
+  if (login.length < 3) {
+    return "Логин должен быть не менее 3 символов";
+  }
+  if (login.length > 20) {
+    return "Логин не должен быть больше 20 символов";
+  }
+  return "";
+}
+
+/**
+ * @param {string} password Пароль как введён, без обрезки пробелов.
+ * @returns {string} Текст ошибки или пустая строка, если длина допустима.
+ */
+export function getPasswordError(password) {
+  if (password.length < 8) {
+    return "Пароль должен быть не менее 8 символов";
+  }
+  if (password.length > 128) {
+    return "Пароль не должен быть больше 128 символов";
+  }
+  return "";
 }
