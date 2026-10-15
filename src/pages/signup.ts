@@ -1,6 +1,9 @@
 import { api } from "../api.js";
 import { navigate, resetAuthState } from "../router.js";
 import {
+  type AuthPage,
+  type SubmitHandler,
+  type InputHandler,
   mountAuthForm,
   destroyAuthForm,
   clearFormErrors,
@@ -12,20 +15,45 @@ import {
   getPasswordError,
 } from "../utils/auth-form.js";
 
+interface ApiError {
+  status?: number;
+  message?: string;
+}
+
+function isApiError(error: unknown): error is ApiError {
+  if (typeof error != 'object' || error === null) {
+    return false;
+  }
+
+  return 'status' in error && typeof (error as any).status === 'number';
+}
+
+const SIGNUP_FIELDS = ["login", "password", "repeatPassword"] as const;
+
+type SignupField = (typeof SIGNUP_FIELDS)[number];
+
+function isSignupField(name: string): name is SignupField {
+  return (SIGNUP_FIELDS as readonly string[]).includes(name);
+}
+
 /**
  * SPA-страница регистрации.
  * Реализует render/mount/destroy контракт роутера.
  */
-export const SignupPage = {
+export class SignupPage implements AuthPage {
+  form: HTMLFormElement | null = null;
+  onSubmit: SubmitHandler | null = null;
+  onInput: InputHandler | null = null;
+
   /**
    * Рендерит HTML страницы регистрации.
    *
    * @returns {Promise<string>} Готовая HTML-строка страницы.
    */
-  async render() {
+  async render(): Promise<string> {
     const template = Handlebars.templates["signup"];
     return template({ title: "Регистрация" });
-  },
+  }
 
   /**
    * Подключает обработчики формы после вставки страницы в DOM.
@@ -33,18 +61,18 @@ export const SignupPage = {
    * @param {ParentNode} root Корневой узел отрисованной страницы.
    * @returns {void}
    */
-  mount(root) {
+  mount(root: ParentNode): void {
     mountAuthForm(this, root);
-  },
+  }
 
   /**
    * Снимает обработчики страницы при уходе с роута.
    *
    * @returns {void}
    */
-  destroy() {
+  destroy(): void {
     destroyAuthForm(this);
-  },
+  }
 
   /**
    * Проверяет поле регистрации и показывает или снимает ошибку.
@@ -54,41 +82,51 @@ export const SignupPage = {
    * @param {string} value Текущее значение этого поля.
    * @returns {boolean} `true`, если проверенные поля прошли проверку.
    */
-  validateField(name, value) {
-    const password = name === "password" ? value : this.form.elements.password.value;
-    const repeatPassword =
-      name === "repeatPassword" ? value : this.form.elements.repeatPassword.value;
-    const messages = {
+  validateField(name: string, value: string): boolean {
+    const form = this.form;
+    if (!form) {
+      return false;
+    }
+    if (!isSignupField(name)) {
+      return true;
+    }
+
+    const passwordInput = form.elements.namedItem("password") as HTMLInputElement;
+    const repeatPasswordInput = form.elements.namedItem("repeatPassword") as HTMLInputElement;
+
+    const password = name === "password" ? value : passwordInput.value;
+    const repeatPassword = name === "repeatPassword" ? value : repeatPasswordInput.value;
+
+    const messages: Record<SignupField, string> = {
       login: getLoginError(name === "login" ? value.trim() : ""),
       password: getPasswordError(name === "password" ? value : ""),
-      repeatPassword:
-        repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
+      repeatPassword: repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
     };
 
-    const names = name === "password" ? ["password", "repeatPassword"] : [name];
+    const names: SignupField[] = name === "password" ? ["password", "repeatPassword"] : [name];
     let valid = true;
 
     for (const fieldName of names) {
       if (fieldName === "repeatPassword" && repeatPassword === "") {
         if (name === "repeatPassword") {
-          setFormFieldError(this.form, fieldName, "Повторите пароль");
+          setFormFieldError(form, fieldName, "Повторите пароль");
           valid = false;
-          continue;
         } else {
-          clearFormFieldError(this.form, fieldName);
+          clearFormFieldError(form, fieldName);
         }
         continue;
       }
-      const message = messages[fieldName] ?? "";
+
+      const message = messages[fieldName];
       if (message) {
-        setFormFieldError(this.form, fieldName, message);
+        setFormFieldError(form, fieldName, message);
         valid = false;
       } else {
-        clearFormFieldError(this.form, fieldName);
+        clearFormFieldError(form, fieldName);
       }
     }
     return valid;
-  },
+  }
 
   /**
    * Обрабатывает отправку формы регистрации:
@@ -97,13 +135,24 @@ export const SignupPage = {
    * @param {SubmitEvent} event Событие submit от формы.
    * @returns {Promise<void>}
    */
-  async handleSubmit(event) {
+  async handleSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    clearFormErrors(this.form);
 
-    const login = this.form.elements.login.value.trim();
-    const password = this.form.elements.password.value;
-    const repeatPassword = this.form.elements.repeatPassword.value;
+    const form = this.form;
+    if (!form) {
+      return;
+    }
+
+    clearFormErrors(form);
+
+    const loginInput = form.elements.namedItem("login") as HTMLInputElement;
+    const passwordInput = form.elements.namedItem("password") as HTMLInputElement;
+    const repeatPasswordInput = form.elements.namedItem("repeatPassword") as HTMLInputElement;
+
+    const login = loginInput.value.trim();
+    const password = passwordInput.value;
+    const repeatPassword = repeatPasswordInput.value;
+
     const loginOk = this.validateField("login", login);
     const passwordOk = this.validateField("password", password);
     const repeatPasswordOk = this.validateField("repeatPassword", repeatPassword);
@@ -112,7 +161,7 @@ export const SignupPage = {
       return;
     }
 
-    setFormLoading(this.form, true);
+    setFormLoading(form, true);
 
     try {
       await api.signUp(login, password);
@@ -123,18 +172,19 @@ export const SignupPage = {
         return;
       }
 
-      if (error.status === 409) {
-        setFormFieldError(this.form, "login", error.message || "Такой логин уже занят");
+      if (isApiError(error)) {
+        if (error.status === 409) {
+          setFormFieldError(this.form, "login", error.message ?? "Такой логин уже занят");
+        } else {
+          setFormFeedback(this.form, error.message ?? "Не удалось зарегистрироваться");
+        }
       } else {
-        setFormFeedback(
-          this.form,
-          error.status ? error.message : "Не удалось связаться с сервером"
-        );
+        setFormFeedback(this.form, "Не удалось связаться с сервером");
       }
     } finally {
       if (this.form) {
         setFormLoading(this.form, false);
       }
     }
-  },
-};
+  }
+}

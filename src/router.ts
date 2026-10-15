@@ -30,8 +30,8 @@ const routes: RouteRecord[] = [
   { path: "/notes/trash", page: NotesPage, auth: true },
   { path: "/notes/notifications", page: NotesPage, auth: true },
   { path: "/notes/:id", page: NotesPage, auth: true },
-  { path: "/login", page: LoginPage, guest: true },
-  { path: "/signup", page: SignupPage, guest: true },
+  { path: "/login", page: new LoginPage(), guest: true },
+  { path: "/signup", page: new SignupPage(), guest: true },
 ];
 
 /**

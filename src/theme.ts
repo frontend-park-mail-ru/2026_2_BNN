@@ -1,7 +1,9 @@
 const STORAGE_KEY = "theme";
 const SPRITE = "/assets/icons/ui/sprite.svg";
 
-const THEME_ICONS = {
+type Theme = "light" | "dark";
+
+const THEME_ICONS: Record<Theme, string> = {
   light: "sunrise",
   dark: "sunset",
 };
@@ -11,7 +13,7 @@ const THEME_ICONS = {
  *
  * @returns {string | null}
  */
-function readStoredTheme() {
+function readStoredTheme(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY);
   } catch {
@@ -24,7 +26,7 @@ function readStoredTheme() {
  *
  * @returns {"light" | "dark"}
  */
-export function getTheme() {
+export function getTheme(): Theme {
   return readStoredTheme() === "dark" ? "dark" : "light";
 }
 
@@ -33,7 +35,7 @@ export function getTheme() {
  *
  * @returns {string}
  */
-export function getThemeIcon() {
+export function getThemeIcon(): string {
   return THEME_ICONS[getTheme()];
 }
 
@@ -43,7 +45,7 @@ export function getThemeIcon() {
  * @param {"light" | "dark"} theme Целевая тема.
  * @returns {void}
  */
-function applyTheme(theme) {
+function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
 
   try {
@@ -66,10 +68,11 @@ export function initTheme() {
   document.documentElement.dataset.theme = getTheme();
 
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("[data-theme-toggle]")) {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest("[data-theme-toggle]")) {
       return;
     }
-
+  
     applyTheme(getTheme() === "dark" ? "light" : "dark");
   });
 }

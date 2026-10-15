@@ -1,28 +1,95 @@
-import { api } from "../api.js";
-import { router, navigate, resetAuthState } from "../router.js";
+import { api } from "../api";
+import { router, navigate, resetAuthState } from "../router";
 
-const SECTIONS = [
+interface Section {
+  href: string;
+  icon: string;
+  title: string;
+}
+
+const SECTIONS: Section[] = [
   { href: "/notes", icon: "file", title: "Все заметки" },
   { href: "/notes/favourites", icon: "heart", title: "Избранное" },
   { href: "/notes/trash", icon: "trash", title: "Корзина" },
 ];
 
-const NOTIFICATIONS_SECTION = { href: "/notes/notifications", icon: "bell", title: "Уведомления" };
+const NOTIFICATIONS_SECTION: Section = { href: "/notes/notifications", icon: "bell", title: "Уведомления" };
 
-const ALL_SECTIONS = [...SECTIONS, NOTIFICATIONS_SECTION];
+const ALL_SECTIONS: Section[] = [...SECTIONS, NOTIFICATIONS_SECTION];
 
 const NOTES_LIMIT = 100;
 const SEARCH_DELAY = 200;
+const SEARCH_RESULTS_LIMIT = 8;
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 
-const store = {
-  status: "idle",
-  notes: [],
-  error: "",
-};
+interface PageContext {
+  path: string;
+  params: Record<string, string>;
+}
 
-let notesRequest = null;
-let mounted = null;
+interface Note {
+  id: string;
+  parentId: string | null;
+  title: string;
+  paragraphs: string[];
+  text: string;
+}
+
+interface NoteLink {
+  href: string;
+  title: string;
+}
+
+interface ApiBlock {
+  content: string;
+}
+
+interface ApiNote {
+  id: string;
+  parent_note_id?: string | null;
+  title: string;
+  blocks: ApiBlock[];
+}
+
+interface ApiErrorLike {
+  status: number;
+  message: string;
+}
+
+type NotesStatus = "idle" | "loading" | "ready" | "error" | "unauthorized";
+
+interface NotesStore {
+  status: NotesStatus;
+  notes: Note[];
+  error: string;
+}
+
+interface NotesElements {
+  page: HTMLElement;
+  listRegion: HTMLElement;
+  mainRegion: HTMLElement;
+  search: HTMLInputElement;
+  searchBox: HTMLElement;
+  searchResults: HTMLElement;
+  logoutDialog: HTMLElement;
+}
+
+interface NotesInstance {
+  page: HTMLElement;
+  search: HTMLInputElement;
+  searchBox: HTMLElement;
+  searchTimer: number | undefined;
+  onSearchInput: () => void;
+  onSearchFocus: () => void;
+  onSearchFocusOut: (event: FocusEvent) => void;
+  onPageClick: (event: MouseEvent) => void;
+  onPageKeyDown: (event: KeyboardEvent) => void;
+}
+
+const store: NotesStore = { status: "idle", notes: [], error: "" };
+
+let notesRequest: Promise<void> | null = null;
+let mounted: NotesInstance | null = null;
 let loadVersion = 0;
 
 /**
@@ -31,7 +98,7 @@ let loadVersion = 0;
  *
  * @returns {void}
  */
-export function resetNotesStore() {
+export function resetNotesStore(): void {
   loadVersion++;
   store.status = "idle";
   store.notes = [];
@@ -40,13 +107,62 @@ export function resetNotesStore() {
 }
 
 /**
+ * Проверяет, что ошибка пришла от API и содержит HTTP-статус.
+ *
+ * @param error Перехваченная ошибка.
+ * @returns `true`, если у ошибки есть числовой `status`.
+ */
+function isApiError(error: unknown): error is ApiErrorLike {
+  return error instanceof Error && "status" in error && typeof error.status === "number";
+}
+
+/**
+ * Достаёт логин из профиля, который роутер закэшировал в api.
+ *
+ * @param profile Профиль текущего пользователя или `null`.
+ * @returns Логин или пустая строка, если профиля нет.
+ */
+function getProfileLogin(profile: unknown): string {
+  if (typeof profile === "object" && profile !== null && "login" in profile && typeof profile.login === "string") {
+    return profile.login;
+  }
+  return "";
+}
+
+/**
+ * Находит на отрисованной странице все элементы, с которыми работает mount.
+ *
+ * @param root Корневой узел текущей страницы.
+ * @returns Элементы страницы или `null`, если чего-то не хватает в разметке.
+ */
+function getNotesElements(root: ParentNode): NotesElements | null {
+  const page = root.querySelector<HTMLElement>(".notes-page");
+  if (!page) {
+    return null;
+  }
+
+  const listRegion = page.querySelector<HTMLElement>("[data-notes-list]");
+  const mainRegion = page.querySelector<HTMLElement>("[data-notes-main]");
+  const search = page.querySelector<HTMLInputElement>("[data-search]");
+  const searchBox = page.querySelector<HTMLElement>(".search-box");
+  const searchResults = page.querySelector<HTMLElement>("[data-search-results]");
+  const logoutDialog = page.querySelector<HTMLElement>("[data-logout-dialog]");
+
+  if (!listRegion || !mainRegion || !search || !searchBox || !searchResults || !logoutDialog) {
+    return null;
+  }
+
+  return { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog };
+}
+
+/**
  * Извлекает текстовые блоки заметки в массив абзацев.
  *
- * @param {{ blocks?: Array<{ content?: string }> }} note Исходная заметка из API.
- * @returns {string[]}
+ * @param note Исходная заметка из API.
+ * @returns Непустые тексты блоков по порядку.
  */
-function getParagraphs(note) {
-  const paragraphs = [];
+function getParagraphs(note: ApiNote): string[] {
+  const paragraphs: string[] = [];
 
   if (!Array.isArray(note.blocks)) {
     return paragraphs;
@@ -63,10 +179,10 @@ function getParagraphs(note) {
 /**
  * Приводит заметку API к формату, удобному для UI.
  *
- * @param {{ id: string|number, title?: string, parent_note_id?: string|number|null, blocks?: Array<{ content?: string }> }} note
- * @returns {{ id: string, parentId: string | null, title: string, paragraphs: string[], text: string }}
+ * @param note Исходная заметка из API.
+ * @returns Заметка для шаблонов и поиска.
  */
-function normalizeNote(note) {
+function normalizeNote(note: ApiNote): Note {
   const title = note.title || "Без названия";
   const parentId = note.parent_note_id ? String(note.parent_note_id) : null;
   const paragraphs = getParagraphs(note);
@@ -83,15 +199,15 @@ function normalizeNote(note) {
 /**
  * Постранично загружает все заметки пользователя.
  *
- * @returns {Promise<Array<{ id: string, parentId: string | null, title: string, paragraphs: string[], text: string }>>}
+ * @returns Все заметки, приведённые к формату UI.
  */
-async function fetchAllNotes() {
-  const notes = [];
+async function fetchAllNotes(): Promise<Note[]> {
+  const notes: Note[] = [];
   let offset = 0;
 
   while (true) {
     const response = await api.getNotes(NOTES_LIMIT, offset);
-    const list = Array.isArray(response) ? response : [];
+    const list: ApiNote[] = Array.isArray(response) ? response : [];
 
     for (const note of list) {
       notes.push(normalizeNote(note));
@@ -108,10 +224,10 @@ async function fetchAllNotes() {
 /**
  * Возвращает активный раздел по текущему пути.
  *
- * @param {string} path Текущий pathname.
- * @returns {{ href: string, icon: string, title: string }}
+ * @param path Текущий pathname.
+ * @returns Раздел, которому соответствует путь, или «Все заметки».
  */
-function getCurrentSection(path) {
+function getCurrentSection(path: string): Section {
   for (const section of ALL_SECTIONS) {
     if (section.href === path) {
       return section;
@@ -123,18 +239,18 @@ function getCurrentSection(path) {
 /**
  * Фильтрует список заметок по поисковому запросу.
  *
- * @param {Array<{ title: string, text: string }>} notes Список заметок.
- * @param {string} query Поисковая строка.
- * @returns {Array<{ title: string, text: string }>}
+ * @param notes Список заметок.
+ * @param query Поисковая строка.
+ * @returns Заметки, в названии или тексте которых есть запрос.
  */
-function filterNotes(notes, query) {
+function filterNotes(notes: Note[], query: string): Note[] {
   const search = query.trim().toLowerCase();
 
   if (search === "") {
     return notes;
   }
 
-  const result = [];
+  const result: Note[] = [];
   for (const note of notes) {
     const noteText = (note.title + " " + note.text).toLowerCase();
     if (noteText.includes(search)) {
@@ -147,11 +263,11 @@ function filterNotes(notes, query) {
 /**
  * Ищет заметку по id в коллекции.
  *
- * @param {Array<{ id: string }>} notes Коллекция заметок.
- * @param {string | undefined} id Идентификатор заметки из route params.
- * @returns {{ id: string } | null}
+ * @param notes Коллекция заметок.
+ * @param id Идентификатор заметки из route params или parentId.
+ * @returns Найденная заметка или `null`.
  */
-function findNote(notes, id) {
+function findNote(notes: Note[], id: string | null | undefined): Note | null {
   if (!id) {
     return null;
   }
@@ -168,10 +284,10 @@ function findNote(notes, id) {
 /**
  * Формирует view-model для Handlebars-шаблонов страницы заметок.
  *
- * @param {{ path: string, params: Record<string, string> }} context Роут-контекст.
- * @returns {Record<string, unknown>}
+ * @param context Роут-контекст.
+ * @returns Данные для шаблонов `notes`, `notes-list` и `notes-main`.
  */
-function buildView(context) {
+function buildView(context: PageContext) {
   const path = context.path;
   const params = context.params;
 
@@ -183,16 +299,16 @@ function buildView(context) {
   const isLoading = !isReady && !isError;
   const hasNotes = store.notes.length > 0;
 
-  function isActive(section) {
+  function isActive(section: Section): boolean {
     return section === currentSection;
   }
 
-  const sections = [];
+  const sections: Array<Section & { isActive: boolean }> = [];
   for (const section of SECTIONS) {
     sections.push({ ...section, isActive: isActive(section) });
   }
 
-  const notes = [];
+  const notes: Array<NoteLink & { isActive: boolean }> = [];
   for (const note of store.notes) {
     notes.push({
       href: "/notes/" + note.id,
@@ -202,7 +318,7 @@ function buildView(context) {
   }
 
   let title = "";
-  let paragraphs = [];
+  let paragraphs: string[] = [];
   const breadcrumbs = [{ href: "/notes", label: "Все заметки" }];
 
   if (currentNote) {
@@ -215,11 +331,8 @@ function buildView(context) {
     }
   }
 
-  const profile = api.getCachedProfile();
-  const userLogin = profile?.login ?? profile?.username ?? profile?.name ?? "";
-
   return {
-    userLogin: userLogin,
+    userLogin: getProfileLogin(api.getCachedProfile()),
 
     sectionTitle: currentSection.title,
     sections: sections,
@@ -245,7 +358,7 @@ function buildView(context) {
  *
  * @returns {Promise<void>}
  */
-async function loadNotes() {
+async function loadNotes(): Promise<void> {
   const version = loadVersion;
   store.status = "loading";
   store.error = "";
@@ -266,13 +379,13 @@ async function loadNotes() {
 
     store.notes = [];
 
-    if (error.status === 401) {
+    if (isApiError(error) && error.status === 401) {
       store.status = "unauthorized";
       return;
     }
 
     store.status = "error";
-    store.error = error.status ? error.message : "Не удалось связаться с сервером";
+    store.error = isApiError(error) ? error.message : "Не удалось связаться с сервером";
   }
 }
 
@@ -281,8 +394,8 @@ async function loadNotes() {
  *
  * @returns {Promise<void>}
  */
-function waitForNotes() {
-  if (store.status !== "loading") {
+function waitForNotes(): Promise<void> {
+  if (store.status !== "loading" || !notesRequest) {
     notesRequest = loadNotes();
   }
   return notesRequest;
@@ -295,10 +408,10 @@ export const NotesPage = {
   /**
    * Рендерит полный шаблон страницы заметок.
    *
-   * @param {{ path: string, params: Record<string, string> }} context Роут-контекст.
+   * @param context Роут-контекст.
    * @returns {Promise<string>}
    */
-  async render(context) {
+  async render(context: PageContext): Promise<string> {
     const template = Handlebars.templates["notes"];
     const view = buildView(context);
     return template(view);
@@ -307,24 +420,23 @@ export const NotesPage = {
   /**
    * Монтирует обработчики страницы и запускает начальную загрузку данных.
    *
-   * @param {ParentNode} root Корневой узел текущей страницы.
-   * @param {{ path: string, params: Record<string, string> }} context Роут-контекст.
+   * @param root Корневой узел текущей страницы.
+   * @param context Роут-контекст.
    * @returns {Promise<void>}
    */
-  async mount(root, context) {
-    const page = root.querySelector(".notes-page");
-    const listRegion = page.querySelector("[data-notes-list]");
-    const mainRegion = page.querySelector("[data-notes-main]");
-    const search = page.querySelector("[data-search]");
-    const searchBox = page.querySelector(".search-box");
-    const searchResults = page.querySelector("[data-search-results]");
-    const logoutDialog = page.querySelector("[data-logout-dialog]");
+  async mount(root: ParentNode, context: PageContext): Promise<void> {
+    const elements = getNotesElements(root);
+    if (!elements) {
+      return;
+    }
 
-    const instance = {
+    const { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog } = elements;
+
+    const instance: NotesInstance = {
       page: page,
       search: search,
       searchBox: searchBox,
-      searchTimer: null,
+      searchTimer: undefined,
       onSearchInput: onSearchInput,
       onSearchFocus: onSearchFocus,
       onSearchFocusOut: onSearchFocusOut,
@@ -332,13 +444,13 @@ export const NotesPage = {
       onPageKeyDown: onPageKeyDown,
     };
 
-    function update() {
+    function update(): void {
       const view = buildView(context);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
     }
 
-    async function loadAndShow() {
+    async function loadAndShow(): Promise<void> {
       await waitForNotes();
 
       if (mounted !== instance) {
@@ -348,7 +460,7 @@ export const NotesPage = {
       if (store.status === "unauthorized") {
         resetAuthState("unauthenticated");
         history.replaceState(null, "", "/login");
-        router();
+        await router();
         return;
       }
 
@@ -361,18 +473,17 @@ export const NotesPage = {
      *
      * @returns {void}
      */
-    function renderSearchResults() {
+    function renderSearchResults(): void {
       const query = search.value.trim();
-      const results = [];
+      const results: NoteLink[] = [];
 
       if (query && store.status === "ready") {
-        const found = filterNotes(store.notes, query);
-        const limit = found.length > 8 ? 8 : found.length;
+        const found = filterNotes(store.notes, query).slice(0, SEARCH_RESULTS_LIMIT);
 
-        for (let index = 0; index < limit; index++) {
+        for (const note of found) {
           results.push({
-            href: "/notes/" + found[index].id,
-            title: found[index].title,
+            href: "/notes/" + note.id,
+            title: note.title,
           });
         }
       }
@@ -389,76 +500,80 @@ export const NotesPage = {
         : "";
     }
 
-    function runSearch() {
-      instance.searchTimer = null;
+    function runSearch(): void {
+      instance.searchTimer = undefined;
       renderSearchResults();
     }
 
-    function onSearchInput() {
-      clearTimeout(instance.searchTimer);
-      instance.searchTimer = setTimeout(runSearch, SEARCH_DELAY);
+    function onSearchInput(): void {
+      window.clearTimeout(instance.searchTimer);
+      instance.searchTimer = window.setTimeout(runSearch, SEARCH_DELAY);
     }
 
-    function onSearchFocus() {
+    function onSearchFocus(): void {
       renderSearchResults();
     }
 
-    function onSearchFocusOut(event) {
-      if (searchBox.contains(event.relatedTarget)) {
+    function onSearchFocusOut(event: FocusEvent): void {
+      const next = event.relatedTarget;
+      if (next instanceof Node && searchBox.contains(next)) {
         return;
       }
 
       searchResults.hidden = true;
     }
 
-    function closeLogoutDialog() {
+    function closeLogoutDialog(): void {
       logoutDialog.hidden = true;
     }
 
-    async function onPageClick(event) {
-      if (event.target.closest("[data-retry]")) {
-        store.status = "idle";
-        update();
-        loadAndShow();
+    async function logOut(button: HTMLButtonElement): Promise<void> {
+      button.disabled = true;
+      await api.logOut().catch(() => null);
+
+      resetAuthState("unauthenticated");
+      await navigate("/login");
+    }
+
+    function onPageClick(event: MouseEvent): void {
+      const target = event.target;
+      if (!(target instanceof Element)) {
         return;
       }
 
-      const clearButton = event.target.closest("[data-search-clear]");
+      if (target.closest("[data-retry]")) {
+        store.status = "idle";
+        update();
+        void loadAndShow();
+        return;
+      }
 
-      if (clearButton) {
-        clearTimeout(instance.searchTimer);
-        instance.searchTimer = null;
+      if (target.closest("[data-search-clear]")) {
+        window.clearTimeout(instance.searchTimer);
+        instance.searchTimer = undefined;
         search.value = "";
         renderSearchResults();
         search.focus();
         return;
       }
 
-      if (event.target.closest("[data-logout-open]")) {
+      if (target.closest("[data-logout-open]")) {
         logoutDialog.hidden = false;
         return;
       }
 
-      if (event.target.closest("[data-logout-cancel]") || event.target === logoutDialog) {
+      if (target.closest("[data-logout-cancel]") || target === logoutDialog) {
         closeLogoutDialog();
         return;
       }
 
-      const logoutButton = event.target.closest("[data-logout]");
-      if (!logoutButton) {
-        return;
-      }
-
-      logoutButton.disabled = true;
-      try {
-        await api.logOut();
-      } finally {
-        resetAuthState("unauthenticated");
-        await navigate("/login");
+      const logoutButton = target.closest<HTMLButtonElement>("[data-logout]");
+      if (logoutButton) {
+        void logOut(logoutButton);
       }
     }
 
-    function onPageKeyDown(event) {
+    function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
       }
@@ -487,12 +602,12 @@ export const NotesPage = {
    *
    * @returns {void}
    */
-  destroy() {
+  destroy(): void {
     if (!mounted) {
       return;
     }
 
-    clearTimeout(mounted.searchTimer);
+    window.clearTimeout(mounted.searchTimer);
     mounted.search.removeEventListener("input", mounted.onSearchInput);
     mounted.search.removeEventListener("focus", mounted.onSearchFocus);
     mounted.searchBox.removeEventListener("focusout", mounted.onSearchFocusOut);

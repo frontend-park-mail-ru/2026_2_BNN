@@ -7,7 +7,7 @@ export const NotFoundPage = {
    *
    * @returns {Promise<string>}
    */
-  async render() {
+  async render(): Promise<string> {
     const template = Handlebars.templates["notfound"];
     return template({ title: "404" });
   },
@@ -18,12 +18,12 @@ export const NotFoundPage = {
    * @param {ParentNode} _root Корневой узел страницы.
    * @returns {void}
    */
-  mount(_root) {},
+  mount(_root: ParentNode): void {},
 
   /**
    * Заглушка для контракта роутера.
    *
    * @returns {void}
    */
-  destroy() {},
+  destroy(): void {},
 };

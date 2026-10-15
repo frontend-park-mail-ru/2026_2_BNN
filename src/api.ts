@@ -1,4 +1,4 @@
-import { getState, setState, type AuthStatus } from "./store/app-store.js";
+import { getState, setState, type AuthStatus } from "./store/app-store";
 
 const LOCAL_API_URL = "http://localhost:5458";
 

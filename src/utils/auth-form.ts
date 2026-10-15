@@ -1,5 +1,5 @@
-type SubmitHandler = (event: SubmitEvent) => void | Promise<void>;
-type InputHandler = (event: Event) => void;
+export type SubmitHandler = (event: SubmitEvent) => void | Promise<void>;
+export type InputHandler = (event: Event) => void;
 
 export interface AuthPage {
   form: HTMLFormElement | null;
