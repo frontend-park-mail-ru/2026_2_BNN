@@ -72,7 +72,7 @@ export function initTheme() {
     if (!(target instanceof Element) || !target.closest("[data-theme-toggle]")) {
       return;
     }
-  
+
     applyTheme(getTheme() === "dark" ? "light" : "dark");
   });
 }

@@ -21,11 +21,11 @@ interface ApiError {
 }
 
 function isApiError(error: unknown): error is ApiError {
-  if (typeof error != 'object' || error === null) {
+  if (typeof error != "object" || error === null) {
     return false;
   }
 
-  return 'status' in error && typeof (error as any).status === 'number';
+  return "status" in error && typeof error.status === "number";
 }
 
 const SIGNUP_FIELDS = ["login", "password", "repeatPassword"] as const;
@@ -100,7 +100,8 @@ export class SignupPage implements AuthPage {
     const messages: Record<SignupField, string> = {
       login: getLoginError(name === "login" ? value.trim() : ""),
       password: getPasswordError(name === "password" ? value : ""),
-      repeatPassword: repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
+      repeatPassword:
+        repeatPassword !== "" && password !== repeatPassword ? "Пароли не совпадают" : "",
     };
 
     const names: SignupField[] = name === "password" ? ["password", "repeatPassword"] : [name];

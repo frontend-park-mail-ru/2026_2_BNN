@@ -13,7 +13,11 @@ const SECTIONS: Section[] = [
   { href: "/notes/trash", icon: "trash", title: "Корзина" },
 ];
 
-const NOTIFICATIONS_SECTION: Section = { href: "/notes/notifications", icon: "bell", title: "Уведомления" };
+const NOTIFICATIONS_SECTION: Section = {
+  href: "/notes/notifications",
+  icon: "bell",
+  title: "Уведомления",
+};
 
 const ALL_SECTIONS: Section[] = [...SECTIONS, NOTIFICATIONS_SECTION];
 
@@ -123,7 +127,12 @@ function isApiError(error: unknown): error is ApiErrorLike {
  * @returns Логин или пустая строка, если профиля нет.
  */
 function getProfileLogin(profile: unknown): string {
-  if (typeof profile === "object" && profile !== null && "login" in profile && typeof profile.login === "string") {
+  if (
+    typeof profile === "object" &&
+    profile !== null &&
+    "login" in profile &&
+    typeof profile.login === "string"
+  ) {
     return profile.login;
   }
   return "";
@@ -430,7 +439,8 @@ export const NotesPage = {
       return;
     }
 
-    const { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog } = elements;
+    const { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog } =
+      elements;
 
     const instance: NotesInstance = {
       page: page,

@@ -21,11 +21,11 @@ interface ApiError {
 }
 
 function isApiError(error: unknown): error is ApiError {
-  if (typeof error != 'object' || error === null) {
+  if (typeof error != "object" || error === null) {
     return false;
   }
 
-  return 'status' in error && typeof (error as any).status === 'number';
+  return "status" in error && typeof error.status === "number";
 }
 
 /**
@@ -130,14 +130,11 @@ export class LoginPage implements AuthPage {
         return;
       }
 
-      if (isApiError(error)) { 
+      if (isApiError(error)) {
         if (error.status === 401) {
           setFormFieldError(this.form, "password", "Неверный логин или пароль");
         } else {
-          setFormFeedback(
-            this.form,
-            error.message ?? "Произошла ошибка при авторизации"
-          );
+          setFormFeedback(this.form, error.message ?? "Произошла ошибка при авторизации");
         }
       } else {
         setFormFeedback(this.form, "Не удалось связаться с сервером");
