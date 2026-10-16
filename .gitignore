@@ -24,4 +24,4 @@ coverage/
 .cache/
 
 # compiled templates
-src/public/templates.compiled.js
+/public/templates.compiled.js
