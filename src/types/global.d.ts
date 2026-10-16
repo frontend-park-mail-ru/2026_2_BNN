@@ -1,5 +1,3 @@
-/// <reference types="vite/client" />
-
 interface HandlebarsTemplate {
   (context?: unknown): string;
 }
