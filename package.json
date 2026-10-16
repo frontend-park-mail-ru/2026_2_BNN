@@ -13,26 +13,33 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node scripts/precompile-templates.js",
-    "prestart": "npm run build",
-    "start": "node server.js",
+    "build:templates": "tsc -p tsconfig.scripts.json && node build/precompile-templates.js",
+    "build": "npm run build:templates && vite build",
+    "typecheck": "tsc --noEmit",
+    "predev": "npm run build:templates",
+    "dev": "vite",
+    "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "vite": "^8.3.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/handlebars": "^4.0.40",
+    "@types/node": "^26.6.5",
+    "@vitejs/plugin-legacy": "^8.2.3",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
     "handlebars": "^4.7.9",
-    "prettier": "^3.9.9"
+    "prettier": "^3.9.9",
+    "sass": "^1.105.1",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.71.2"
   }
 }
