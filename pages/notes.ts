@@ -145,7 +145,7 @@ function getProfileLogin(profile: unknown): string {
  * @returns Элементы страницы или `null`, если чего-то не хватает в разметке.
  */
 function getNotesElements(root: ParentNode): NotesElements | null {
-  const page = root.querySelector<HTMLElement>(".notes-page");
+  const page = root.querySelector<HTMLElement>(".notes");
   if (!page) {
     return null;
   }
@@ -153,7 +153,7 @@ function getNotesElements(root: ParentNode): NotesElements | null {
   const listRegion = page.querySelector<HTMLElement>("[data-notes-list]");
   const mainRegion = page.querySelector<HTMLElement>("[data-notes-main]");
   const search = page.querySelector<HTMLInputElement>("[data-search]");
-  const searchBox = page.querySelector<HTMLElement>(".search-box");
+  const searchBox = page.querySelector<HTMLElement>(".search");
   const searchResults = page.querySelector<HTMLElement>("[data-search-results]");
   const logoutDialog = page.querySelector<HTMLElement>("[data-logout-dialog]");
 

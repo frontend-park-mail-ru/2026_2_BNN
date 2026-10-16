@@ -1,0 +1,15 @@
+{{#if isLoading}}
+    <ul class="sidebar__list" aria-busy="true" aria-label="Загрузка заметок">
+        {{#each skeletonRows}}
+            <li class="card"><span class="skeleton skeleton_line"></span></li>
+        {{/each}}
+    </ul>
+{{else if isError}}
+    <p class="sidebar__message sidebar__message_error">Не удалось загрузить список</p>
+{{else}}
+    <ul class="sidebar__list">
+        {{#each notes}}
+            <li>{{> notecard}}</li>
+        {{/each}}
+    </ul>
+{{/if}}

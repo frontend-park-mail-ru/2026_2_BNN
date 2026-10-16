@@ -6,8 +6,8 @@
   justify-content: center;
   gap: var(--space-m);
   text-align: center;
-}
 
-.not-found a {
-  color: var(--text);
+  &__link {
+    color: var(--text);
+  }
 }

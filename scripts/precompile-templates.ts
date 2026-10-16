@@ -2,9 +2,9 @@ import fs from "fs";
 import path from "path";
 import Handlebars from "handlebars";
 
-const templatesDir = path.join(__dirname, "../templates");
+const templatesDir = path.join(__dirname, "../src/templates");
 const partialsDir = path.join(templatesDir, "partials");
-const outputFile = path.join(__dirname, "../public/templates.compiled.js");
+const outputFile = path.join(__dirname, "../src/public/templates.compiled.js");
 
 /**
  * Компилирует все `.hbs`-файлы из каталога в JS-выражения Handlebars.

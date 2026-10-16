@@ -66,23 +66,23 @@ export function destroyAuthForm(page: AuthPage): void {
 /**
  * Удаляет все сообщения об ошибках и классы валидации с формы.
  *
- * @param form HTML-форма с полями `.field`, сообщениями `.field-error` и блоком `.form-feedback`.
+ * @param form HTML-форма с полями `.login-form__field`, сообщениями `.login-form__error` и блоком `.login-form__feedback`.
  */
 export function clearFormErrors(form: HTMLFormElement): void {
-  form.querySelectorAll(".field").forEach((field) => {
-    field.classList.remove("has-error");
+  form.querySelectorAll(".login-form__field").forEach((field) => {
+    field.classList.remove("login-form__field_error");
   });
-  form.querySelectorAll(".field-error").forEach((error) => {
+  form.querySelectorAll(".login-form__error").forEach((error) => {
     error.textContent = "";
   });
 
-  const feedback = form.querySelector(".form-feedback");
+  const feedback = form.querySelector(".login-form__feedback");
   if (!feedback) {
     return;
   }
 
   feedback.textContent = "";
-  feedback.classList.remove("is-error", "is-success");
+  feedback.classList.remove("login-form__feedback_error", "login-form__feedback_success");
 }
 
 /**
@@ -99,7 +99,7 @@ export function setFormFieldError(form: HTMLFormElement, name: string, message: 
   }
 
   error.textContent = message;
-  error.closest(".field")?.classList.add("has-error");
+  error.closest(".login-form__field")?.classList.add("login-form__field_error");
 }
 
 /**
@@ -115,7 +115,7 @@ export function clearFormFieldError(form: HTMLFormElement, name: string): void {
   }
 
   error.textContent = "";
-  error.closest(".field")?.classList.remove("has-error");
+  error.closest(".login-form__field")?.classList.remove("login-form__field_error");
 }
 
 /**
@@ -125,14 +125,14 @@ export function clearFormFieldError(form: HTMLFormElement, name: string): void {
  * @param message Текст сообщения.
  */
 export function setFormFeedback(form: HTMLFormElement, message: string): void {
-  const feedback = form.querySelector(".form-feedback");
+  const feedback = form.querySelector(".login-form__feedback");
   if (!feedback) {
     return;
   }
 
   feedback.textContent = message;
-  feedback.classList.remove("is-success");
-  feedback.classList.add("is-error");
+  feedback.classList.remove("login-form__feedback_success");
+  feedback.classList.add("login-form__feedback_error");
 }
 
 /**
@@ -142,13 +142,13 @@ export function setFormFeedback(form: HTMLFormElement, message: string): void {
  * @param isLoading `true`, пока идёт сетевой запрос.
  */
 export function setFormLoading(form: HTMLFormElement, isLoading: boolean): void {
-  const button = form.querySelector(".login-button");
+  const button = form.querySelector(".login-form__submit");
   if (!(button instanceof HTMLButtonElement)) {
     return;
   }
 
   button.disabled = isLoading;
-  button.classList.toggle("is-loading", isLoading);
+  button.classList.toggle("login-form__submit_loading", isLoading);
 }
 
 /**

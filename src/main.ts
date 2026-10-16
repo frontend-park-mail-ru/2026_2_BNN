@@ -1,3 +1,5 @@
+import "./styles/main.scss";
+
 import { initRouter } from "./router";
 
 void initRouter();

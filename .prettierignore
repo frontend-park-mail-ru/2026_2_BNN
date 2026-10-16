@@ -1,5 +1,5 @@
 node_modules
 dist
 build
-public/templates.compiled.js
+src/public/templates.compiled.js
 templates

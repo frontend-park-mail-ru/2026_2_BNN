@@ -9,7 +9,7 @@ module.exports = [
       "dist/**",
       "build/**",
       "coverage/**",
-      "public/templates.compiled.js",
+      "src/public/templates.compiled.js",
     ],
   },
 

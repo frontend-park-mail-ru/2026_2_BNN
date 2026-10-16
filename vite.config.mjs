@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import legacy from "@vitejs/plugin-legacy";
 
 export default defineConfig({
+  publicDir: "src/public",
   plugins: [
     legacy({
       targets: ["defaults", "not IE 11"],

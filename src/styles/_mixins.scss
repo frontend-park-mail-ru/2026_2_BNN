@@ -1,0 +1,19 @@
+@mixin font-face($family, $file, $weight) {
+  @font-face {
+    font-family: $family;
+    src: url($file) format("truetype");
+    font-weight: $weight;
+    font-style: normal;
+    font-display: swap;
+  }
+}
+
+@mixin bare-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@mixin raised-panel {
+  box-shadow: 0 10px 30px rgba(15, 33, 64, 0.12);
+}

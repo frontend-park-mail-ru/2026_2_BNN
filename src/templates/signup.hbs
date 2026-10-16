@@ -1,0 +1,35 @@
+<main class="login">
+    {{> glass-filter}}
+    <section class="login__panel">
+        <div class="login__brand">
+            <div class="login__brand-row">
+                <div class="login__logo" aria-hidden="true"></div>
+                <h1 class="login__title">Brand New Notes</h1>
+            </div>
+            <p class="login__tagline">Ваши заметки и мысли – в уютном месте</p>
+        </div>
+        <form class="login-form" data-form-type="register" novalidate>
+            <label class="login-form__field" for="reg-login">
+                <span class="login-form__label">Логин</span>
+                <input class="login-form__input" id="reg-login" name="login" type="text" placeholder=" ">
+                <small class="login-form__error" data-error-for="login"></small>
+            </label>
+            <label class="login-form__field" for="reg-password">
+                <span class="login-form__label">Пароль</span>
+                <input class="login-form__input" id="reg-password" name="password" type="password" placeholder=" ">
+                <small class="login-form__error" data-error-for="password"></small>
+            </label>
+            <label class="login-form__field" for="reg-password-repeat">
+                <span class="login-form__label">Повторите пароль</span>
+                <input class="login-form__input" id="reg-password-repeat" name="repeatPassword" type="password" placeholder=" ">
+                <small class="login-form__error" data-error-for="repeatPassword"></small>
+            </label>
+            <button class="login-form__submit" type="submit">
+                <span class="login-form__submit-label">Зарегистрироваться</span>
+                <span class="login-form__spinner" aria-hidden="true"></span>
+            </button>
+            <p class="login-form__feedback"></p>
+            <p class="login-form__hint">Уже есть аккаунт? <a class="login-form__link" href="/login" data-link>Войти</a></p>
+        </form>
+    </section>
+</main>
