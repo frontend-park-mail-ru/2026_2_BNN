@@ -1,10 +1,14 @@
 export type AuthStatus = "unknown" | "loading" | "authenticated" | "unauthenticated";
 
+export interface User {
+  login: string;
+}
+
 export interface AppState {
   auth: {
     status: AuthStatus;
     isLoggedIn: boolean;
-    user: unknown;
+    user: User | null;
   };
   ui: {
     isLoading: boolean;

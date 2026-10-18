@@ -1,5 +1,6 @@
-import { api } from "../api";
+import { api, ApiError, type Note as ApiNote } from "../api";
 import { router, navigate, resetAuthState } from "../router";
+import { User } from "../store/app-store";
 
 interface Section {
   href: string;
@@ -42,22 +43,6 @@ interface Note {
 interface NoteLink {
   href: string;
   title: string;
-}
-
-interface ApiBlock {
-  content: string;
-}
-
-interface ApiNote {
-  id: string;
-  parent_note_id?: string | null;
-  title: string;
-  blocks: ApiBlock[];
-}
-
-interface ApiErrorLike {
-  status: number;
-  message: string;
 }
 
 type NotesStatus = "idle" | "loading" | "ready" | "error" | "unauthorized";
@@ -111,31 +96,13 @@ export function resetNotesStore(): void {
 }
 
 /**
- * Проверяет, что ошибка пришла от API и содержит HTTP-статус.
- *
- * @param error Перехваченная ошибка.
- * @returns `true`, если у ошибки есть числовой `status`.
- */
-function isApiError(error: unknown): error is ApiErrorLike {
-  return error instanceof Error && "status" in error && typeof error.status === "number";
-}
-
-/**
  * Достаёт логин из профиля, который роутер закэшировал в api.
  *
  * @param profile Профиль текущего пользователя или `null`.
  * @returns Логин или пустая строка, если профиля нет.
  */
-function getProfileLogin(profile: unknown): string {
-  if (
-    typeof profile === "object" &&
-    profile !== null &&
-    "login" in profile &&
-    typeof profile.login === "string"
-  ) {
-    return profile.login;
-  }
-  return "";
+function getProfileLogin(profile: User | null): string {
+  return profile?.login ?? "";
 }
 
 /**
@@ -215,8 +182,7 @@ async function fetchAllNotes(): Promise<Note[]> {
   let offset = 0;
 
   while (true) {
-    const response = await api.getNotes(NOTES_LIMIT, offset);
-    const list: ApiNote[] = Array.isArray(response) ? response : [];
+    const list = await api.getNotes(NOTES_LIMIT, offset);
 
     for (const note of list) {
       notes.push(normalizeNote(note));
@@ -388,13 +354,13 @@ async function loadNotes(): Promise<void> {
 
     store.notes = [];
 
-    if (isApiError(error) && error.status === 401) {
+    if (error instanceof ApiError && error.status === 401) {
       store.status = "unauthorized";
       return;
     }
 
     store.status = "error";
-    store.error = isApiError(error) ? error.message : "Не удалось связаться с сервером";
+    store.error = error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
   }
 }
 
@@ -413,7 +379,7 @@ function waitForNotes(): Promise<void> {
 /**
  * SPA-страница списка/чтения заметок.
  */
-export const NotesPage = {
+export class NotesPage {
   /**
    * Рендерит полный шаблон страницы заметок.
    *
@@ -424,7 +390,7 @@ export const NotesPage = {
     const template = Handlebars.templates["notes"];
     const view = buildView(context);
     return template(view);
-  },
+  }
 
   /**
    * Монтирует обработчики страницы и запускает начальную загрузку данных.
@@ -605,7 +571,7 @@ export const NotesPage = {
     }
 
     await loadAndShow();
-  },
+  }
 
   /**
    * Демонтирует обработчики и таймеры страницы.
@@ -624,5 +590,5 @@ export const NotesPage = {
     mounted.page.removeEventListener("click", mounted.onPageClick);
     mounted.page.removeEventListener("keydown", mounted.onPageKeyDown);
     mounted = null;
-  },
-};
+  }
+}

@@ -1,4 +1,4 @@
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { navigate, resetAuthState } from "../router";
 import {
   type AuthPage,
@@ -14,19 +14,6 @@ import {
   getLoginError,
   getPasswordError,
 } from "../utils/auth-form";
-
-interface ApiError {
-  status?: number;
-  message?: string;
-}
-
-function isApiError(error: unknown): error is ApiError {
-  if (typeof error != "object" || error === null) {
-    return false;
-  }
-
-  return "status" in error && typeof error.status === "number";
-}
 
 /**
  * SPA-страница авторизации.
@@ -130,7 +117,7 @@ export class LoginPage implements AuthPage {
         return;
       }
 
-      if (isApiError(error)) {
+      if (error instanceof ApiError) {
         if (error.status === 401) {
           setFormFieldError(this.form, "password", "Неверный логин или пароль");
         } else {

@@ -1,9 +1,9 @@
-import { NotesPage, resetNotesStore } from "./pages/notes.js";
-import { LoginPage } from "./pages/login.js";
-import { SignupPage } from "./pages/signup.js";
-import { NotFoundPage } from "./pages/notfound.js";
-import { api } from "./api.js";
-import { getState, setState } from "./store/app-store.js";
+import { NotesPage, resetNotesStore } from "./pages/notes";
+import { LoginPage } from "./pages/login";
+import { SignupPage } from "./pages/signup";
+import { NotFoundPage } from "./pages/notfound";
+import { api } from "./api";
+import { getState, setState } from "./store/app-store";
 
 interface PageContext {
   path: string;
@@ -23,15 +23,20 @@ interface RouteRecord {
   guest?: boolean;
 }
 
+const notesPage = new NotesPage();
+const notFoundPage = new NotFoundPage();
+const loginPage = new LoginPage();
+const signupPage = new SignupPage();
+
 const routes: RouteRecord[] = [
-  { path: "/", page: NotesPage, auth: true },
-  { path: "/notes", page: NotesPage, auth: true },
-  { path: "/notes/favourites", page: NotesPage, auth: true },
-  { path: "/notes/trash", page: NotesPage, auth: true },
-  { path: "/notes/notifications", page: NotesPage, auth: true },
-  { path: "/notes/:id", page: NotesPage, auth: true },
-  { path: "/login", page: new LoginPage(), guest: true },
-  { path: "/signup", page: new SignupPage(), guest: true },
+  { path: "/", page: notesPage, auth: true },
+  { path: "/notes", page: notesPage, auth: true },
+  { path: "/notes/favourites", page: notesPage, auth: true },
+  { path: "/notes/trash", page: notesPage, auth: true },
+  { path: "/notes/notifications", page: notesPage, auth: true },
+  { path: "/notes/:id", page: notesPage, auth: true },
+  { path: "/login", page: loginPage, guest: true },
+  { path: "/signup", page: signupPage, guest: true },
 ];
 
 /**
@@ -112,7 +117,7 @@ async function ensureAuth(): Promise<boolean> {
  */
 export async function router(): Promise<void> {
   const path = window.location.pathname;
-  let page: Page = NotFoundPage;
+  let page: Page = notFoundPage;
   let params: Record<string, string> = {};
   let matchedRoute: RouteRecord | null = null;
 

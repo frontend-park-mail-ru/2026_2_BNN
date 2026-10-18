@@ -1,9 +1,6 @@
-import "./styles/main.scss";
-
 import { initRouter } from "./router";
-
-void initRouter();
-
+import "./styles/main.scss";
 import { initTheme } from "./theme";
 
 initTheme();
+void initRouter();

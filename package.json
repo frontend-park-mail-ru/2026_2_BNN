@@ -14,7 +14,7 @@
   "author": "",
   "type": "commonjs",
   "scripts": {
-    "build:templates": "tsc -p tsconfig.scripts.json && node build/precompile-templates.js",
+    "build:templates": "npx tsx scripts/precompile-templates.ts",
     "build": "npm run build:templates && vite build",
     "typecheck": "tsc --noEmit",
     "predev": "npm run build:templates",
@@ -24,9 +24,6 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check"
-  },
-  "dependencies": {
-    "vite": "^8.3.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -40,6 +37,8 @@
     "prettier": "^3.9.9",
     "sass": "^1.105.1",
     "typescript": "~6.0.0",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4",
+    "tsx": "^4.23.15"
   }
 }

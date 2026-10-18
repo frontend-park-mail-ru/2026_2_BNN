@@ -1,4 +1,4 @@
-import { getState, setState, type AuthStatus } from "./store/app-store";
+import { getState, setState, type AuthStatus, type User } from "./store/app-store";
 
 const LOCAL_API_URL = "http://localhost:5458";
 
@@ -11,7 +11,7 @@ const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
 
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -19,6 +19,17 @@ class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
+}
+
+export interface NoteBlock {
+  content: string;
+}
+
+export interface Note {
+  id: string;
+  parent_note_id?: string | null;
+  title: string;
+  blocks: NoteBlock[];
 }
 
 /**
@@ -81,11 +92,11 @@ class Api {
    * @param messages Переопределения текстов ошибок по статусам.
    * @returns Разобранный JSON, либо `null` для пустого ответа и статуса 204.
    */
-  async request(
+  async request<T>(
     path: string,
     options: RequestInit = {},
     messages: Record<number, string> = {}
-  ): Promise<unknown | null> {
+  ): Promise<T | null> {
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string> | undefined),
     };
@@ -129,7 +140,7 @@ class Api {
     }
 
     try {
-      return JSON.parse(text) as unknown;
+      return JSON.parse(text) as T;
     } catch {
       throw new Error("Сервер вернул некорректный JSON");
     }
@@ -142,8 +153,8 @@ class Api {
    * @param password Пароль.
    * @returns Ответ сервера.
    */
-  signUp(login: string, password: string): Promise<unknown | null> {
-    return this.request(
+  async signUp(login: string, password: string): Promise<void> {
+    await this.request(
       "/api/auth/signup",
       {
         method: "POST",
@@ -163,8 +174,8 @@ class Api {
    * @param password Пароль.
    * @returns Ответ сервера.
    */
-  logIn(login: string, password: string): Promise<unknown | null> {
-    return this.request(
+  async logIn(login: string, password: string): Promise<void> {
+    await this.request(
       "/api/auth/signin",
       {
         method: "POST",
@@ -181,8 +192,8 @@ class Api {
    *
    * @returns Ответ сервера или `null`, если тела нет.
    */
-  logOut(): Promise<unknown | null> {
-    return this.request("/api/auth/logout", {
+  async logOut(): Promise<void> {
+    await this.request("/api/auth/logout", {
       method: "POST",
     });
   }
@@ -194,8 +205,9 @@ class Api {
    * @param offset Смещение.
    * @returns Список заметок в формате ответа сервера.
    */
-  getNotes(limit = 10, offset = 0): Promise<unknown | null> {
-    return this.request(`/api/notes/getall?limit=${limit}&offset=${offset}`);
+  async getNotes(limit = 10, offset = 0): Promise<Note[]> {
+    const notes = await this.request<Note[]>(`/api/notes/getall?limit=${limit}&offset=${offset}`);
+    return notes ?? [];
   }
 
   /**
@@ -204,8 +216,8 @@ class Api {
    * @param id Идентификатор заметки.
    * @returns Заметка в формате ответа сервера.
    */
-  getNote(id: string | number): Promise<unknown | null> {
-    return this.request(
+  async getNote(id: string | number): Promise<Note> {
+    const note = await this.request<Note>(
       `/api/notes/${encodeURIComponent(id)}`,
       {},
       {
@@ -213,6 +225,10 @@ class Api {
         404: "Заметка не найдена",
       }
     );
+    if (!note) {
+      throw new ApiError("Заметка не найдена", 404);
+    }
+    return note;
   }
 
   /**
@@ -220,8 +236,11 @@ class Api {
    *
    * @returns Профиль пользователя.
    */
-  getProfile(): Promise<unknown | null> {
-    return this.request("/api/auth/me").then((profile) => {
+  getProfile(): Promise<User> {
+    return this.request<User>("/api/auth/me").then((profile) => {
+      if (!profile) {
+        throw new ApiError("Профиль не найден", 404);
+      }
       setState({
         auth: {
           status: "authenticated",
@@ -238,7 +257,7 @@ class Api {
    *
    * @returns Сохранённый профиль или `null`.
    */
-  getCachedProfile(): unknown {
+  getCachedProfile(): User | null {
     return getState().auth.user;
   }
 

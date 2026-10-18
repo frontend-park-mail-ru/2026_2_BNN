@@ -1,5 +1,5 @@
-import { api } from "../api.js";
-import { navigate, resetAuthState } from "../router.js";
+import { api, ApiError } from "../api";
+import { navigate, resetAuthState } from "../router";
 import {
   type AuthPage,
   type SubmitHandler,
@@ -13,20 +13,7 @@ import {
   setFormLoading,
   getLoginError,
   getPasswordError,
-} from "../utils/auth-form.js";
-
-interface ApiError {
-  status?: number;
-  message?: string;
-}
-
-function isApiError(error: unknown): error is ApiError {
-  if (typeof error != "object" || error === null) {
-    return false;
-  }
-
-  return "status" in error && typeof error.status === "number";
-}
+} from "../utils/auth-form";
 
 const SIGNUP_FIELDS = ["login", "password", "repeatPassword"] as const;
 
@@ -173,7 +160,7 @@ export class SignupPage implements AuthPage {
         return;
       }
 
-      if (isApiError(error)) {
+      if (error instanceof ApiError) {
         if (error.status === 409) {
           setFormFieldError(this.form, "login", error.message ?? "Такой логин уже занят");
         } else {
