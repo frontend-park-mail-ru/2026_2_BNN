@@ -14,7 +14,7 @@
   "author": "",
   "type": "commonjs",
   "scripts": {
-    "build:templates": "npx tsx scripts/precompile-templates.ts",
+    "build:templates": "tsx scripts/precompile-templates.ts",
     "build": "npm run build:templates && vite build",
     "typecheck": "tsc --noEmit",
     "predev": "npm run build:templates",
