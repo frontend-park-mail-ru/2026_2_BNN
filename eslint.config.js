@@ -1,7 +1,18 @@
 const js = require("@eslint/js");
 const globals = require("globals");
+const tseslint = require("typescript-eslint");
 
 module.exports = [
+  {
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      "public/templates.compiled.js",
+    ],
+  },
+
   {
     files: ["eslint.config.js"],
     languageOptions: {
@@ -13,32 +24,32 @@ module.exports = [
     },
   },
 
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+
   {
-    ignores: ["node_modules/**", "public/js/templates.compiled.js", "dist/**", "coverage/**"],
+    files: ["eslint.config.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
   },
 
-  js.configs.recommended,
-
   {
-    files: ["public/js/**/*.js"],
+    files: ["src/**/*.ts"],
     languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
       globals: {
         ...globals.browser,
         Handlebars: "readonly",
       },
     },
     rules: {
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
   },
 
   {
-    files: ["server.js", "scripts/**/*.js"],
+    files: ["scripts/**/*.ts"],
     languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "commonjs",
       globals: {
         ...globals.node,
       },
@@ -46,9 +57,7 @@ module.exports = [
   },
 
   {
-    rules: {
-      // отключает конфликтующие с Prettier stylistic-правила
-    },
+    rules: {},
     ...require("eslint-config-prettier"),
   },
 ];

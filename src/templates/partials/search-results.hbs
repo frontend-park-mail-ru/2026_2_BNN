@@ -1,0 +1,13 @@
+{{#if hasResults}}
+  <ul class="search__list">
+    {{#each results}}
+      <li>
+        <a class="search__item" href="{{href}}" data-link>
+          <span class="search__title">{{title}}</span>
+        </a>
+      </li>
+    {{/each}}
+  </ul>
+{{else}}
+  <p class="search__empty">Ничего не найдено</p>
+{{/if}}

@@ -17,11 +17,11 @@ Thumbs.db
 .vscode/
 .idea/
 
-# build/cache (на будущее)
+# build/cache
 dist/
 build/
 coverage/
 .cache/
 
 # compiled templates
-public/js/templates.compiled.js
+/public/templates.compiled.js

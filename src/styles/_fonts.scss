@@ -1,0 +1,9 @@
+@use "mixins" as *;
+
+@include font-face("Comfortaa", "/assets/fonts/Comfortaa/static/Comfortaa-Light.ttf", 300);
+@include font-face("Comfortaa", "/assets/fonts/Comfortaa/static/Comfortaa-Regular.ttf", 400);
+@include font-face("Comfortaa", "/assets/fonts/Comfortaa/static/Comfortaa-Medium.ttf", 500);
+@include font-face("Comfortaa", "/assets/fonts/Comfortaa/static/Comfortaa-SemiBold.ttf", 600);
+@include font-face("Comfortaa", "/assets/fonts/Comfortaa/static/Comfortaa-Bold.ttf", 700);
+@include font-face("Nunito", "/assets/fonts/Nunito/static/Nunito-Regular.ttf", 400);
+@include font-face("Nunito", "/assets/fonts/Nunito/static/Nunito-SemiBold.ttf", 600);

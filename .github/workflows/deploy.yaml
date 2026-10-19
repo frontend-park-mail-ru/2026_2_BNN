@@ -25,4 +25,4 @@ jobs:
             git reset --hard origin/${{ github.ref_name }}
             npm install --include=dev
             npm run build
-            sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/public/ /opt/public/
+            sudo rsync -av --delete /home/${{ secrets.USERNAME }}/frontend/2026_2_BNN/dist/ /opt/public/

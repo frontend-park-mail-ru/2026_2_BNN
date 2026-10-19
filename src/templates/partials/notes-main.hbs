@@ -1,0 +1,46 @@
+{{#if isLoading}}
+    <article class="notebook notebook_busy" aria-busy="true">
+        <div class="notebook__toolbar">
+            <span class="skeleton skeleton_line skeleton_crumbs"></span>
+            <div class="notebook__actions notebook__actions_disabled">
+                {{> icon name="heart"}}
+                {{> icon name="share"}}
+                {{> icon name="menu"}}
+            </div>
+        </div>
+        <div class="notebook__content">
+            {{#each skeletonRows}}
+                <span class="skeleton skeleton_line"></span>
+            {{/each}}
+        </div>
+    </article>
+{{else if isError}}
+    <article class="notebook notebook_centered">
+        <div class="notebook__message">
+            <span class="notebook__status notebook__status_error">{{> icon name="alert" size="l"}}</span>
+            <h2 class="notebook__message-title">Не удалось загрузить заметки</h2>
+            <p class="notebook__message-text">{{errorMessage}}</p>
+            <button class="notebook__action notebook__action_secondary" type="button" data-retry>Повторить</button>
+        </div>
+    </article>
+{{else if isEmpty}}
+    <article class="notebook notebook_centered">
+        <div class="notebook__message">
+            <span class="notebook__status">{{> icon name="file" size="l"}}</span>
+            <h2 class="notebook__message-title">У вас пока нет заметок</h2>
+            <p class="notebook__message-text">Создайте первую заметку, и она появится здесь</p>
+            <button class="notebook__action" type="button">Создать заметку</button>
+        </div>
+    </article>
+{{else if isWelcome}}
+    <article class="notebook notebook_centered">
+        <div class="notebook__message">
+            <span class="notebook__status">{{> icon name="file" size="l"}}</span>
+            <h2 class="notebook__message-title">Добро пожаловать</h2>
+            <p class="notebook__message-text">Выберите заметку<br>или создайте новую</p>
+            <button class="notebook__action" type="button">Создать заметку</button>
+        </div>
+    </article>
+{{else}}
+    {{> notebook}}
+{{/if}}

@@ -1,0 +1,34 @@
+<article class="notebook">
+    <div class="notebook__toolbar">
+        <nav class="notebook__nav">
+            <ol class="notebook__crumbs">
+                {{#each breadcrumbs}}
+                    <li class="notebook__crumb">
+                        <a class="notebook__link" href="{{href}}" data-link>{{label}}</a>
+                    </li>
+                {{/each}}
+                {{#if title}}<li class="notebook__crumb">{{title}}</li>{{/if}}
+            </ol>
+        </nav>
+        <div class="notebook__actions">
+            <button class="icon-button" type="button">
+                {{> icon name="heart"}}
+            </button>
+            <button class="icon-button" type="button">
+                {{> icon name="share"}}
+            </button>
+            <button class="icon-button" type="button">
+                {{> icon name="menu"}}
+            </button>
+        </div>
+    </div>
+    <div class="notebook__content">
+        {{#if title}}<h1 class="notebook__title" contenteditable="true" data-note-title>
+            {{title}}
+        </h1>
+        <div class="notebook__body" contenteditable="true" data-note-body>
+            {{#each paragraphs}}<p class="notebook__paragraph">{{this}}</p>{{/each}}
+        </div>
+        {{/if}}
+    </div>
+</article>
