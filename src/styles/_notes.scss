@@ -622,6 +622,11 @@
     box-shadow: 0 16px 40px rgba(15, 33, 64, 0.16);
   }
 
+  &__card_profile {
+    width: min(480px, 100%);
+    padding: 22px 28px 28px;
+  }
+
   &__title {
     margin: 0;
     font-size: 22px;

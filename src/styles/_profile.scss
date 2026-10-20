@@ -1,0 +1,269 @@
+@use "variables" as *;
+
+.profile {
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  &__close {
+    display: flex;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 22px;
+  }
+
+  &__avatar {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    cursor: pointer;
+
+    &-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    &-edit {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(15, 33, 64, 0.45);
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    &-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    &:hover &-edit,
+    &:focus-within &-edit {
+      opacity: 1;
+    }
+  }
+
+  &__name {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  &__since {
+    margin: 4px 0 0;
+    color: var(--light-text);
+    font-family: var(--font-input);
+    font-size: 14px;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 8px;
+    border-radius: 16px;
+    background: var(--dark-bg);
+
+    b {
+      font-size: 22px;
+    }
+
+    span {
+      color: var(--light-text);
+      font-size: 13px;
+    }
+  }
+
+  &__section {
+    margin: 22px 0 12px;
+    font-size: 16px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  &__button {
+    height: 40px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 999px;
+    background: #e8eef6;
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+
+    &_primary {
+      background: var(--accent);
+    }
+
+    &_danger {
+      display: block;
+      margin-top: 18px;
+      background: #d64550;
+      color: #fff;
+    }
+  }
+
+  &__skeleton {
+    display: grid;
+    grid-template-columns: 72px 1fr 1fr;
+    gap: 12px 16px;
+    margin-top: 22px;
+  }
+
+  &__skeleton-avatar {
+    width: 72px;
+    height: 72px;
+    grid-row: span 2;
+    border-radius: 16px;
+  }
+
+  &__skeleton-line {
+    height: 16px;
+
+    &_name {
+      width: 46%;
+      grid-column: 2 / -1;
+    }
+
+    &_since {
+      width: 78%;
+      grid-column: 2 / -1;
+    }
+
+    &_button {
+      grid-column: 1 / -1;
+      height: 36px;
+      border-radius: 999px;
+    }
+  }
+
+  &__skeleton-stat {
+    height: 72px;
+    border-radius: 16px;
+  }
+}
+
+.profile-form {
+  &__field {
+    display: block;
+    margin-top: 8px;
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+
+  &__input {
+    display: block;
+    width: 100%;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-bottom: 2px solid $ink;
+    border-radius: 0;
+    background: transparent;
+    color: $ink;
+    font: inherit;
+    font-size: 16px;
+
+    &:focus {
+      outline: none;
+      border-bottom-color: var(--accent);
+    }
+  }
+
+  &__error {
+    display: block;
+    min-height: 18px;
+    margin-top: 6px;
+    color: $error;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  &__field_error &__label,
+  &__field_error &__input {
+    color: $error;
+    border-bottom-color: $error;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+  }
+}
+
+.toast {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(15, 33, 64, 0.16);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &__icon {
+    display: flex;
+    color: #1f9d55;
+  }
+
+  &__close {
+    display: flex;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
+  }
+}
