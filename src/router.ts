@@ -5,9 +5,9 @@ import { NotFoundPage } from "./pages/notfound";
 import { api } from "./api";
 import { getState, setState } from "./store/app-store";
 
-interface PageContext {
+export interface PageContext {
   path: string;
-  params: Record<string, string>;
+  params: Partial<Record<string, string>>;
 }
 
 interface Page {

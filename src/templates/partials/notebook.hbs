@@ -7,9 +7,10 @@
                         <a class="notebook__link" href="{{href}}" data-link>{{label}}</a>
                     </li>
                 {{/each}}
-                {{#if title}}<li class="notebook__crumb">{{title}}</li>{{/if}}
+                {{#if hasNote}}<li class="notebook__crumb">{{displayTitle}}</li>{{/if}}
             </ol>
         </nav>
+        <span class="notebook__save-status" data-save-status>{{saveStatus}}</span>
         <div class="notebook__actions">
             <button class="icon-button" type="button">
                 {{> icon name="heart"}}
@@ -23,12 +24,8 @@
         </div>
     </div>
     <div class="notebook__content">
-        {{#if title}}<h1 class="notebook__title" contenteditable="true" data-note-title>
-            {{title}}
-        </h1>
-        <div class="notebook__body" contenteditable="true" data-note-body>
-            {{#each paragraphs}}<p class="notebook__paragraph">{{this}}</p>{{/each}}
-        </div>
+        {{#if hasNote}}<h1 class="notebook__title" contenteditable="true" data-note-title data-placeholder="Без названия">{{title}}</h1>
+        <div class="notebook__body" data-note-body>{{#each blocks}}{{> note-block}}{{/each}}</div>
         {{/if}}
     </div>
 </article>
