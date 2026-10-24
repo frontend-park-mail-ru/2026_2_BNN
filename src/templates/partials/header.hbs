@@ -18,7 +18,7 @@
             </button>
             <div class="user-menu__panel">
                 <div class="user-menu__card" role="menu">
-                    <a class="user-menu__item" href="/profile" role="menuitem" data-link>{{#if userLogin}}{{userLogin}}{{else}}Профиль{{/if}}</a>
+                    <button class="user-menu__item" type="button" role="menuitem" data-profile-open data-user-login>{{#if userLogin}}{{userLogin}}{{else}}Профиль{{/if}}</button>
                     <a class="user-menu__item" href="/settings" role="menuitem" data-link>Настройки</a>
                     <button class="user-menu__item user-menu__item_danger" type="button" role="menuitem" data-logout-open>Выйти</button>
                 </div>

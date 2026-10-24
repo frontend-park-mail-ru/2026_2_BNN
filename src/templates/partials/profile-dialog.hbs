@@ -1,0 +1,87 @@
+<div class="modal" data-profile-dialog hidden>
+    <div class="modal__card modal__card_profile" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+        <div class="profile__top">
+            <h2 class="profile__title" id="profile-title">Профиль</h2>
+            <button class="profile__close" type="button" aria-label="Закрыть" data-profile-close>
+                {{> icon name="close" size="s"}}
+            </button>
+        </div>
+
+        <div data-profile-view="loading">
+            <div class="profile__skeleton">
+                <span class="skeleton profile__skeleton-avatar"></span>
+                <span class="skeleton profile__skeleton-line profile__skeleton-line_name"></span>
+                <span class="skeleton profile__skeleton-line profile__skeleton-line_since"></span>
+                <span class="skeleton profile__skeleton-stat"></span>
+                <span class="skeleton profile__skeleton-stat"></span>
+                <span class="skeleton profile__skeleton-stat"></span>
+                <span class="skeleton profile__skeleton-line profile__skeleton-line_button"></span>
+                <span class="skeleton profile__skeleton-line profile__skeleton-line_button"></span>
+            </div>
+        </div>
+
+        <div data-profile-identity hidden>
+            <div class="profile__user">
+                <label class="profile__avatar">
+                    <img class="profile__avatar-image" src="/assets/images/avatar-default.svg" alt="">
+                    <span class="profile__avatar-edit">{{> icon name="brush"}}</span>
+                    <input class="profile__avatar-input" type="file" accept="image/*" data-avatar-input>
+                </label>
+                <div>
+                    <p class="profile__name" data-user-login>yourname</p>
+                    <p class="profile__since" data-profile-since></p>
+                </div>
+            </div>
+            <div class="profile__stats">
+                <div class="profile__stat"><b data-stat="notes">0</b><span>заметок</span></div>
+                <div class="profile__stat"><b data-stat="attachments">0</b><span>вложений</span></div>
+                <div class="profile__stat"><b data-stat="favourites">0</b><span>в избранном</span></div>
+            </div>
+        </div>
+        
+        <div data-profile-view="menu" hidden>
+            <p class="profile__section">Аккаунт</p>
+            <div class="profile__actions">
+                <button class="profile__button" type="button" data-profile-login>Сменить логин</button>
+                <button class="profile__button" type="button" data-profile-password>Сменить пароль</button>
+            </div>
+            <button class="profile__button profile__button_danger" type="button" data-profile-logout>Выйти из аккаунта</button>
+        </div>
+
+        <form class="profile-form" data-profile-view="login" data-profile-form="login" hidden novalidate>
+            <p class="profile__section">Аккаунт</p>
+            <label class="profile-form__field">
+                <span class="profile-form__label">Новый логин</span>
+                <input class="profile-form__input" name="login" type="text" autocomplete="username">
+                <small class="profile-form__error" data-error-for="login"></small>
+            </label>
+            <div class="profile-form__actions">
+                <button class="profile__button profile__button_primary" type="submit">Сохранить</button>
+                <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
+            </div>
+        </form>
+
+        <form class="profile-form" data-profile-view="password" data-profile-form="password" hidden novalidate>
+            <p class="profile__section">Аккаунт</p>
+            <label class="profile-form__field">
+                <span class="profile-form__label">Текущий пароль</span>
+                <input class="profile-form__input" name="currentPassword" type="password" autocomplete="current-password">
+                <small class="profile-form__error" data-error-for="currentPassword"></small>
+            </label>
+            <label class="profile-form__field">
+                <span class="profile-form__label">Новый пароль</span>
+                <input class="profile-form__input" name="newPassword" type="password" autocomplete="new-password">
+                <small class="profile-form__error" data-error-for="newPassword"></small>
+            </label>
+            <label class="profile-form__field">
+                <span class="profile-form__label">Повторите пароль</span>
+                <input class="profile-form__input" name="repeatPassword" type="password" autocomplete="new-password">
+                <small class="profile-form__error" data-error-for="repeatPassword"></small>
+            </label>
+            <div class="profile-form__actions">
+                <button class="profile__button profile__button_primary" type="submit">Сохранить</button>
+                <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
