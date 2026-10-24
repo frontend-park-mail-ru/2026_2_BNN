@@ -1,0 +1,11 @@
+<div class="notebook__block notebook__block_{{type}}" data-block data-block-id="{{id}}" data-block-type="{{type}}">
+
+    {{#if isFile}}
+        <a class="notebook__file" href="{{url}}" download>{{fileName}}</a>
+    {{else if isImage}}
+        <img class="notebook__image" src="{{url}}" alt="{{fileName}}">
+    {{else}}
+        {{#if isChecklist}} <input class="notebook__check" type="checkbox" data-block-check {{#if checked}}checked{{/if}}>{{/if}}
+        <div class="notebook__text" contenteditable="plaintext-only" data-block-text data-placeholder="{{placeholder}}">{{text}}</div>
+    {{/if}}
+</div>
