@@ -1,7 +1,5 @@
 import { getState, setState, type AuthStatus, type User } from "./store/app-store";
 
-const LOCAL_API_URL = "http://localhost:5458";
-
 const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   400: "Проверьте введённые данные",
   401: "Нужно войти в аккаунт",
@@ -10,6 +8,7 @@ const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
 };
 
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
+const TECHNICAL_ERROR_MESSAGE = "Технические неполадки, попробуйте позже";
 
 export class ApiError extends Error {
   status: number;
@@ -21,8 +20,13 @@ export class ApiError extends Error {
   }
 }
 
+export interface NoteBlockContent {
+  type?: string;
+  text?: string;
+}
+
 export interface NoteBlock {
-  content: string;
+  content?: string | NoteBlockContent;
 }
 
 export interface Note {
@@ -33,15 +37,13 @@ export interface Note {
 }
 
 /**
- * Возвращает базовый URL API:
- * для localhost используется локальный бэкенд, для прода — относительные пути текущего хоста.
+ * Возвращает базовый URL API.
+ * Запросы идут на текущий хост: локально Vite проксирует `/api` на бэкенд,
+ * в проде API доступен на том же хосте.
  *
- * @returns Базовый URL без завершающего слэша. Пустая строка означает текущий хост.
+ * @returns Пустая строка: пути запросов относительные.
  */
 function getApiUrl(): string {
-  if (window.location.hostname === "localhost") {
-    return LOCAL_API_URL;
-  }
   return "";
 }
 
@@ -101,7 +103,7 @@ class Api {
       ...(options.headers as Record<string, string> | undefined),
     };
 
-    if (options.body) {
+    if (options.body && !(options.body instanceof FormData)) {
       headers["Content-Type"] = "application/json";
     }
 
@@ -122,7 +124,7 @@ class Api {
             message = String(data.message);
           }
         } catch {
-          message = text;
+          message = TECHNICAL_ERROR_MESSAGE;
         }
       }
 
@@ -206,7 +208,7 @@ class Api {
    * @returns Список заметок в формате ответа сервера.
    */
   async getNotes(limit = 10, offset = 0): Promise<Note[]> {
-    const notes = await this.request<Note[]>(`/api/notes/getall?limit=${limit}&offset=${offset}`);
+    const notes = await this.request<Note[]>(`/api/notes/all?limit=${limit}&offset=${offset}`);
     return notes ?? [];
   }
 
@@ -274,6 +276,65 @@ class Api {
         user: null,
       },
     });
+  }
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await this.request(
+      "/api/auth/password",
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          old_password: oldPassword,
+          new_password: newPassword,
+        }),
+      },
+      {
+        400: "Новый пароль не прошёл валидацию или битый JSON",
+        403: "Неверный старый пароль",
+        413: "Тело запроса больше 4096 байт",
+      }
+    );
+  }
+
+  async updateAvatar(file: File): Promise<User> {
+    const body = new FormData();
+    body.append("avatar", file);
+
+    const profile = await this.request<User>(
+      "/api/auth/avatar",
+      {
+        method: "PUT",
+        body,
+      },
+      {
+        400: "Нет файла в поле avatar",
+        413: "Файл больше 5 МБ",
+        415: "Формат не jpeg, png или webp",
+      }
+    );
+
+    if (!profile) {
+      throw new ApiError("Профиль не найден", 404);
+    }
+
+    setState({
+      auth: {
+        status: "authenticated",
+        isLoggedIn: true,
+        user: profile,
+      },
+    });
+    return profile;
+  }
+
+  avatarUrl(avatar: string | null): string {
+    if (!avatar) {
+      return "/assets/images/avatar-default.svg";
+    }
+    if (avatar.startsWith("http")) {
+      return avatar;
+    }
+    return `${this.baseUrl}${avatar}`;
   }
 }
 

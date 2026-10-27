@@ -14,7 +14,7 @@
         <button class="header__create" type="button">+ Новая заметка</button>
         <div class="user-menu">
             <button class="user-menu__avatar" type="button" aria-label="Меню пользователя" aria-haspopup="true">
-                <img class="user-menu__image" src="/assets/images/avatar-default.svg" alt="">
+                <img class="user-menu__image" src="{{#if avatarUrl}}{{avatarUrl}}{{else}}/assets/images/avatar-default.svg{{/if}}" alt="">
             </button>
             <div class="user-menu__panel">
                 <div class="user-menu__card" role="menu">

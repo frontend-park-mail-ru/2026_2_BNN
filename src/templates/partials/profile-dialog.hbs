@@ -23,9 +23,9 @@
         <div data-profile-identity hidden>
             <div class="profile__user">
                 <label class="profile__avatar">
-                    <img class="profile__avatar-image" src="/assets/images/avatar-default.svg" alt="">
-                    <span class="profile__avatar-edit">{{> icon name="brush"}}</span>
-                    <input class="profile__avatar-input" type="file" accept="image/*" data-avatar-input>
+                    <img class="profile__avatar-image" src="{{#if avatarUrl}}{{avatarUrl}}{{else}}/assets/images/avatar-default.svg{{/if}}" alt="">
+                    <span class="profile__avatar-edit">{{> icon name="camera" size="s"}}</span>
+                    <input class="profile__avatar-input" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>
                 </label>
                 <div>
                     <p class="profile__name" data-user-login>yourname</p>
@@ -39,30 +39,12 @@
             </div>
         </div>
         
-        <div data-profile-view="menu" hidden>
-            <p class="profile__section">Аккаунт</p>
-            <div class="profile__actions">
-                <button class="profile__button" type="button" data-profile-login>Сменить логин</button>
-                <button class="profile__button" type="button" data-profile-password>Сменить пароль</button>
-            </div>
+        <div class="profile__menu" data-profile-view="menu" hidden>
+            <button class="profile__button" type="button" data-profile-password>Сменить пароль</button>
             <button class="profile__button profile__button_danger" type="button" data-profile-logout>Выйти из аккаунта</button>
         </div>
 
-        <form class="profile-form" data-profile-view="login" data-profile-form="login" hidden novalidate>
-            <p class="profile__section">Аккаунт</p>
-            <label class="profile-form__field">
-                <span class="profile-form__label">Новый логин</span>
-                <input class="profile-form__input" name="login" type="text" autocomplete="username">
-                <small class="profile-form__error" data-error-for="login"></small>
-            </label>
-            <div class="profile-form__actions">
-                <button class="profile__button profile__button_primary" type="submit">Сохранить</button>
-                <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
-            </div>
-        </form>
-
         <form class="profile-form" data-profile-view="password" data-profile-form="password" hidden novalidate>
-            <p class="profile__section">Аккаунт</p>
             <label class="profile-form__field">
                 <span class="profile-form__label">Текущий пароль</span>
                 <input class="profile-form__input" name="currentPassword" type="password" autocomplete="current-password">

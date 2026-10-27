@@ -10,8 +10,16 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+    proxy: {
+      "/api": "http://localhost:5458",
+      "/avatars": "http://localhost:9002",
+    },
   },
   preview: {
     port: 3000,
+    proxy: {
+      "/api": "http://localhost:5458",
+      "/avatars": "http://localhost:9002",
+    },
   },
 });

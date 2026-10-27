@@ -46,15 +46,22 @@
 
     &-edit {
       position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      right: -2px;
+      bottom: -2px;
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border: 2px solid var(--bg);
       border-radius: 50%;
-      background: rgba(15, 33, 64, 0.45);
+      background: #0f2140;
       color: #fff;
-      opacity: 0;
-      transition: opacity 0.2s ease;
+
+      .icon {
+        display: block;
+        width: 16px;
+        height: 16px;
+      }
     }
 
     &-input {
@@ -65,10 +72,6 @@
       clip: rect(0 0 0 0);
     }
 
-    &:hover &-edit,
-    &:focus-within &-edit {
-      opacity: 1;
-    }
   }
 
   &__name {
@@ -110,14 +113,35 @@
     }
   }
 
-  &__section {
-    margin: 22px 0 12px;
-    font-size: 16px;
+  &__menu {
+    display: inline-grid;
+    gap: 4px;
+    margin-top: 22px;
   }
 
-  &__actions {
-    display: flex;
-    gap: 12px;
+  &__menu &__button {
+    width: 100%;
+    height: auto;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: none;
+    font-size: 16px;
+    text-align: left;
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--dark-bg);
+    }
+  }
+
+  &__menu &__button_danger {
+    background-color: #f4f6f8;
+    color: #d64550;
+
+    &:hover,
+    &:focus-visible {
+      background-color: #f8e8ea;
+    }
   }
 
   &__button {
@@ -136,10 +160,14 @@
     }
 
     &_danger {
-      display: block;
-      margin-top: 18px;
-      background: #d64550;
-      color: #fff;
+      margin-top: 0;
+      background-color: #f4f6f8;
+      color: #d64550;
+
+      &:hover,
+      &:focus-visible {
+        background-color: #f8e8ea;
+      }
     }
   }
 
@@ -184,6 +212,8 @@
 }
 
 .profile-form {
+  margin-top: 22px;
+
   &__field {
     display: block;
     margin-top: 8px;
@@ -253,9 +283,8 @@
     display: none;
   }
 
-  &__icon {
-    display: flex;
-    color: #1f9d55;
+  &_error &__icon {
+    display: none;
   }
 
   &__close {
