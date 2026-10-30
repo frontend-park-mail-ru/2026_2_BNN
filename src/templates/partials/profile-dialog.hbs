@@ -8,15 +8,21 @@
         </div>
 
         <div data-profile-view="loading">
-            <div class="profile__skeleton">
+            <div class="profile__user">
                 <span class="skeleton profile__skeleton-avatar"></span>
-                <span class="skeleton profile__skeleton-line profile__skeleton-line_name"></span>
-                <span class="skeleton profile__skeleton-line profile__skeleton-line_since"></span>
+                <div class="profile__skeleton-text">
+                    <span class="skeleton profile__skeleton-line profile__skeleton-line_name"></span>
+                    <span class="skeleton profile__skeleton-line profile__skeleton-line_since"></span>
+                </div>
+            </div>
+            <div class="profile__stats">
                 <span class="skeleton profile__skeleton-stat"></span>
                 <span class="skeleton profile__skeleton-stat"></span>
                 <span class="skeleton profile__skeleton-stat"></span>
-                <span class="skeleton profile__skeleton-line profile__skeleton-line_button"></span>
-                <span class="skeleton profile__skeleton-line profile__skeleton-line_button"></span>
+            </div>
+            <div class="profile__menu">
+                <span class="skeleton profile__skeleton-password"></span>
+                <span class="skeleton profile__skeleton-logout"></span>
             </div>
         </div>
 
@@ -24,6 +30,7 @@
             <div class="profile__user">
                 <label class="profile__avatar">
                     <img class="profile__avatar-image" src="{{#if avatarUrl}}{{avatarUrl}}{{else}}/assets/images/avatar-default.svg{{/if}}" alt="">
+                    <span class="login-form__spinner" aria-hidden="true"></span>
                     <span class="profile__avatar-edit">{{> icon name="camera" size="s"}}</span>
                     <input class="profile__avatar-input" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>
                 </label>

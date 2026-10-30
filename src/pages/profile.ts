@@ -2,35 +2,21 @@ import { api, ApiError } from "../api";
 import { navigate, resetAuthState } from "../router";
 import type { User } from "../store/app-store";
 import { getPasswordError } from "../utils/auth-form";
-
-const MONTHS = [
-  "января",
-  "февраля",
-  "марта",
-  "апреля",
-  "мая",
-  "июня",
-  "июля",
-  "августа",
-  "сентября",
-  "октября",
-  "ноября",
-  "декабря",
-];
+import { formatJoined } from "../utils/date";
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;
+const AVATAR_SPINNER_MIN = 600;
+
+const PROFILE_OPEN_FAILED = "Не удалось открыть профиль, попробуйте позже";
+const PASSWORD_SAVE_FAILED = "Не удалось сохранить пароль, попробуйте позже";
+const AVATAR_UPDATE_FAILED = "Не удалось обновить аватар, попробуйте позже";
 
 type ProfileView = "loading" | "menu" | "password";
 
 export interface ProfileOptions {
   notesCount: () => number;
   onLogout: () => void;
-}
-
-function formatJoined(iso: string): string {
-  const date = new Date(iso);
-  return `В Brand New Notes с ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function passwordForm(dialog: HTMLElement): HTMLFormElement | null {
@@ -71,6 +57,16 @@ function showProfileView(dialog: HTMLElement, view: ProfileView): void {
   }
 }
 
+function waitAtLeast(started: number, min: number): Promise<void> {
+  const rest = min - (Date.now() - started);
+  if (rest <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, rest);
+  });
+}
+
 function fillProfile(page: HTMLElement, profile: User, notesCount: number): void {
   page.querySelectorAll("[data-user-login]").forEach((node) => {
     node.textContent = profile.login;
@@ -108,6 +104,8 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
   let toastTimer: number | undefined;
   let closeTimer: number | undefined;
+  let profileRequest = 0;
+  let openFrame = 0;
 
   function showToast(message: string, ok = true): void {
     toastText.textContent = message;
@@ -121,21 +119,29 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
   function showDialog(): void {
     window.clearTimeout(closeTimer);
+    window.cancelAnimationFrame(openFrame);
     dialog.hidden = false;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    openFrame = window.requestAnimationFrame(() => {
+      openFrame = window.requestAnimationFrame(() => {
         dialog.classList.add("modal_open");
       });
     });
   }
 
   function closeProfile(): void {
+    profileRequest += 1;
+    window.cancelAnimationFrame(openFrame);
+    const wasOpen = dialog.classList.contains("modal_open");
     dialog.classList.remove("modal_open");
     const form = passwordForm(dialog);
     if (form) {
       clearPasswordForm(form);
     }
     window.clearTimeout(closeTimer);
+    if (!wasOpen) {
+      dialog.hidden = true;
+      return;
+    }
     closeTimer = window.setTimeout(() => {
       if (!dialog.classList.contains("modal_open")) {
         dialog.hidden = true;
@@ -144,21 +150,28 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   }
 
   async function openProfile(): Promise<void> {
+    const request = ++profileRequest;
     showDialog();
     showProfileView(dialog, "loading");
 
     try {
       const profile = await api.getProfile();
+      if (request !== profileRequest) {
+        return;
+      }
       fillProfile(page, profile, options.notesCount());
       showProfileView(dialog, "menu");
     } catch (error) {
+      if (request !== profileRequest) {
+        return;
+      }
       if (error instanceof ApiError && error.status === 401) {
         resetAuthState("unauthenticated");
         await navigate("/login");
         return;
       }
+      showToast(PROFILE_OPEN_FAILED, false);
       closeProfile();
-      showToast(error instanceof ApiError ? error.message : "Не удалось открыть профиль");
     }
   }
 
@@ -170,6 +183,12 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
     if (target.closest("[data-profile-open]")) {
       void openProfile();
+      return;
+    }
+
+    if (target.closest("[data-toast-close]")) {
+      toast.hidden = true;
+      window.clearTimeout(toastTimer);
       return;
     }
 
@@ -200,11 +219,6 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       closeProfile();
       options.onLogout();
       return;
-    }
-
-    if (target.closest("[data-toast-close]")) {
-      toast.hidden = true;
-      window.clearTimeout(toastTimer);
     }
   }
 
@@ -274,7 +288,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         await navigate("/login");
         return;
       }
-      showToast(error instanceof ApiError ? error.message : "Не удалось сохранить пароль");
+      showToast(PASSWORD_SAVE_FAILED, false);
     } finally {
       if (submit) {
         submit.disabled = false;
@@ -294,28 +308,41 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
     if (!AVATAR_TYPES.includes(file.type)) {
-      showToast("Нужен файл JPEG, PNG или WebP");
+      showToast("Нужен файл JPEG, PNG или WebP", false);
       return;
     }
     if (file.size > AVATAR_LIMIT) {
-      showToast("Файл больше 5 МБ");
+      showToast("Файл больше 5 МБ", false);
       return;
     }
 
-    void api.updateAvatar(file).then(
-      (profile) => {
-        fillProfile(page, profile, options.notesCount());
-        showToast("Аватар обновлён");
-      },
-      (error: unknown) => {
-        if (error instanceof ApiError && error.status === 401) {
-          resetAuthState("unauthenticated");
-          void navigate("/login");
-          return;
+    const avatar = input.closest(".profile__avatar");
+    const started = Date.now();
+    avatar?.classList.add("login-form__submit_loading");
+    input.disabled = true;
+
+    void api
+      .updateAvatar(file)
+      .then(
+        (profile) => {
+          avatar?.classList.remove("login-form__submit_loading");
+          fillProfile(page, profile, options.notesCount());
+          showToast("Аватар обновлён");
+        },
+        async (error: unknown) => {
+          if (error instanceof ApiError && error.status === 401) {
+            resetAuthState("unauthenticated");
+            await navigate("/login");
+            return;
+          }
+          await waitAtLeast(started, AVATAR_SPINNER_MIN);
+          showToast(AVATAR_UPDATE_FAILED, false);
         }
-        showToast(error instanceof ApiError ? error.message : "Не удалось обновить аватар");
-      }
-    );
+      )
+      .finally(() => {
+        avatar?.classList.remove("login-form__submit_loading");
+        input.disabled = false;
+      });
   }
 
   page.addEventListener("click", onClick);

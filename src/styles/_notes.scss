@@ -266,12 +266,12 @@
     }
 
     &_danger {
-      color: #d64550;
-      background-color: #f4f6f8;
+      color: var(--danger);
+      background-color: var(--danger-bg);
 
       &:hover,
       &:focus-visible {
-        background-color: #f8e8ea;
+        background-color: var(--danger-bg-hover);
       }
     }
   }
@@ -655,7 +655,8 @@
     width: min(600px, 100%);
     padding: 28px 36px 32px;
 
-    [data-profile-identity]:not([hidden]) {
+    [data-profile-identity]:not([hidden]),
+    [data-profile-view="loading"]:not([hidden]) {
       display: flex;
       flex-direction: column;
       gap: 32px;
@@ -664,7 +665,6 @@
     .profile__user,
     .profile__stats,
     .profile__menu,
-    .profile__skeleton,
     .profile-form {
       margin-top: 0;
     }

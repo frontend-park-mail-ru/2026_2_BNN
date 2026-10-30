@@ -599,6 +599,7 @@ export class NotesPage {
     mounted.searchBox.removeEventListener("focusout", mounted.onSearchFocusOut);
     mounted.page.removeEventListener("click", mounted.onPageClick);
     mounted.page.removeEventListener("keydown", mounted.onPageKeyDown);
+    mounted.destroyProfile();
     mounted = null;
   }
 }
