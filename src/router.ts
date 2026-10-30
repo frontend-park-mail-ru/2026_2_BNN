@@ -13,7 +13,7 @@ export interface PageContext {
 interface Page {
   render(context: PageContext): Promise<string>;
   mount?(root: ParentNode, context: PageContext): void | Promise<void>;
-  destroy?(): void;
+  destroy?(): void | Promise<void>;
 }
 
 interface RouteRecord {
@@ -149,7 +149,7 @@ export async function router(): Promise<void> {
   }
 
   if (currentPage?.destroy) {
-    currentPage.destroy();
+    await currentPage.destroy();
   }
   currentPage = null;
 

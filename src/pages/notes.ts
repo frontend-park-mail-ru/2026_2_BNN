@@ -37,6 +37,8 @@ const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 const SAVE_DELAY = 1000;
 const TITLE_MAX_LENGTH = 255;
 
+const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "checklist"];
+
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const SAVE_STATUS: Record<SaveStatus, string> = {
@@ -96,16 +98,17 @@ interface NotesInstance {
   noteId: string | undefined;
   saveStatus: SaveStatus;
   saveTimer: number | undefined;
-  isSaving: boolean;
+  saving: Promise<void> | null;
   hasPendingChanges: boolean;
   onSearchInput: () => void;
   onSearchFocus: () => void;
   onSearchFocusOut: (event: FocusEvent) => void;
   onPageClick: (event: MouseEvent) => void;
   onPageKeyDown: (event: KeyboardEvent) => void;
-  saveNote: () => Promise<void>;
+  finishSaving: () => Promise<void>;
   onNoteInput: (event: Event) => void;
   onNoteChange: (event: Event) => void;
+  onNoteKeyDown: (event: KeyboardEvent) => void;
   onBeforeUnload: (event: BeforeUnloadEvent) => void;
 }
 
@@ -508,16 +511,17 @@ export class NotesPage {
       noteId: context.params.id,
       saveStatus: "idle",
       saveTimer: undefined,
-      isSaving: false,
+      saving: null,
       hasPendingChanges: false,
       onSearchInput: onSearchInput,
       onSearchFocus: onSearchFocus,
       onSearchFocusOut: onSearchFocusOut,
       onPageClick: onPageClick,
       onPageKeyDown: onPageKeyDown,
-      saveNote: saveNote,
+      finishSaving: finishSaving,
       onNoteInput: onNoteInput,
       onNoteChange: onNoteChange,
+      onNoteKeyDown: onNoteKeyDown,
       onBeforeUnload: onBeforeUnload,
     };
 
@@ -676,19 +680,18 @@ export class NotesPage {
       instance.hasPendingChanges = true;
       setSaveStatus("idle");
       window.clearTimeout(instance.saveTimer);
-      instance.saveTimer = window.setTimeout(() => void saveNote(), SAVE_DELAY);
+      instance.saveTimer = window.setTimeout(() => void runSave(), SAVE_DELAY);
     }
 
     async function saveNote(): Promise<void> {
-      if (instance.isSaving || !instance.hasPendingChanges) {
-        setSaveStatus("saving");
+      if (!instance.hasPendingChanges) {
         return;
       }
 
       window.clearTimeout(instance.saveTimer);
       instance.saveTimer = undefined;
-      instance.isSaving = true;
       instance.hasPendingChanges = false;
+      setSaveStatus("saving");
 
       const title = readTitle();
       const { elements, blocks } = collectBlocks();
@@ -725,16 +728,36 @@ export class NotesPage {
         instance.hasPendingChanges = true;
 
         if (error instanceof ApiError && error.status === 401) {
-          await goToLogin();
+          if (mounted === instance) {
+            await goToLogin();
+          }
           return;
         }
 
         setSaveStatus("error");
       } finally {
-        instance.isSaving = false;
-        if (!failed && instance.hasPendingChanges) {
+        if (!failed && instance.hasPendingChanges && mounted === instance) {
           timerSave();
         }
+      }
+    }
+
+    function runSave(): Promise<void> {
+      if (!instance.saving) {
+        instance.saving = saveNote().finally(() => {
+          instance.saving = null;
+        });
+      }
+      return instance.saving;
+    }
+
+    async function finishSaving(): Promise<void> {
+      if (instance.saving) {
+        await instance.saving;
+      }
+      window.clearTimeout(instance.saveTimer);
+      if (instance.hasPendingChanges) {
+        await runSave();
       }
     }
 
@@ -808,6 +831,77 @@ export class NotesPage {
       const card = listRegion.querySelector<HTMLAnchorElement>(`a[href="/notes/${"new"}"]`);
       if (card) {
         card.href = "/notes/" + id;
+      }
+    }
+
+    function placeCaret(element: HTMLElement, atEnd: boolean): void {
+      element.focus();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(!atEnd);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+
+    function insertBlockAfter(block: HTMLElement, type: BlockType): HTMLElement | null {
+      const view: BlockView = {
+        id: "",
+        type,
+        text: "",
+        checked: false,
+        placeholder: "",
+        isChecklist: type === "checklist",
+      };
+      block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
+      return block.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]") ?? null;
+    }
+
+    function onNoteKeyDown(event: KeyboardEvent): void {
+      const target = event.target;
+      if (event.isComposing || !(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (event.key === "Enter" && !event.shiftKey) {
+        if (target.matches("[data-note-title]")) {
+          event.preventDefault();
+          const first = mainRegion.querySelector<HTMLElement>("[data-block-text]");
+          if (first) {
+            placeCaret(first, false);
+          }
+          return;
+        }
+
+        const block = target.closest<HTMLElement>("[data-block]");
+        if (!block) {
+          return;
+        }
+
+        event.preventDefault();
+        const type = block.dataset.blockType as BlockType;
+        const next = insertBlockAfter(block, LIST_TYPES.includes(type) ? type : "text");
+        if (next) {
+          placeCaret(next, false);
+        }
+        timerSave();
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        const block = target.closest<HTMLElement>("[data-block]");
+        const text = block?.querySelector<HTMLElement>("[data-block-text]");
+        const previous =
+          block?.previousElementSibling?.querySelector<HTMLElement>("[data-block-text]");
+
+        if (!block || !text || !previous || text.innerText.trim() !== "") {
+          return;
+        }
+
+        event.preventDefault();
+        block.remove();
+        placeCaret(previous, true);
+        timerSave();
       }
     }
 
@@ -887,7 +981,7 @@ export class NotesPage {
     }
 
     function onBeforeUnload(event: BeforeUnloadEvent): void {
-      if (instance.hasPendingChanges || instance.isSaving) {
+      if (instance.hasPendingChanges || instance.saving) {
         event.preventDefault();
       }
     }
@@ -899,6 +993,7 @@ export class NotesPage {
     page.addEventListener("keydown", onPageKeyDown);
     mainRegion.addEventListener("input", onNoteInput);
     mainRegion.addEventListener("change", onNoteChange);
+    mainRegion.addEventListener("keydown", onNoteKeyDown);
     window.addEventListener("beforeunload", onBeforeUnload);
 
     mounted = instance;
@@ -917,26 +1012,24 @@ export class NotesPage {
    *
    * @returns {void}
    */
-  destroy(): void {
-    if (!mounted) {
+  async destroy(): Promise<void> {
+    const leaving = mounted;
+    if (!leaving) {
       return;
     }
-
-    window.clearTimeout(mounted.searchTimer);
-    mounted.search.removeEventListener("input", mounted.onSearchInput);
-    mounted.search.removeEventListener("focus", mounted.onSearchFocus);
-    mounted.searchBox.removeEventListener("focusout", mounted.onSearchFocusOut);
-    mounted.page.removeEventListener("click", mounted.onPageClick);
-    mounted.page.removeEventListener("keydown", mounted.onPageKeyDown);
-
-    window.clearTimeout(mounted.saveTimer);
-    if (mounted.hasPendingChanges) {
-      void mounted.saveNote();
-    }
-    mounted.mainRegion.removeEventListener("input", mounted.onNoteInput);
-    mounted.mainRegion.removeEventListener("change", mounted.onNoteChange);
-    window.removeEventListener("beforeunload", mounted.onBeforeUnload);
-
     mounted = null;
+
+    window.clearTimeout(leaving.searchTimer);
+    leaving.search.removeEventListener("input", leaving.onSearchInput);
+    leaving.search.removeEventListener("focus", leaving.onSearchFocus);
+    leaving.searchBox.removeEventListener("focusout", leaving.onSearchFocusOut);
+    leaving.page.removeEventListener("click", leaving.onPageClick);
+    leaving.page.removeEventListener("keydown", leaving.onPageKeyDown);
+    leaving.mainRegion.removeEventListener("input", leaving.onNoteInput);
+    leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
+    leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
+    window.removeEventListener("beforeunload", leaving.onBeforeUnload);
+
+    await leaving.finishSaving();
   }
 }
