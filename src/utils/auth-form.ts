@@ -5,6 +5,7 @@ export interface AuthPage {
   form: HTMLFormElement | null;
   onSubmit: SubmitHandler | null;
   onInput: InputHandler | null;
+  onClick: ((event: MouseEvent) => void) | null;
   validateField(name: string, value: string): boolean;
   handleSubmit(event: SubmitEvent): void | Promise<void>;
 }
@@ -24,6 +25,7 @@ export function mountAuthForm(page: AuthPage, root: ParentNode): void {
   page.form = form;
 
   const onSubmit: SubmitHandler = (event) => page.handleSubmit(event);
+
   const onInput: InputHandler = (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !input.name) {
@@ -39,10 +41,35 @@ export function mountAuthForm(page: AuthPage, root: ParentNode): void {
     page.validateField(input.name, input.value);
   };
 
+  const onClick = (event: MouseEvent): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const button = target.closest("[data-password-toggle]");
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    const input = button.parentElement?.querySelector("input");
+    const use = button.querySelector("use");
+    if (!(input instanceof HTMLInputElement) || !use) {
+      return;
+    }
+    const willShow = input.type === "password";
+    input.type = willShow ? "text" : "password";
+    use.setAttribute(
+      "href",
+      willShow ? "/assets/icons/ui/sprite.svg#eye-off" : "/assets/icons/ui/sprite.svg#eye"
+    );
+    button.setAttribute("aria-label", willShow ? "Скрыть пароль" : "Показать пароль");
+  };
+
   page.onSubmit = onSubmit;
   page.onInput = onInput;
+  page.onClick = onClick;
   form.addEventListener("submit", onSubmit);
   form.addEventListener("input", onInput);
+  form.addEventListener("click", onClick);
 }
 
 /**
@@ -57,10 +84,14 @@ export function destroyAuthForm(page: AuthPage): void {
   if (page.form && page.onInput) {
     page.form.removeEventListener("input", page.onInput);
   }
+  if (page.form && page.onClick) {
+    page.form.removeEventListener("click", page.onClick);
+  }
 
   page.form = null;
   page.onSubmit = null;
   page.onInput = null;
+  page.onClick = null;
 }
 
 /**

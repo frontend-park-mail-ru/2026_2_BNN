@@ -16,7 +16,12 @@
             </label>
             <label class="login-form__field" for="login-password">
                 <span class="login-form__label">Пароль</span>
-                <input class="login-form__input" id="login-password" name="password" type="password" placeholder=" ">
+                <span class="login-form__control">
+                    <input class="login-form__input" id="login-password" name="password" type="password" placeholder=" ">
+                    <button class="login-form__toggle" type="button" data-password-toggle aria-label="Показать пароль">
+                        {{> icon name="eye" size="s"}}
+                    </button>
+                </span>
                 <small class="login-form__error" data-error-for="password"></small>
             </label>
             <button class="login-form__submit" type="submit">

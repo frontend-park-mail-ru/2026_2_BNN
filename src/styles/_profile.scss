@@ -234,7 +234,7 @@
     display: block;
     width: 100%;
     height: 36px;
-    padding: 0 28px 0 0;
+    padding: 0 32px 0 0;
     border: none;
     border-bottom: 2px solid $ink;
     border-radius: 0;
@@ -278,7 +278,12 @@
     position: absolute;
     right: 0;
     bottom: 6px;
+    z-index: 1;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: none;
     background: none;

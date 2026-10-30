@@ -31,6 +31,7 @@ export class SignupPage implements AuthPage {
   form: HTMLFormElement | null = null;
   onSubmit: SubmitHandler | null = null;
   onInput: InputHandler | null = null;
+  onClick: ((event: MouseEvent) => void) | null = null;
 
   /**
    * Рендерит HTML страницы регистрации.
