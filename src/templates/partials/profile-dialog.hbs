@@ -54,17 +54,32 @@
         <form class="profile-form" data-profile-view="password" data-profile-form="password" hidden novalidate>
             <label class="profile-form__field">
                 <span class="profile-form__label">Текущий пароль</span>
-                <input class="profile-form__input" name="currentPassword" type="password" autocomplete="current-password">
+                <span class="profile-form__control">
+                    <input class="profile-form__input" name="currentPassword" type="password" autocomplete="current-password">
+                    <button class="profile-form__toggle" type="button" data-password-toggle aria-label="Показать пароль">
+                        {{> icon name="eye" size="s"}}
+                    </button>
+                </span>
                 <small class="profile-form__error" data-error-for="currentPassword"></small>
             </label>
             <label class="profile-form__field">
                 <span class="profile-form__label">Новый пароль</span>
-                <input class="profile-form__input" name="newPassword" type="password" autocomplete="new-password">
+                <span class="profile-form__control">
+                    <input class="profile-form__input" name="newPassword" type="password" autocomplete="new-password">
+                    <button class="profile-form__toggle" type="button" data-password-toggle aria-label="Показать пароль">
+                        {{> icon name="eye" size="s"}}
+                    </button>
+                </span>
                 <small class="profile-form__error" data-error-for="newPassword"></small>
             </label>
             <label class="profile-form__field">
                 <span class="profile-form__label">Повторите пароль</span>
-                <input class="profile-form__input" name="repeatPassword" type="password" autocomplete="new-password">
+                <span class="profile-form__control">
+                    <input class="profile-form__input" name="repeatPassword" type="password" autocomplete="new-password">
+                    <button class="profile-form__toggle" type="button" data-password-toggle aria-label="Показать пароль">
+                        {{> icon name="eye" size="s"}}
+                    </button>
+                </span>
                 <small class="profile-form__error" data-error-for="repeatPassword"></small>
             </label>
             <div class="profile-form__actions">

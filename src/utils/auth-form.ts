@@ -182,3 +182,24 @@ export function getPasswordError(password: string): string {
   }
   return "";
 }
+
+export function getNewPasswordError(password: string, currentPassword: string): string {
+  const lengthMessage = getPasswordError(password);
+  if (lengthMessage !== "") {
+    return lengthMessage;
+  }
+  if (password === currentPassword) {
+    return "Новый пароль должен отличаться от текущего";
+  }
+  return "";
+}
+
+export function getRepeatPasswordError(repeatPassword: string, password: string): string {
+  if (repeatPassword === "") {
+    return "Повторите пароль";
+  }
+  if (repeatPassword !== password) {
+    return "Пароли не совпадают";
+  }
+  return "";
+}

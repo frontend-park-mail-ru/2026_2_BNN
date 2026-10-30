@@ -1,7 +1,7 @@
 import { api, ApiError } from "../api";
 import { navigate, resetAuthState } from "../router";
 import type { User } from "../store/app-store";
-import { getPasswordError } from "../utils/auth-form";
+import { getNewPasswordError, getRepeatPasswordError } from "../utils/auth-form";
 import { formatJoined } from "../utils/date";
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -43,6 +43,13 @@ function clearPasswordForm(form: HTMLFormElement): void {
   });
   form.querySelectorAll(".profile-form__error").forEach((error) => {
     error.textContent = "";
+  });
+  form.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
+    input.type = "password";
+  });
+  form.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.setAttribute("aria-label", "Показать пароль");
+    button.querySelector("use")?.setAttribute("href", "/assets/icons/ui/sprite.svg#eye");
   });
 }
 
@@ -196,6 +203,23 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
 
+    const toggle = target.closest("[data-password-toggle]");
+    if (toggle instanceof HTMLButtonElement) {
+      const input = toggle.parentElement?.querySelector("input");
+      const use = toggle.querySelector("use");
+      if (!(input instanceof HTMLInputElement) || !use) {
+        return;
+      }
+      const willShow = input.type === "password";
+      input.type = willShow ? "text" : "password";
+      use.setAttribute(
+        "href",
+        willShow ? "/assets/icons/ui/sprite.svg#eye-off" : "/assets/icons/ui/sprite.svg#eye"
+      );
+      toggle.setAttribute("aria-label", willShow ? "Скрыть пароль" : "Показать пароль");
+      return;
+    }
+
     if (target.closest("[data-profile-close]") || target === dialog) {
       closeProfile();
       return;
@@ -236,8 +260,27 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     ) {
       return;
     }
+
+    const form = input.form;
+    const currentPassword = (form.elements.namedItem("currentPassword") as HTMLInputElement).value;
+    const newPassword = (form.elements.namedItem("newPassword") as HTMLInputElement).value;
+    const repeatPassword = (form.elements.namedItem("repeatPassword") as HTMLInputElement).value;
+
     if (input.value === "") {
-      setProfileError(input.form, input.name, "");
+      setProfileError(form, input.name, "");
+    } else if (input.name === "currentPassword") {
+      setProfileError(form, "currentPassword", "");
+    } else if (input.name === "newPassword") {
+      setProfileError(form, "newPassword", getNewPasswordError(newPassword, currentPassword));
+    } else if (input.name === "repeatPassword") {
+      setProfileError(form, "repeatPassword", getRepeatPasswordError(repeatPassword, newPassword));
+    }
+
+    if (input.name !== "newPassword" && newPassword !== "") {
+      setProfileError(form, "newPassword", getNewPasswordError(newPassword, currentPassword));
+    }
+    if (input.name !== "repeatPassword" && repeatPassword !== "") {
+      setProfileError(form, "repeatPassword", getRepeatPasswordError(repeatPassword, newPassword));
     }
   }
 
@@ -253,17 +296,13 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     const repeatPassword = (form.elements.namedItem("repeatPassword") as HTMLInputElement).value;
 
     const currentMessage = currentPassword === "" ? "Введите текущий пароль" : "";
-    const nextMessage = getPasswordError(newPassword);
-    const repeatMessage =
-      repeatPassword === ""
-        ? "Повторите пароль"
-        : newPassword !== repeatPassword
-          ? "Пароли не совпадают"
-          : "";
+    const nextMessage = getNewPasswordError(newPassword, currentPassword);
+    const repeatMessage = getRepeatPasswordError(repeatPassword, newPassword);
 
     setProfileError(form, "currentPassword", currentMessage);
     setProfileError(form, "newPassword", nextMessage);
     setProfileError(form, "repeatPassword", repeatMessage);
+
     if (currentMessage || nextMessage || repeatMessage) {
       return;
     }
