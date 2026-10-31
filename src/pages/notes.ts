@@ -101,8 +101,8 @@ interface NotesInstance {
   saving: Promise<void> | null;
   hasPendingChanges: boolean;
   onSearchInput: () => void;
-  onSearchFocus: () => void;
   onSearchFocusOut: (event: FocusEvent) => void;
+  renderSearchResults: () => void;
   onPageClick: (event: MouseEvent) => void;
   onPageKeyDown: (event: KeyboardEvent) => void;
   finishSaving: () => Promise<void>;
@@ -170,35 +170,14 @@ function getNotesElements(root: ParentNode): NotesElements | null {
 }
 
 /**
- * Извлекает текстовые блоки заметки в массив абзацев.
- *
- * @param note Исходная заметка из API.
- * @returns Непустые тексты блоков по порядку.
- */
-function getBlocks(note: ApiNote): NoteBlock[] {
-  const blocks: NoteBlock[] = [];
-
-  if (!Array.isArray(note.blocks)) {
-    return blocks;
-  }
-
-  for (const block of note.blocks) {
-    if (block.content) {
-      blocks.push(block);
-    }
-  }
-  return blocks;
-}
-
-/**
  * Приводит заметку API к формату, удобному для UI.
  *
  * @param note Исходная заметка из API.
  * @returns Заметка для шаблонов и поиска.
  */
 function normalizeNote(note: ApiNote): Note {
-  const title = note.title || "";
-  const blocks = getBlocks(note);
+  const title = note.title;
+  const blocks = note.blocks ?? [];
 
   return {
     id: note.id,
@@ -514,8 +493,8 @@ export class NotesPage {
       saving: null,
       hasPendingChanges: false,
       onSearchInput: onSearchInput,
-      onSearchFocus: onSearchFocus,
       onSearchFocusOut: onSearchFocusOut,
+      renderSearchResults: renderSearchResults,
       onPageClick: onPageClick,
       onPageKeyDown: onPageKeyDown,
       finishSaving: finishSaving,
@@ -641,18 +620,9 @@ export class NotesPage {
         : "";
     }
 
-    function runSearch(): void {
-      instance.searchTimer = undefined;
-      renderSearchResults();
-    }
-
     function onSearchInput(): void {
       window.clearTimeout(instance.searchTimer);
-      instance.searchTimer = window.setTimeout(runSearch, SEARCH_DELAY);
-    }
-
-    function onSearchFocus(): void {
-      renderSearchResults();
+      instance.searchTimer = window.setTimeout(renderSearchResults, SEARCH_DELAY);
     }
 
     function onSearchFocusOut(event: FocusEvent): void {
@@ -811,6 +781,7 @@ export class NotesPage {
       const label = mainRegion.querySelector<HTMLElement>("[data-save-status]");
       if (label) {
         label.textContent = SAVE_STATUS[status];
+        label.classList.toggle("notebook__save-status_error", status === "error");
       }
     }
 
@@ -987,7 +958,7 @@ export class NotesPage {
     }
 
     search.addEventListener("input", onSearchInput);
-    search.addEventListener("focus", onSearchFocus);
+    search.addEventListener("focus", renderSearchResults);
     searchBox.addEventListener("focusout", onSearchFocusOut);
     page.addEventListener("click", onPageClick);
     page.addEventListener("keydown", onPageKeyDown);
@@ -1021,7 +992,7 @@ export class NotesPage {
 
     window.clearTimeout(leaving.searchTimer);
     leaving.search.removeEventListener("input", leaving.onSearchInput);
-    leaving.search.removeEventListener("focus", leaving.onSearchFocus);
+    leaving.search.removeEventListener("focus", leaving.renderSearchResults);
     leaving.searchBox.removeEventListener("focusout", leaving.onSearchFocusOut);
     leaving.page.removeEventListener("click", leaving.onPageClick);
     leaving.page.removeEventListener("keydown", leaving.onPageKeyDown);

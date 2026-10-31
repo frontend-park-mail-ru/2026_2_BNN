@@ -504,19 +504,112 @@
     overflow-wrap: anywhere;
   }
 
-  &__title,
-  &__body {
-    outline: none;
+  &__save-status {
+    margin-right: var(--space-m);
+    color: var(--light-text);
+    font-size: 13px;
+    white-space: nowrap;
+
+    &_error {
+      color: $error;
+    }
   }
 
-  &__paragraph {
-    margin: 0;
-    white-space: pre-line;
+  &__title {
+    margin: var(--space-m) 0 0;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.25;
+    outline: none;
+    cursor: text;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: var(--space-s);
+    counter-reset: item;
+  }
+
+  &__block {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
     line-height: 1.5;
 
-    & + & {
+    &_heading {
       margin-top: var(--space-s);
     }
+
+    &_subtitle {
+      margin-top: 8px;
+    }
+
+    &_bulleted::before {
+      content: "•";
+      min-width: 1.2em;
+    }
+
+    &_numbered {
+      counter-increment: item;
+
+      &::before {
+        content: counter(item) ".";
+        min-width: 1.2em;
+      }
+    }
+
+    &_checklist {
+      align-items: center;
+    }
+
+    &_quote {
+      padding-left: 12px;
+      border-left: 3px solid var(--accent);
+      font-style: italic;
+    }
+  }
+
+  .notebook__block:not(.notebook__block_numbered) + .notebook__block_numbered {
+    counter-reset: item;
+  }
+
+  &__block_heading &__text {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  &__block_subtitle &__text {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    outline: none;
+    white-space: pre-wrap;
+    cursor: text;
+  }
+
+  &__check {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  &__check:checked + &__text {
+    color: var(--light-text);
+  }
+
+  [data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: var(--light-text);
+    pointer-events: none;
   }
 
   &__message {
