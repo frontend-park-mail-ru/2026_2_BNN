@@ -18,9 +18,15 @@
             <button class="icon-button" type="button">
                 {{> icon name="share"}}
             </button>
-            <button class="icon-button" type="button">
-                {{> icon name="menu"}}
-            </button>
+            <div class="note-menu" data-note-menu>
+                <button class="icon-button" type="button" aria-label="Действия с заметкой" aria-haspopup="menu" aria-expanded="false" data-note-menu-toggle>
+                    {{> icon name="menu"}}
+                </button>
+                <div class="note-menu__panel" role="menu" data-note-menu-panel hidden>
+                    <button class="note-menu__item" type="button" role="menuitem" disabled>Поделиться</button>
+                    <button class="note-menu__item note-menu__item_danger" type="button" role="menuitem" data-delete-open>Удалить</button>
+                </div>
+            </div>
         </div>
     </div>
     <div class="notebook__content">

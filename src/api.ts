@@ -282,6 +282,10 @@ class Api {
     return note;
   }
 
+  async deleteNote(id: string): Promise<void> {
+    await this.request(`/api/notes/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
   /**
    * Загружает профиль текущего пользователя и записывает его в store.
    *

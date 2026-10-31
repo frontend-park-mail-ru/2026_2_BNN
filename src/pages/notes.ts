@@ -35,6 +35,7 @@ const SEARCH_DELAY = 200;
 const SEARCH_RESULTS_LIMIT = 8;
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 const SAVE_DELAY = 1000;
+const TOAST_DELAY = 4000;
 const TITLE_MAX_LENGTH = 255;
 
 const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "checklist"];
@@ -87,6 +88,8 @@ interface NotesElements {
   searchBox: HTMLElement;
   searchResults: HTMLElement;
   logoutDialog: HTMLElement;
+  deleteDialog: HTMLElement;
+  toast: HTMLElement;
 }
 
 interface NotesInstance {
@@ -100,6 +103,8 @@ interface NotesInstance {
   saveTimer: number | undefined;
   saving: Promise<void> | null;
   hasPendingChanges: boolean;
+  toastTimer: number | undefined;
+  deleting: boolean;
   onSearchInput: () => void;
   onSearchFocusOut: (event: FocusEvent) => void;
   renderSearchResults: () => void;
@@ -118,6 +123,7 @@ let notesRequest: Promise<void> | null = null;
 let mounted: NotesInstance | null = null;
 let loadVersion = 0;
 let pendingFocusNoteId: string | null = null;
+let pendingToast = "";
 
 /**
  * Сбрасывает локальное состояние notes-страницы.
@@ -161,12 +167,33 @@ function getNotesElements(root: ParentNode): NotesElements | null {
   const searchBox = page.querySelector<HTMLElement>(".search");
   const searchResults = page.querySelector<HTMLElement>("[data-search-results]");
   const logoutDialog = page.querySelector<HTMLElement>("[data-logout-dialog]");
+  const deleteDialog = page.querySelector<HTMLElement>("[data-delete-dialog]");
+  const toast = page.querySelector<HTMLElement>("[data-toast]");
 
-  if (!listRegion || !mainRegion || !search || !searchBox || !searchResults || !logoutDialog) {
+  if (
+    !listRegion ||
+    !mainRegion ||
+    !search ||
+    !searchBox ||
+    !searchResults ||
+    !logoutDialog ||
+    !deleteDialog ||
+    !toast
+  ) {
     return null;
   }
 
-  return { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog };
+  return {
+    page,
+    listRegion,
+    mainRegion,
+    search,
+    searchBox,
+    searchResults,
+    logoutDialog,
+    deleteDialog,
+    toast,
+  };
 }
 
 /**
@@ -478,8 +505,17 @@ export class NotesPage {
       return;
     }
 
-    const { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog } =
-      elements;
+    const {
+      page,
+      listRegion,
+      mainRegion,
+      search,
+      searchBox,
+      searchResults,
+      logoutDialog,
+      deleteDialog,
+      toast,
+    } = elements;
 
     const instance: NotesInstance = {
       page: page,
@@ -492,6 +528,8 @@ export class NotesPage {
       saveTimer: undefined,
       saving: null,
       hasPendingChanges: false,
+      toastTimer: undefined,
+      deleting: false,
       onSearchInput: onSearchInput,
       onSearchFocusOut: onSearchFocusOut,
       renderSearchResults: renderSearchResults,
@@ -644,6 +682,116 @@ export class NotesPage {
 
       resetAuthState("unauthenticated");
       await navigate("/login");
+    }
+
+    function setNoteMenu(open: boolean): void {
+      const button = mainRegion.querySelector<HTMLElement>("[data-note-menu-toggle]");
+      const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
+      if (!button || !panel) {
+        return;
+      }
+      panel.hidden = !open;
+      button.classList.toggle("icon-button_active", open);
+      button.setAttribute("aria-expanded", String(open));
+    }
+
+    function openDeleteDialog(): void {
+      setNoteMenu(false);
+      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
+      if (error) {
+        error.hidden = true;
+      }
+      deleteDialog.hidden = false;
+      deleteDialog.querySelector<HTMLElement>("[data-delete-cancel]")?.focus();
+    }
+
+    function closeDeleteDialog(): void {
+      if (!instance.deleting) {
+        deleteDialog.hidden = true;
+      }
+    }
+
+    function setDeleting(deleting: boolean): void {
+      instance.deleting = deleting;
+      for (const button of deleteDialog.querySelectorAll<HTMLButtonElement>("button")) {
+        button.disabled = deleting;
+      }
+      deleteDialog
+        .querySelector("[data-delete]")
+        ?.classList.toggle("modal__button_loading", deleting);
+    }
+
+    function showDeleteError(message: string): void {
+      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
+      if (error) {
+        error.textContent = message;
+        error.hidden = false;
+      }
+    }
+
+    async function deleteNote(): Promise<void> {
+      if (instance.deleting) {
+        return;
+      }
+      setDeleting(true);
+      await finishSaving();
+      if (mounted !== instance) {
+        return;
+      }
+
+      const id = instance.noteId;
+      try {
+        if (id && id !== "new") {
+          await api.deleteNote(id);
+        }
+      } catch (error) {
+        if (mounted !== instance) {
+          return;
+        }
+        if (error instanceof ApiError && error.status === 401) {
+          await goToLogin();
+          return;
+        }
+        if (!(error instanceof ApiError && error.status === 404)) {
+          setDeleting(false);
+          showDeleteError(
+            error instanceof ApiError ? error.message : "Не удалось связаться с сервером"
+          );
+          return;
+        }
+      }
+
+      window.clearTimeout(instance.saveTimer);
+      instance.hasPendingChanges = false;
+
+      const index = store.notes.findIndex((note) => note.id === id);
+      let next: Note | undefined;
+      if (index !== -1) {
+        store.notes.splice(index, 1);
+        next = store.notes[index] ?? store.notes[index - 1];
+      }
+
+      if (mounted !== instance) {
+        return;
+      }
+
+      pendingToast = "Заметка удалена";
+      history.replaceState(null, "", next ? "/notes/" + next.id : "/notes");
+      await router();
+    }
+
+    function showToast(text: string): void {
+      const label = toast.querySelector<HTMLElement>("[data-toast-text]");
+      if (label) {
+        label.textContent = text;
+      }
+      toast.hidden = false;
+      window.clearTimeout(instance.toastTimer);
+      instance.toastTimer = window.setTimeout(hideToast, TOAST_DELAY);
+    }
+
+    function hideToast(): void {
+      toast.hidden = true;
     }
 
     function timerSave(): void {
@@ -883,6 +1031,36 @@ export class NotesPage {
         return;
       }
 
+      if (!target.closest("[data-note-menu]")) {
+        setNoteMenu(false);
+      }
+
+      if (target.closest("[data-note-menu-toggle]")) {
+        const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
+        setNoteMenu(panel?.hidden === true);
+        return;
+      }
+
+      if (target.closest("[data-delete-open]")) {
+        openDeleteDialog();
+        return;
+      }
+
+      if (target.closest("[data-delete-cancel]") || target === deleteDialog) {
+        closeDeleteDialog();
+        return;
+      }
+
+      if (target.closest("[data-delete]")) {
+        void deleteNote();
+        return;
+      }
+
+      if (target.closest("[data-toast-close]")) {
+        hideToast();
+        return;
+      }
+
       if (target.closest("[data-retry]")) {
         store.status = "idle";
         update();
@@ -928,6 +1106,8 @@ export class NotesPage {
 
       searchResults.hidden = true;
       closeLogoutDialog();
+      setNoteMenu(false);
+      closeDeleteDialog();
     }
 
     function onNoteInput(event: Event): void {
@@ -969,6 +1149,11 @@ export class NotesPage {
 
     mounted = instance;
 
+    if (pendingToast) {
+      showToast(pendingToast);
+      pendingToast = "";
+    }
+
     if (store.status === "ready") {
       checkLoadedNote();
       focusPendingTitle();
@@ -991,6 +1176,7 @@ export class NotesPage {
     mounted = null;
 
     window.clearTimeout(leaving.searchTimer);
+    window.clearTimeout(leaving.toastTimer);
     leaving.search.removeEventListener("input", leaving.onSearchInput);
     leaving.search.removeEventListener("focus", leaving.renderSearchResults);
     leaving.searchBox.removeEventListener("focusout", leaving.onSearchFocusOut);
