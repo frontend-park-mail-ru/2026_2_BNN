@@ -417,6 +417,10 @@ export class NotesPage {
       },
     });
 
+    if (context.path === "/profile") {
+      history.replaceState(null, "", "/notes");
+    }
+
     const instance: NotesInstance = {
       page: page,
       search: search,
