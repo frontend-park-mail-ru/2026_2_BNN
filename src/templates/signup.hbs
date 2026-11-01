@@ -39,6 +39,11 @@
                 <span class="login-form__spinner" aria-hidden="true"></span>
             </button>
             <p class="login-form__feedback"></p>
+            <div class="login-form__divider"><span>или</span></div>
+            <a class="login-form__github" href="/api/auth/github/login">
+                {{> icon name="github" size="s"}}
+                Войти через GitHub
+            </a>
             <p class="login-form__hint">Уже есть аккаунт? <a class="login-form__link" href="/login" data-link>Войти</a></p>
         </form>
     </section>

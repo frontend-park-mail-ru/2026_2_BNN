@@ -118,6 +118,11 @@ export class LoginPage implements AuthPage {
         return;
       }
 
+      if (error instanceof ApiError && /oauth/i.test(error.message)) {
+        setFormFeedback(this.form, "Этот аккаунт создан через GitHub. Войдите через GitHub");
+        return;
+      }
+
       if (error instanceof ApiError) {
         if (error.status === 401) {
           setFormFieldError(this.form, "password", "Неверный логин или пароль");
