@@ -434,12 +434,14 @@ export class NotesPage {
       destroyProfile: destroyProfile,
     };
 
+    /** Перерисовывает список заметок и основную колонку из текущего store. */
     function update(): void {
       const view = buildView(context);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
     }
 
+    /** Дожидается загрузки заметок и обновляет UI или уводит на логин при 401. */
     async function loadAndShow(): Promise<void> {
       await waitForNotes();
 
@@ -490,20 +492,24 @@ export class NotesPage {
         : "";
     }
 
+    /** Запускает отрисовку подсказок поиска после debounce. */
     function runSearch(): void {
       instance.searchTimer = undefined;
       renderSearchResults();
     }
 
+    /** Откладывает обновление результатов поиска на `SEARCH_DELAY` мс. */
     function onSearchInput(): void {
       window.clearTimeout(instance.searchTimer);
       instance.searchTimer = window.setTimeout(runSearch, SEARCH_DELAY);
     }
 
+    /** Показывает выпадающий список совпадений при фокусе в поле поиска. */
     function onSearchFocus(): void {
       renderSearchResults();
     }
 
+    /** Скрывает результаты поиска, если фокус ушёл за пределы блока `.search`. */
     function onSearchFocusOut(event: FocusEvent): void {
       const next = event.relatedTarget;
       if (next instanceof Node && searchBox.contains(next)) {
@@ -513,10 +519,12 @@ export class NotesPage {
       searchResults.hidden = true;
     }
 
+    /** Закрывает модалку подтверждения выхода. */
     function closeLogoutDialog(): void {
       logoutDialog.hidden = true;
     }
 
+    /** Вызывает API logout и переводит пользователя на страницу входа. */
     async function logOut(button: HTMLButtonElement): Promise<void> {
       button.disabled = true;
       await api.logOut().catch(() => null);
@@ -525,6 +533,7 @@ export class NotesPage {
       await navigate("/login");
     }
 
+    /** Обрабатывает клики по странице: поиск, retry, logout и профиль. */
     function onPageClick(event: MouseEvent): void {
       const target = event.target;
       if (!(target instanceof Element)) {
@@ -563,6 +572,7 @@ export class NotesPage {
       }
     }
 
+    /** По Escape закрывает поиск и диалог выхода. */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;

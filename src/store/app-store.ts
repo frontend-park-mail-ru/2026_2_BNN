@@ -1,5 +1,7 @@
+/** Состояние сессии при загрузке и после проверки auth. */
 export type AuthStatus = "unknown" | "loading" | "authenticated" | "unauthenticated";
 
+/** Профиль пользователя из `/api/auth/me`. */
 export interface User {
   id: string;
   login: string;
@@ -8,6 +10,7 @@ export interface User {
   updated_at: string;
 }
 
+/** Глобальное клиентское состояние SPA. */
 export interface AppState {
   auth: {
     status: AuthStatus;

@@ -1,6 +1,11 @@
+import { handlePasswordToggleClick } from "./password-toggle";
+
+/** Обработчик submit формы авторизации/регистрации. */
 export type SubmitHandler = (event: SubmitEvent) => void | Promise<void>;
+/** Обработчик input на полях формы. */
 export type InputHandler = (event: Event) => void;
 
+/** Контракт страницы login/signup для общих утилит формы. */
 export interface AuthPage {
   form: HTMLFormElement | null;
   onSubmit: SubmitHandler | null;
@@ -42,26 +47,7 @@ export function mountAuthForm(page: AuthPage, root: ParentNode): void {
   };
 
   const onClick = (event: MouseEvent): void => {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-      return;
-    }
-    const button = target.closest("[data-password-toggle]");
-    if (!(button instanceof HTMLButtonElement)) {
-      return;
-    }
-    const input = button.parentElement?.querySelector("input");
-    const use = button.querySelector("use");
-    if (!(input instanceof HTMLInputElement) || !use) {
-      return;
-    }
-    const willShow = input.type === "password";
-    input.type = willShow ? "text" : "password";
-    use.setAttribute(
-      "href",
-      willShow ? "/assets/icons/ui/sprite.svg#eye-off" : "/assets/icons/ui/sprite.svg#eye"
-    );
-    button.setAttribute("aria-label", willShow ? "Скрыть пароль" : "Показать пароль");
+    handlePasswordToggleClick(event);
   };
 
   page.onSubmit = onSubmit;
@@ -214,6 +200,13 @@ export function getPasswordError(password: string): string {
   return "";
 }
 
+/**
+ * Проверяет новый пароль при смене в профиле.
+ *
+ * @param password Новый пароль.
+ * @param currentPassword Текущий пароль пользователя.
+ * @returns Текст ошибки или пустая строка.
+ */
 export function getNewPasswordError(password: string, currentPassword: string): string {
   const lengthMessage = getPasswordError(password);
   if (lengthMessage !== "") {
@@ -225,6 +218,13 @@ export function getNewPasswordError(password: string, currentPassword: string): 
   return "";
 }
 
+/**
+ * Проверяет поле повторного ввода пароля.
+ *
+ * @param repeatPassword Значение поля «повторите пароль».
+ * @param password Основной пароль для сравнения.
+ * @returns Текст ошибки или пустая строка.
+ */
 export function getRepeatPasswordError(repeatPassword: string, password: string): string {
   if (repeatPassword === "") {
     return "Повторите пароль";

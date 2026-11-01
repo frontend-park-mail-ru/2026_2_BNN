@@ -1,3 +1,9 @@
+/**
+ * Форматирует дату регистрации для блока «В Brand New Notes с …».
+ *
+ * @param iso Дата в ISO-8601 из API (`created_at`).
+ * @returns Локализованная строка на русском.
+ */
 export function formatJoined(iso: string): string {
   const date = new Date(iso);
   const month =
