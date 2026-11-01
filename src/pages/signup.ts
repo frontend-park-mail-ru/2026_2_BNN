@@ -19,6 +19,11 @@ const SIGNUP_FIELDS = ["login", "password", "repeatPassword"] as const;
 
 type SignupField = (typeof SIGNUP_FIELDS)[number];
 
+/**
+ * Проверяет, что имя поля относится к форме регистрации.
+ *
+ * @param name Имя из `HTMLInputElement.name`.
+ */
 function isSignupField(name: string): name is SignupField {
   return (SIGNUP_FIELDS as readonly string[]).includes(name);
 }
@@ -31,6 +36,7 @@ export class SignupPage implements AuthPage {
   form: HTMLFormElement | null = null;
   onSubmit: SubmitHandler | null = null;
   onInput: InputHandler | null = null;
+  onClick: ((event: MouseEvent) => void) | null = null;
 
   /**
    * Рендерит HTML страницы регистрации.

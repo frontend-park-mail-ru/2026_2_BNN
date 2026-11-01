@@ -147,6 +147,28 @@
     }
   }
 
+  &__control {
+    position: relative;
+    display: block;
+  }
+
+  &__toggle {
+    position: absolute;
+    right: 0;
+    bottom: 8px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
+  }
+
   &__label {
     position: absolute;
     top: 0;
@@ -198,6 +220,10 @@
     @media (max-width: 640px) {
       font-size: 26px;
     }
+  }
+
+  &__field:has(&__toggle) &__input {
+    padding-right: 40px;
   }
 
   &__error {

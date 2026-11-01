@@ -1,6 +1,7 @@
 import { api, ApiError, type Note as ApiNote } from "../api";
 import { router, navigate, resetAuthState } from "../router";
 import { User } from "../store/app-store";
+import { mountProfile } from "./profile";
 
 interface Section {
   href: string;
@@ -50,7 +51,6 @@ type NotesStatus = "idle" | "loading" | "ready" | "error" | "unauthorized";
 interface NotesStore {
   status: NotesStatus;
   notes: Note[];
-  error: string;
 }
 
 interface NotesElements {
@@ -73,9 +73,10 @@ interface NotesInstance {
   onSearchFocusOut: (event: FocusEvent) => void;
   onPageClick: (event: MouseEvent) => void;
   onPageKeyDown: (event: KeyboardEvent) => void;
+  destroyProfile: () => void;
 }
 
-const store: NotesStore = { status: "idle", notes: [], error: "" };
+const store: NotesStore = { status: "idle", notes: [] };
 
 let notesRequest: Promise<void> | null = null;
 let mounted: NotesInstance | null = null;
@@ -91,7 +92,6 @@ export function resetNotesStore(): void {
   loadVersion++;
   store.status = "idle";
   store.notes = [];
-  store.error = "";
   notesRequest = null;
 }
 
@@ -145,8 +145,10 @@ function getParagraphs(note: ApiNote): string[] {
   }
 
   for (const block of note.blocks) {
-    if (block.content) {
-      paragraphs.push(block.content);
+    const content = block.content;
+    const text = typeof content === "string" ? content : content?.text;
+    if (text) {
+      paragraphs.push(text);
     }
   }
   return paragraphs;
@@ -306,8 +308,11 @@ function buildView(context: PageContext) {
     }
   }
 
+  const profile = api.getCachedProfile();
+
   return {
-    userLogin: getProfileLogin(api.getCachedProfile()),
+    userLogin: getProfileLogin(profile),
+    avatarUrl: api.avatarUrl(profile?.avatar ?? null),
 
     sectionTitle: currentSection.title,
     sections: sections,
@@ -315,7 +320,6 @@ function buildView(context: PageContext) {
 
     isLoading: isLoading,
     isError: isError,
-    errorMessage: store.error,
     isEmpty: isReady && !hasNotes,
     isWelcome: isReady && hasNotes && !currentNote,
     skeletonRows: SKELETON_ROWS,
@@ -336,7 +340,6 @@ function buildView(context: PageContext) {
 async function loadNotes(): Promise<void> {
   const version = loadVersion;
   store.status = "loading";
-  store.error = "";
 
   try {
     const notes = await fetchAllNotes();
@@ -360,7 +363,6 @@ async function loadNotes(): Promise<void> {
     }
 
     store.status = "error";
-    store.error = error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
   }
 }
 
@@ -408,6 +410,13 @@ export class NotesPage {
     const { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog } =
       elements;
 
+    const destroyProfile = mountProfile(page, {
+      notesCount: () => store.notes.length,
+      onLogout: () => {
+        logoutDialog.hidden = false;
+      },
+    });
+
     const instance: NotesInstance = {
       page: page,
       search: search,
@@ -418,14 +427,17 @@ export class NotesPage {
       onSearchFocusOut: onSearchFocusOut,
       onPageClick: onPageClick,
       onPageKeyDown: onPageKeyDown,
+      destroyProfile: destroyProfile,
     };
 
+    /** Перерисовывает список заметок и основную колонку из текущего store. */
     function update(): void {
       const view = buildView(context);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
     }
 
+    /** Дожидается загрузки заметок и обновляет UI или уводит на логин при 401. */
     async function loadAndShow(): Promise<void> {
       await waitForNotes();
 
@@ -476,20 +488,24 @@ export class NotesPage {
         : "";
     }
 
+    /** Запускает отрисовку подсказок поиска после debounce. */
     function runSearch(): void {
       instance.searchTimer = undefined;
       renderSearchResults();
     }
 
+    /** Откладывает обновление результатов поиска на `SEARCH_DELAY` мс. */
     function onSearchInput(): void {
       window.clearTimeout(instance.searchTimer);
       instance.searchTimer = window.setTimeout(runSearch, SEARCH_DELAY);
     }
 
+    /** Показывает выпадающий список совпадений при фокусе в поле поиска. */
     function onSearchFocus(): void {
       renderSearchResults();
     }
 
+    /** Скрывает результаты поиска, если фокус ушёл за пределы блока `.search`. */
     function onSearchFocusOut(event: FocusEvent): void {
       const next = event.relatedTarget;
       if (next instanceof Node && searchBox.contains(next)) {
@@ -499,10 +515,12 @@ export class NotesPage {
       searchResults.hidden = true;
     }
 
+    /** Закрывает модалку подтверждения выхода. */
     function closeLogoutDialog(): void {
       logoutDialog.hidden = true;
     }
 
+    /** Вызывает API logout и переводит пользователя на страницу входа. */
     async function logOut(button: HTMLButtonElement): Promise<void> {
       button.disabled = true;
       await api.logOut().catch(() => null);
@@ -511,6 +529,7 @@ export class NotesPage {
       await navigate("/login");
     }
 
+    /** Обрабатывает клики по странице: поиск, retry, logout и профиль. */
     function onPageClick(event: MouseEvent): void {
       const target = event.target;
       if (!(target instanceof Element)) {
@@ -549,6 +568,7 @@ export class NotesPage {
       }
     }
 
+    /** По Escape закрывает поиск и диалог выхода. */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
@@ -589,6 +609,7 @@ export class NotesPage {
     mounted.searchBox.removeEventListener("focusout", mounted.onSearchFocusOut);
     mounted.page.removeEventListener("click", mounted.onPageClick);
     mounted.page.removeEventListener("keydown", mounted.onPageKeyDown);
+    mounted.destroyProfile();
     mounted = null;
   }
 }

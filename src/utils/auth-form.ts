@@ -1,10 +1,16 @@
+import { handlePasswordToggleClick } from "./password-toggle";
+
+/** Обработчик submit формы авторизации/регистрации. */
 export type SubmitHandler = (event: SubmitEvent) => void | Promise<void>;
+/** Обработчик input на полях формы. */
 export type InputHandler = (event: Event) => void;
 
+/** Контракт страницы login/signup для общих утилит формы. */
 export interface AuthPage {
   form: HTMLFormElement | null;
   onSubmit: SubmitHandler | null;
   onInput: InputHandler | null;
+  onClick: ((event: MouseEvent) => void) | null;
   validateField(name: string, value: string): boolean;
   handleSubmit(event: SubmitEvent): void | Promise<void>;
 }
@@ -24,6 +30,7 @@ export function mountAuthForm(page: AuthPage, root: ParentNode): void {
   page.form = form;
 
   const onSubmit: SubmitHandler = (event) => page.handleSubmit(event);
+
   const onInput: InputHandler = (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !input.name) {
@@ -39,10 +46,16 @@ export function mountAuthForm(page: AuthPage, root: ParentNode): void {
     page.validateField(input.name, input.value);
   };
 
+  const onClick = (event: MouseEvent): void => {
+    handlePasswordToggleClick(event);
+  };
+
   page.onSubmit = onSubmit;
   page.onInput = onInput;
+  page.onClick = onClick;
   form.addEventListener("submit", onSubmit);
   form.addEventListener("input", onInput);
+  form.addEventListener("click", onClick);
 }
 
 /**
@@ -57,10 +70,14 @@ export function destroyAuthForm(page: AuthPage): void {
   if (page.form && page.onInput) {
     page.form.removeEventListener("input", page.onInput);
   }
+  if (page.form && page.onClick) {
+    page.form.removeEventListener("click", page.onClick);
+  }
 
   page.form = null;
   page.onSubmit = null;
   page.onInput = null;
+  page.onClick = null;
 }
 
 /**
@@ -179,6 +196,41 @@ export function getPasswordError(password: string): string {
   }
   if (password.length > 128) {
     return "Пароль не должен быть больше 128 символов";
+  }
+  return "";
+}
+
+/**
+ * Проверяет новый пароль при смене в профиле.
+ *
+ * @param password Новый пароль.
+ * @param currentPassword Текущий пароль пользователя.
+ * @returns Текст ошибки или пустая строка.
+ */
+export function getNewPasswordError(password: string, currentPassword: string): string {
+  const lengthMessage = getPasswordError(password);
+  if (lengthMessage !== "") {
+    return lengthMessage;
+  }
+  if (password === currentPassword) {
+    return "Новый пароль должен отличаться от текущего";
+  }
+  return "";
+}
+
+/**
+ * Проверяет поле повторного ввода пароля.
+ *
+ * @param repeatPassword Значение поля «повторите пароль».
+ * @param password Основной пароль для сравнения.
+ * @returns Текст ошибки или пустая строка.
+ */
+export function getRepeatPasswordError(repeatPassword: string, password: string): string {
+  if (repeatPassword === "") {
+    return "Повторите пароль";
+  }
+  if (repeatPassword !== password) {
+    return "Пароли не совпадают";
   }
   return "";
 }
