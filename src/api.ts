@@ -363,6 +363,65 @@ class Api {
     }
     return `${this.baseUrl}${avatar}`;
   }
+
+ /**
+ * Запрашивает новый QR для подключения 2FA.
+ * Сервер сразу сохраняет новый секрет: предыдущий QR становится недействительным.
+ * Адрес нужно освободить через URL.revokeObjectURL, когда картинка больше не нужна.
+ *
+ * @returns Временный URL PNG 256×256.
+ */
+  async generateTwoFactorQr(): Promise<string> {
+    const response = await fetch("/api/auth/2fa/generate", {
+      credentials: "include",
+    });
+
+    if (response.status === 401) {
+      throw new ApiError("Нужно войти в аккаунт", 401);
+    }
+
+    if (!response.ok) {
+      throw new ApiError("Не удалось получить QR-код", response.status);
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  /**
+ * Подтверждает код из приложения и включает 2FA.
+ * Пустой 401 одинаков для неверного кода, кода без generate и отсутствующей сессии.
+ *
+ * @param code Шесть цифр из TOTP-приложения.
+ * @returns Профиль с is_2fa_enabled: true.
+ */
+  async enableTwoFactor(code: string): Promise<User> {
+    await this.request(
+      "/api/auth/2fa/enable",
+      {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      },
+      { 401: "Неверный код или сессия истекла" }
+    );
+
+    return this.getProfile();
+  }
+
+  /**
+ * Выключает 2FA текущей сессией. Код и пароль не отправляются.
+ *
+ * @returns Профиль с is_2fa_enabled: false.
+ */
+  async disableTwoFactor(): Promise<User> {
+    await this.request(
+      "/api/auth/2fa/disable",
+      { method: "POST" },
+      { 401: "Нужно войти в аккаунт" }
+    );
+    
+    return this.getProfile();
+  }
 }
 
 /**

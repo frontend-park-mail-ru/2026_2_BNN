@@ -13,7 +13,7 @@ const PROFILE_OPEN_FAILED = "Не удалось открыть профиль, 
 const PASSWORD_SAVE_FAILED = "Не удалось сохранить пароль, попробуйте позже";
 const AVATAR_UPDATE_FAILED = "Не удалось обновить аватар, попробуйте позже";
 
-type ProfileView = "loading" | "menu" | "password";
+type ProfileView = "loading" | "menu" | "password" | "twoFactor";
 
 /** Колбэки и данные, которые страница заметок передаёт в модалку профиля. */
 export interface ProfileOptions {
