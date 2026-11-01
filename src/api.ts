@@ -10,9 +10,15 @@ const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
 const TECHNICAL_ERROR_MESSAGE = "Технические неполадки, попробуйте позже";
 
+/** Ошибка HTTP-запроса с кодом ответа сервера. */
 export class ApiError extends Error {
+  /** HTTP-статус ответа. */
   status: number;
 
+  /**
+   * @param message Сообщение для пользователя или лога.
+   * @param status HTTP-статус ответа.
+   */
   constructor(message: string, status: number) {
     super(message);
     this.name = "ApiError";
@@ -20,15 +26,18 @@ export class ApiError extends Error {
   }
 }
 
+/** Текстовое содержимое блока заметки в ответе API. */
 export interface NoteBlockContent {
   type?: string;
   text?: string;
 }
 
+/** Блок заметки в ответе API. */
 export interface NoteBlock {
   content?: string | NoteBlockContent;
 }
 
+/** Заметка в формате ответа бэкенда. */
 export interface Note {
   id: string;
   parent_note_id?: string | null;
@@ -278,6 +287,12 @@ class Api {
     });
   }
 
+  /**
+   * Меняет пароль текущего пользователя.
+   *
+   * @param oldPassword Текущий пароль.
+   * @param newPassword Новый пароль.
+   */
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
     await this.request(
       "/api/auth/password",
@@ -296,6 +311,12 @@ class Api {
     );
   }
 
+  /**
+   * Загружает аватар и обновляет профиль в store.
+   *
+   * @param file Файл изображения (JPEG, PNG или WebP).
+   * @returns Обновлённый профиль.
+   */
   async updateAvatar(file: File): Promise<User> {
     const body = new FormData();
     body.append("avatar", file);
@@ -327,6 +348,12 @@ class Api {
     return profile;
   }
 
+  /**
+   * Собирает URL аватара для `<img src>`.
+   *
+   * @param avatar Путь или URL из профиля; `null` — дефолтная картинка.
+   * @returns Абсолютный или относительный URL.
+   */
   avatarUrl(avatar: string | null): string {
     if (!avatar) {
       return "/assets/images/avatar-default.svg";

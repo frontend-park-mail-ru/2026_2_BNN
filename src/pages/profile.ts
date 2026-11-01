@@ -3,6 +3,8 @@ import { navigate, resetAuthState } from "../router";
 import type { User } from "../store/app-store";
 import { getNewPasswordError, getRepeatPasswordError } from "../utils/auth-form";
 import { formatJoined } from "../utils/date";
+import { handlePasswordToggleClick, resetPasswordToggles } from "../utils/password-toggle";
+
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;
@@ -14,16 +16,32 @@ const AVATAR_UPDATE_FAILED = "Не удалось обновить аватар,
 
 type ProfileView = "loading" | "menu" | "password";
 
+/** Колбэки и данные, которые страница заметок передаёт в модалку профиля. */
 export interface ProfileOptions {
+  /** Текущее число заметок для блока статистики. */
   notesCount: () => number;
+  /** Открывает диалог выхода (разметка на странице заметок). */
   onLogout: () => void;
 }
 
+/**
+ * Находит форму смены пароля внутри модалки профиля.
+ *
+ * @param dialog Корневой элемент `[data-profile-dialog]`.
+ * @returns Форма или `null`, если её нет в DOM.
+ */
 function passwordForm(dialog: HTMLElement): HTMLFormElement | null {
   const form = dialog.querySelector("[data-profile-form='password']");
   return form instanceof HTMLFormElement ? form : null;
 }
 
+/**
+ * Показывает или снимает ошибку поля формы профиля.
+ *
+ * @param form Форма смены пароля.
+ * @param name Имя поля (`currentPassword`, `newPassword`, `repeatPassword`).
+ * @param message Текст ошибки; пустая строка скрывает ошибку.
+ */
 function setProfileError(form: HTMLFormElement, name: string, message: string): void {
   const error = form.querySelector(`[data-error-for="${name}"]`);
   if (!error) {
@@ -36,6 +54,11 @@ function setProfileError(form: HTMLFormElement, name: string, message: string): 
     ?.classList.toggle("profile-form__field_error", message !== "");
 }
 
+/**
+ * Сбрасывает форму пароля, ошибки и иконки «показать пароль».
+ *
+ * @param form Форма смены пароля.
+ */
 function clearPasswordForm(form: HTMLFormElement): void {
   form.reset();
   form.querySelectorAll(".profile-form__field").forEach((field) => {
@@ -47,12 +70,15 @@ function clearPasswordForm(form: HTMLFormElement): void {
   form.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
     input.type = "password";
   });
-  form.querySelectorAll("[data-password-toggle]").forEach((button) => {
-    button.setAttribute("aria-label", "Показать пароль");
-    button.querySelector("use")?.setAttribute("href", "/assets/icons/ui/sprite.svg#eye");
-  });
+  resetPasswordToggles(form);
 }
 
+/**
+ * Переключает видимые секции модалки: загрузка, меню или смена пароля.
+ *
+ * @param dialog Корневой элемент `[data-profile-dialog]`.
+ * @param view Целевое представление.
+ */
 function showProfileView(dialog: HTMLElement, view: ProfileView): void {
   dialog.querySelectorAll<HTMLElement>("[data-profile-view]").forEach((node) => {
     node.hidden = node.dataset.profileView !== view;
@@ -64,6 +90,12 @@ function showProfileView(dialog: HTMLElement, view: ProfileView): void {
   }
 }
 
+/**
+ * Ждёт не меньше `min` мс с момента `started` (для минимальной длительности спиннера).
+ *
+ * @param started Время начала операции (`Date.now()`).
+ * @param min Минимальная длительность в миллисекундах.
+ */
 function waitAtLeast(started: number, min: number): Promise<void> {
   const rest = min - (Date.now() - started);
   if (rest <= 0) {
@@ -74,6 +106,13 @@ function waitAtLeast(started: number, min: number): Promise<void> {
   });
 }
 
+/**
+ * Обновляет логин, дату регистрации, счётчик заметок и аватар на странице и в модалке.
+ *
+ * @param page Корень `.notes`.
+ * @param profile Профиль пользователя.
+ * @param notesCount Число заметок для статистики.
+ */
 function fillProfile(page: HTMLElement, profile: User, notesCount: number): void {
   page.querySelectorAll("[data-user-login]").forEach((node) => {
     node.textContent = profile.login;
@@ -97,6 +136,13 @@ function fillProfile(page: HTMLElement, profile: User, notesCount: number): void
     });
 }
 
+/**
+ * Подключает модалку профиля, тост и обработчики на странице заметок.
+ *
+ * @param page Корень `.notes` с разметкой профиля и тоста.
+ * @param options Колбэки страницы заметок.
+ * @returns Функция отписки от всех обработчиков.
+ */
 export function mountProfile(page: HTMLElement, options: ProfileOptions): () => void {
   const dialogElement = page.querySelector<HTMLElement>("[data-profile-dialog]");
   const toastElement = page.querySelector<HTMLElement>("[data-toast]");
@@ -203,20 +249,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
 
-    const toggle = target.closest("[data-password-toggle]");
-    if (toggle instanceof HTMLButtonElement) {
-      const input = toggle.parentElement?.querySelector("input");
-      const use = toggle.querySelector("use");
-      if (!(input instanceof HTMLInputElement) || !use) {
-        return;
-      }
-      const willShow = input.type === "password";
-      input.type = willShow ? "text" : "password";
-      use.setAttribute(
-        "href",
-        willShow ? "/assets/icons/ui/sprite.svg#eye-off" : "/assets/icons/ui/sprite.svg#eye"
-      );
-      toggle.setAttribute("aria-label", willShow ? "Скрыть пароль" : "Показать пароль");
+    if (handlePasswordToggleClick(event)) {
       return;
     }
 

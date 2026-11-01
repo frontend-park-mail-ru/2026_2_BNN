@@ -19,6 +19,11 @@ const SIGNUP_FIELDS = ["login", "password", "repeatPassword"] as const;
 
 type SignupField = (typeof SIGNUP_FIELDS)[number];
 
+/**
+ * Проверяет, что имя поля относится к форме регистрации.
+ *
+ * @param name Имя из `HTMLInputElement.name`.
+ */
 function isSignupField(name: string): name is SignupField {
   return (SIGNUP_FIELDS as readonly string[]).includes(name);
 }
