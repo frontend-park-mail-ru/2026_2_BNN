@@ -5,7 +5,6 @@ import { getNewPasswordError, getRepeatPasswordError } from "../utils/auth-form"
 import { formatJoined } from "../utils/date";
 import { handlePasswordToggleClick, resetPasswordToggles } from "../utils/password-toggle";
 
-
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;
 const AVATAR_SPINNER_MIN = 600;
