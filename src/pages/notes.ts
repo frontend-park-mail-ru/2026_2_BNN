@@ -41,6 +41,21 @@ const TITLE_MAX_LENGTH = 255;
 
 const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "checklist"];
 
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+const FILE_ACCEPT = IMAGE_ACCEPT + ",application/pdf";
+
+const BLOCK_OPTIONS: Array<{ type: BlockType; label: string }> = [
+  { type: "text", label: "Текст" },
+  { type: "heading", label: "Заголовок" },
+  { type: "subtitle", label: "Подзаголовок" },
+  { type: "bulleted", label: "Маркированный список" },
+  { type: "numbered", label: "Нумерованный список" },
+  { type: "checklist", label: "Чек-лист" },
+  { type: "quote", label: "Цитата" },
+  { type: "file", label: "Файл" },
+  { type: "image", label: "Изображение" },
+];
+
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const SAVE_STATUS: Record<SaveStatus, string> = {
@@ -57,6 +72,12 @@ interface BlockView {
   checked: boolean;
   placeholder: string;
   isChecklist: boolean;
+  isAttachment: boolean;
+  isImage: boolean;
+  url: string;
+  contentJson: string;
+  isUploading: boolean;
+  uploadError: string;
 }
 
 interface Note {
@@ -310,6 +331,7 @@ function putNote(note: Note): void {
 }
 
 function toBlockView(block: NoteBlock): BlockView {
+  const isAttachment = block.content.type === "file" || block.content.type === "image";
   return {
     id: block.id,
     type: block.content.type,
@@ -317,6 +339,12 @@ function toBlockView(block: NoteBlock): BlockView {
     checked: block.content.checked === true,
     placeholder: "",
     isChecklist: block.content.type === "checklist",
+    isAttachment: isAttachment,
+    isImage: block.content.type === "image",
+    url: block.content.url ?? "",
+    contentJson: isAttachment ? JSON.stringify(block.content) : "",
+    isUploading: false,
+    uploadError: isAttachment && !block.content.url ? "Файл не загружен" : "",
   };
 }
 
@@ -327,14 +355,11 @@ function getEditorBlocks(note: Note): BlockView[] {
     blocks.push(toBlockView(block));
   }
 
-  if (blocks.length === 0) {
+  const last = blocks[blocks.length - 1];
+  if (!last || last.isAttachment) {
     blocks.push({
-      id: "",
-      type: "text",
-      text: "",
-      checked: false,
-      placeholder: "Начните писать...",
-      isChecklist: false,
+      ...toBlockView({ id: "", content: { type: "text", text: "" } }),
+      placeholder: blocks.length === 0 ? "Начните писать..." : "",
     });
   }
 
@@ -343,6 +368,17 @@ function getEditorBlocks(note: Note): BlockView[] {
 
 function createDraft(): Note {
   return { id: "new", parentId: null, title: "", blocks: [], isLoaded: true, text: "" };
+}
+
+function pickFile(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.addEventListener("change", () => resolve(input.files?.[0] ?? null));
+    input.addEventListener("cancel", () => resolve(null));
+    input.click();
+  });
 }
 
 /**
@@ -415,7 +451,6 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     isListLoading: isListLoading,
     isLoading: isListLoading || isNoteLoading,
     isError: isError,
-    errorMessage: store.error,
     isEmpty: isReady && !hasNotes && !(noteId === "new"),
     isWelcome: isReady && hasNotes && !currentNote,
     skeletonRows: SKELETON_ROWS,
@@ -582,7 +617,6 @@ export class NotesPage {
         }
 
         store.status = "error";
-        store.error = error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
         update();
       }
     }
@@ -828,7 +862,7 @@ export class NotesPage {
       setSaveStatus("saving");
 
       const title = readTitle();
-      const { elements, blocks } = collectBlocks();
+      const { elements, blocks, skipped } = collectBlocks();
       let failed = false;
 
       try {
@@ -855,6 +889,11 @@ export class NotesPage {
 
         const saved = await api.updateNote(noteId, { title, blocks });
         applyBlockIds(elements, saved.blocks ?? []);
+
+        for (const element of skipped) {
+          element.removeAttribute("data-block-id");
+        }
+
         putNote(normalizeNote(saved));
         setSaveStatus("saved");
       } catch (error) {
@@ -909,21 +948,38 @@ export class NotesPage {
       return (title?.textContent ?? "").trim().slice(0, TITLE_MAX_LENGTH);
     }
 
-    function collectBlocks(): { elements: HTMLElement[]; blocks: BlockInput[] } {
+    function readBlock(element: HTMLElement): BlockContent | null {
+      if (element.dataset.content) {
+        return JSON.parse(element.dataset.content) as BlockContent;
+      }
+
+      const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
+      const check = element.querySelector<HTMLInputElement>("[data-block-check]");
+      if (text.trim() === "" && !check) {
+        return null;
+      }
+
+      const content: BlockContent = { type: element.dataset.blockType as BlockType, text };
+      if (check) {
+        content.checked = check.checked;
+      }
+      return content;
+    }
+
+    function collectBlocks(): {
+      elements: HTMLElement[];
+      blocks: BlockInput[];
+      skipped: HTMLElement[];
+    } {
       const elements: HTMLElement[] = [];
       const blocks: BlockInput[] = [];
+      const skipped: HTMLElement[] = [];
 
       for (const element of mainRegion.querySelectorAll<HTMLElement>("[data-block]")) {
-        const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
-        const check = element.querySelector<HTMLInputElement>("[data-block-check]");
-
-        if (text.trim() === "" && !check) {
+        const content = readBlock(element);
+        if (!content) {
+          skipped.push(element);
           continue;
-        }
-
-        const content: BlockContent = { type: element.dataset.blockType as BlockType, text };
-        if (check) {
-          content.checked = check.checked;
         }
 
         const id = element.dataset.blockId;
@@ -931,7 +987,107 @@ export class NotesPage {
         blocks.push(id ? { id, content } : { content });
       }
 
-      return { elements, blocks };
+      return { elements, blocks, skipped };
+    }
+
+    function openBlockMenu(block: HTMLElement): void {
+      closeBlockMenu();
+      block.insertAdjacentHTML(
+        "beforeend",
+        Handlebars.partials["block-menu"]({ options: BLOCK_OPTIONS })
+      );
+    }
+
+    function closeBlockMenu(): void {
+      mainRegion.querySelector("[data-block-menu]")?.remove();
+    }
+
+    function moveBlockMenu(menu: HTMLElement, step: number): void {
+      const items = Array.from(menu.querySelectorAll<HTMLElement>("[data-block-option]"));
+      const current = items.findIndex((item) => item.classList.contains("block-menu__item_active"));
+      const next = items[(current + step + items.length) % items.length];
+      items[current]?.classList.remove("block-menu__item_active");
+      next.classList.add("block-menu__item_active");
+      next.scrollIntoView({ block: "nearest" });
+    }
+
+    function chooseBlockType(block: HTMLElement, type: BlockType): void {
+      closeBlockMenu();
+
+      if (type === "file" || type === "image") {
+        void attachFile(block, type);
+        return;
+      }
+
+      const next = replaceBlock(
+        block,
+        toBlockView({ id: block.dataset.blockId ?? "", content: { type, text: "" } })
+      );
+      const text = next.querySelector<HTMLElement>("[data-block-text]");
+      if (text) {
+        placeCaret(text, false);
+      }
+      timerSave();
+    }
+
+    async function attachFile(block: HTMLElement, type: BlockType): Promise<void> {
+      const file = await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT);
+      if (!file || !block.isConnected) {
+        return;
+      }
+
+      const content: BlockContent = { type, text: file.name };
+      const uploading = replaceBlock(block, {
+        ...toBlockView({ id: block.dataset.blockId ?? "", content }),
+        isUploading: true,
+      });
+      if (!uploading.nextElementSibling) {
+        insertBlockAfter(uploading, "text");
+      }
+
+      timerSave();
+      await finishSaving();
+      if (mounted !== instance) {
+        return;
+      }
+
+      const blockId = uploading.dataset.blockId ?? "";
+      let uploadError = blockId ? "" : "Не удалось сохранить заметку";
+
+      if (blockId) {
+        try {
+          const attachment = await api.uploadAttachment(blockId, file);
+          content.attachmentId = attachment.id;
+          content.url = attachment.url;
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            if (mounted === instance) {
+              await goToLogin();
+            }
+            return;
+          }
+          uploadError =
+            error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
+        }
+      }
+
+      if (!uploading.isConnected) {
+        return;
+      }
+
+      const view = toBlockView({ id: blockId, content });
+      replaceBlock(uploading, uploadError ? { ...view, uploadError } : view);
+      timerSave();
+    }
+
+    async function removeAttachment(block: HTMLElement): Promise<void> {
+      const content = readBlock(block);
+      block.remove();
+      timerSave();
+
+      if (content?.attachmentId) {
+        await api.deleteAttachment(content.attachmentId).catch(() => null);
+      }
     }
 
     function applyBlockIds(elements: HTMLElement[], saved: NoteBlock[]): void {
@@ -998,21 +1154,38 @@ export class NotesPage {
     }
 
     function insertBlockAfter(block: HTMLElement, type: BlockType): HTMLElement | null {
-      const view: BlockView = {
-        id: "",
-        type,
-        text: "",
-        checked: false,
-        placeholder: "",
-        isChecklist: type === "checklist",
-      };
+      const view = toBlockView({ id: "", content: { type, text: "" } });
       block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
       return block.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]") ?? null;
+    }
+
+    function replaceBlock(block: HTMLElement, view: BlockView): HTMLElement {
+      block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
+      const next = block.nextElementSibling as HTMLElement;
+      block.remove();
+      return next;
     }
 
     function onNoteKeyDown(event: KeyboardEvent): void {
       const target = event.target;
       if (event.isComposing || !(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const menu = mainRegion.querySelector<HTMLElement>("[data-block-menu]");
+      if (menu && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+        event.preventDefault();
+        moveBlockMenu(menu, event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
+
+      if (menu && event.key === "Enter") {
+        event.preventDefault();
+        const active = menu.querySelector<HTMLElement>(".block-menu__item_active");
+        const block = menu.closest<HTMLElement>("[data-block]");
+        if (active && block) {
+          chooseBlockType(block, active.dataset.blockOption as BlockType);
+        }
         return;
       }
 
@@ -1027,13 +1200,13 @@ export class NotesPage {
         }
 
         const block = target.closest<HTMLElement>("[data-block]");
-        if (!block) {
+        const text = block?.querySelector<HTMLElement>("[data-block-text]");
+        if (!block || !text) {
           return;
         }
 
         event.preventDefault();
-        const text = block.querySelector<HTMLElement>("[data-block-text]");
-        const tail = text ? cutAfterCaret(text) : null;
+        const tail = cutAfterCaret(text);
         const type = block.dataset.blockType as BlockType;
         const next = insertBlockAfter(block, LIST_TYPES.includes(type) ? type : "text");
         if (next) {
@@ -1072,6 +1245,25 @@ export class NotesPage {
 
       if (!target.closest("[data-note-menu]")) {
         setNoteMenu(false);
+      }
+
+      if (!target.closest("[data-block-menu]")) {
+        closeBlockMenu();
+      }
+
+      const option = target.closest<HTMLElement>("[data-block-option]");
+      const optionBlock = option?.closest<HTMLElement>("[data-block]");
+      if (option && optionBlock) {
+        chooseBlockType(optionBlock, option.dataset.blockOption as BlockType);
+        return;
+      }
+
+      const attachmentBlock = target
+        .closest("[data-attachment-remove]")
+        ?.closest<HTMLElement>("[data-block]");
+      if (attachmentBlock) {
+        void removeAttachment(attachmentBlock);
+        return;
       }
 
       if (target.closest("[data-note-menu-toggle]")) {
@@ -1138,7 +1330,7 @@ export class NotesPage {
       }
     }
 
-    /** По Escape закрывает поиск и диалог выхода. */
+    /** По Escape закрывает поиск, меню заметки, меню блоков и диалоги выхода и удаления. */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
@@ -1148,6 +1340,7 @@ export class NotesPage {
       closeLogoutDialog();
       setNoteMenu(false);
       closeDeleteDialog();
+      closeBlockMenu();
     }
 
     function onNoteInput(event: Event): void {
@@ -1158,6 +1351,15 @@ export class NotesPage {
 
       if (target.matches("[data-note-title]")) {
         showTitleInList(readTitle());
+      }
+
+      if (target.matches("[data-block-text]")) {
+        const block = target.closest<HTMLElement>("[data-block]");
+        if (block && target.innerText.trim() === "/") {
+          openBlockMenu(block);
+        } else {
+          closeBlockMenu();
+        }
       }
 
       if (target.closest("[data-note-title], [data-block-text]")) {
@@ -1226,6 +1428,7 @@ export class NotesPage {
     leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
     leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
+    leaving.destroyProfile();
 
     await leaving.finishSaving();
   }

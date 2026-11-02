@@ -27,12 +27,22 @@ export class ApiError extends Error {
 }
 
 export type BlockType =
-  "text" | "heading" | "subtitle" | "bulleted" | "numbered" | "checklist" | "quote";
+  | "text"
+  | "heading"
+  | "subtitle"
+  | "bulleted"
+  | "numbered"
+  | "checklist"
+  | "quote"
+  | "file"
+  | "image";
 
 export interface BlockContent {
   type: BlockType;
   text: string;
   checked?: boolean;
+  attachmentId?: string;
+  url?: string;
 }
 
 export interface NoteBlock {
@@ -53,6 +63,11 @@ export interface Note {
   blocks?: NoteBlock[];
   created_at: string;
   updated_at: string;
+}
+
+export interface Attachment {
+  id: string;
+  url: string;
 }
 
 /**
@@ -288,6 +303,28 @@ class Api {
 
   async deleteNote(id: string): Promise<void> {
     await this.request(`/api/notes/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  async uploadAttachment(blockId: string, file: File): Promise<Attachment> {
+    const body = new FormData();
+    body.append("file", file);
+
+    const attachment = await this.request<Attachment>(
+      `/api/blocks/${encodeURIComponent(blockId)}/attachments`,
+      { method: "POST", body },
+      {
+        413: "Файл больше 10 МБ",
+        415: "Можно загрузить только JPEG, PNG, WebP, GIF или PDF",
+      }
+    );
+    if (!attachment) {
+      throw new ApiError("Не удалось загрузить файл", 500);
+    }
+    return attachment;
+  }
+
+  async deleteAttachment(id: string): Promise<void> {
+    await this.request(`/api/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
   /**

@@ -1,0 +1,6 @@
+<div class="block-menu" data-block-menu>
+    <p class="block-menu__title">Базовые блоки</p>
+    {{#each options}}
+        <button class="block-menu__item{{#if @first}} block-menu__item_active{{/if}}" type="button" data-block-option="{{type}}">{{label}}</button>
+    {{/each}}
+</div>
