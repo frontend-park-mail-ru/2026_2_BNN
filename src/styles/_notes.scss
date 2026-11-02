@@ -237,6 +237,9 @@
   }
 
   &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     padding: 8px;
     border-radius: 18px;
     background-color: var(--bg);
@@ -263,12 +266,12 @@
     }
 
     &_danger {
-      color: #d64550;
-      background-color: #f4f6f8;
+      color: var(--danger);
+      background-color: var(--danger-bg);
 
       &:hover,
       &:focus-visible {
-        background-color: #f8e8ea;
+        background-color: var(--danger-bg-hover);
       }
     }
   }
@@ -741,6 +744,37 @@
 
   to {
     background-position: -100% 0;
+  }
+}
+
+.toast {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(15, 33, 64, 0.16);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &_error &__icon {
+    display: none;
+  }
+
+  &__close {
+    display: flex;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
   }
 }
 

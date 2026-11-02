@@ -9,6 +9,7 @@ import {
 } from "../api";
 import { router, navigate, resetAuthState, type PageContext } from "../router";
 import { User } from "../store/app-store";
+import { mountProfile } from "./profile";
 
 interface Section {
   href: string;
@@ -77,7 +78,6 @@ type NotesStatus = "idle" | "loading" | "ready" | "error" | "unauthorized";
 interface NotesStore {
   status: NotesStatus;
   notes: Note[];
-  error: string;
 }
 
 interface NotesElements {
@@ -115,9 +115,10 @@ interface NotesInstance {
   onNoteChange: (event: Event) => void;
   onNoteKeyDown: (event: KeyboardEvent) => void;
   onBeforeUnload: (event: BeforeUnloadEvent) => void;
+  destroyProfile: () => void;
 }
 
-const store: NotesStore = { status: "idle", notes: [], error: "" };
+const store: NotesStore = { status: "idle", notes: [] };
 
 let notesRequest: Promise<void> | null = null;
 let mounted: NotesInstance | null = null;
@@ -135,7 +136,6 @@ export function resetNotesStore(): void {
   loadVersion++;
   store.status = "idle";
   store.notes = [];
-  store.error = "";
   notesRequest = null;
 }
 
@@ -402,8 +402,11 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     }
   }
 
+  const profile = api.getCachedProfile();
+
   return {
-    userLogin: getProfileLogin(api.getCachedProfile()),
+    userLogin: getProfileLogin(profile),
+    avatarUrl: api.avatarUrl(profile?.avatar ?? null),
 
     sectionTitle: currentSection.title,
     sections: sections,
@@ -436,7 +439,6 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
 async function loadNotes(): Promise<void> {
   const version = loadVersion;
   store.status = "loading";
-  store.error = "";
 
   try {
     const notes = await fetchAllNotes();
@@ -460,7 +462,6 @@ async function loadNotes(): Promise<void> {
     }
 
     store.status = "error";
-    store.error = error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
   }
 }
 
@@ -517,6 +518,17 @@ export class NotesPage {
       toast,
     } = elements;
 
+    const destroyProfile = mountProfile(page, {
+      notesCount: () => store.notes.length,
+      onLogout: () => {
+        logoutDialog.hidden = false;
+      },
+    });
+
+    if (context.path === "/profile") {
+      history.replaceState(null, "", "/notes");
+    }
+
     const instance: NotesInstance = {
       page: page,
       search: search,
@@ -540,6 +552,7 @@ export class NotesPage {
       onNoteChange: onNoteChange,
       onNoteKeyDown: onNoteKeyDown,
       onBeforeUnload: onBeforeUnload,
+      destroyProfile: destroyProfile,
     };
 
     async function loadNote(id: string): Promise<void> {
@@ -663,6 +676,7 @@ export class NotesPage {
       instance.searchTimer = window.setTimeout(renderSearchResults, SEARCH_DELAY);
     }
 
+    /** Скрывает результаты поиска, если фокус ушёл за пределы блока `.search`. */
     function onSearchFocusOut(event: FocusEvent): void {
       const next = event.relatedTarget;
       if (next instanceof Node && searchBox.contains(next)) {
@@ -672,10 +686,12 @@ export class NotesPage {
       searchResults.hidden = true;
     }
 
+    /** Закрывает модалку подтверждения выхода. */
     function closeLogoutDialog(): void {
       logoutDialog.hidden = true;
     }
 
+    /** Вызывает API logout и переводит пользователя на страницу входа. */
     async function logOut(button: HTMLButtonElement): Promise<void> {
       button.disabled = true;
       await api.logOut().catch(() => null);
@@ -1122,6 +1138,7 @@ export class NotesPage {
       }
     }
 
+    /** По Escape закрывает поиск и диалог выхода. */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;

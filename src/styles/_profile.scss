@@ -1,0 +1,342 @@
+@use "variables" as *;
+
+.profile {
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  &__close {
+    display: flex;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
+  }
+
+  &__user {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 22px;
+  }
+
+  &__avatar {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    cursor: pointer;
+
+    &-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    &-edit {
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border: 2px solid var(--bg);
+      border-radius: 50%;
+      background: var(--text);
+      color: var(--bg);
+
+      .icon {
+        display: block;
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    &-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+  }
+
+  &__name {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  &__since {
+    margin: 4px 0 0;
+    color: var(--light-text);
+    font-family: var(--font-input);
+    font-size: 14px;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 8px;
+    border-radius: 16px;
+    background: var(--dark-bg);
+
+    b {
+      font-size: 22px;
+    }
+
+    span {
+      color: var(--light-text);
+      font-size: 13px;
+    }
+  }
+
+  &__menu:not([hidden]) {
+    display: inline-grid;
+  }
+  &__menu {
+    gap: 4px;
+    margin-top: 22px;
+  }
+
+  &__menu &__button {
+    width: 100%;
+    height: auto;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: none;
+    font-size: 16px;
+    text-align: left;
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--dark-bg);
+    }
+  }
+
+  &__menu &__button_danger {
+    background-color: var(--danger-bg);
+    color: var(--danger);
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--danger-bg-hover);
+    }
+  }
+
+  &__button {
+    height: 40px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 999px;
+    background: var(--button-bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    cursor: pointer;
+
+    &_primary {
+      background: var(--accent);
+    }
+
+    &_danger {
+      margin-top: 0;
+      background-color: var(--danger-bg);
+      color: var(--danger);
+
+      &:hover,
+      &:focus-visible {
+        background-color: var(--danger-bg-hover);
+      }
+    }
+  }
+
+  &__skeleton-text {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  &__skeleton-avatar {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    border-radius: 50%;
+  }
+
+  &__skeleton-line {
+    &_name {
+      width: 96px;
+      height: 22px;
+    }
+
+    &_since {
+      width: 260px;
+      height: 14px;
+    }
+  }
+
+  &__skeleton-stat {
+    height: 72px;
+    border-radius: 16px;
+  }
+
+  &__skeleton-password {
+    width: 140px;
+    height: 16px;
+    margin: 12px 14px;
+  }
+
+  &__skeleton-logout {
+    width: 196px;
+    height: 40px;
+    border-radius: 12px;
+  }
+}
+
+.profile-form {
+  margin-top: 22px;
+
+  &__field {
+    display: block;
+    margin-top: 8px;
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+
+  &__input {
+    display: block;
+    width: 100%;
+    height: 36px;
+    padding: 0 32px 0 0;
+    border: none;
+    border-bottom: 2px solid $ink;
+    border-radius: 0;
+    background: transparent;
+    color: $ink;
+    font: inherit;
+    font-size: 16px;
+
+    &:focus {
+      outline: none;
+      border-bottom-color: var(--accent);
+    }
+  }
+
+  &__error {
+    display: block;
+    min-height: 18px;
+    margin-top: 6px;
+    color: $error;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  &__field_error &__label,
+  &__field_error &__input {
+    color: $error;
+    border-bottom-color: $error;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  &__control {
+    position: relative;
+  }
+
+  &__toggle {
+    position: absolute;
+    right: 0;
+    bottom: 6px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--light-text);
+    cursor: pointer;
+  }
+}
+
+.modal__card_profile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 32px;
+  width: min(600px, 100%);
+  padding: 28px 36px 32px;
+
+  [data-profile-identity]:not([hidden]),
+  [data-profile-view="loading"]:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .profile__user,
+  .profile__stats,
+  .profile__menu,
+  .profile-form {
+    margin-top: 0;
+  }
+
+  .profile__menu {
+    align-self: flex-start;
+  }
+}
+
+.modal[data-profile-dialog] {
+  background-color: rgba(15, 33, 64, 0);
+  transition: background-color 0.2s ease;
+
+  .modal__card_profile {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  &.modal_open {
+    background-color: rgba(15, 33, 64, 0.28);
+
+    .modal__card_profile {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

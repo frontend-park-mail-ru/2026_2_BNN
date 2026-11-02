@@ -23,6 +23,7 @@ export class LoginPage implements AuthPage {
   form: HTMLFormElement | null = null;
   onSubmit: SubmitHandler | null = null;
   onInput: InputHandler | null = null;
+  onClick: ((event: MouseEvent) => void) | null = null;
 
   /**
    * Рендерит HTML страницы авторизации.
@@ -114,6 +115,11 @@ export class LoginPage implements AuthPage {
       await navigate("/");
     } catch (error) {
       if (!this.form) {
+        return;
+      }
+
+      if (error instanceof ApiError && /oauth/i.test(error.message)) {
+        setFormFeedback(this.form, "Этот аккаунт создан через GitHub. Войдите через GitHub");
         return;
       }
 
