@@ -963,6 +963,24 @@ export class NotesPage {
       selection?.addRange(range);
     }
 
+    function cutAfterCaret(text: HTMLElement): DocumentFragment | null {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        return null;
+      }
+
+      const range = selection.getRangeAt(0);
+      if (!text.contains(range.startContainer) || !text.contains(range.endContainer)) {
+        return null;
+      }
+
+      range.deleteContents();
+      const tail = document.createRange();
+      tail.selectNodeContents(text);
+      tail.setStart(range.startContainer, range.startOffset);
+      return tail.extractContents();
+    }
+
     function insertBlockAfter(block: HTMLElement, type: BlockType): HTMLElement | null {
       const view: BlockView = {
         id: "",
@@ -998,9 +1016,14 @@ export class NotesPage {
         }
 
         event.preventDefault();
+        const text = block.querySelector<HTMLElement>("[data-block-text]");
+        const tail = text ? cutAfterCaret(text) : null;
         const type = block.dataset.blockType as BlockType;
         const next = insertBlockAfter(block, LIST_TYPES.includes(type) ? type : "text");
         if (next) {
+          if (tail) {
+            next.append(tail);
+          }
           placeCaret(next, false);
         }
         timerSave();
