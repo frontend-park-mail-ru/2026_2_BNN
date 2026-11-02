@@ -41,6 +41,40 @@ function passwordForm(dialog: HTMLElement): HTMLFormElement | null {
  * @param name Имя поля (`currentPassword`, `newPassword`, `repeatPassword`).
  * @param message Текст ошибки; пустая строка скрывает ошибку.
  */
+function twoFactorCode(form: HTMLFormElement): string {
+  return [...form.querySelectorAll<HTMLInputElement>("[data-2fa-digit]")]
+    .map((input) => input.value)
+    .join("");
+}
+
+function digitInputs(input: HTMLInputElement): HTMLInputElement[] {
+  const code = input.closest(".profile-form__code");
+  if (!code) {
+    return [];
+  }
+  return [...code.querySelectorAll<HTMLInputElement>("[data-2fa-digit]")];
+}
+
+function fillDigit(input: HTMLInputElement): void {
+  const digits = input.value.replace(/\D/g, "");
+  const inputs = digitInputs(input);
+  const index = inputs.indexOf(input);
+
+  if (digits.length <= 1) {
+    input.value = digits;
+    if (digits.length === 1) {
+      inputs[index + 1]?.focus();
+    }
+    return;
+  }
+
+  for (let offset = 0; offset < digits.length && index + offset < inputs.length; offset++) {
+    inputs[index + offset].value = digits[offset];
+  }
+  const next = Math.min(index + digits.length, inputs.length - 1);
+  inputs[next]?.focus();
+}
+
 function setProfileError(form: HTMLFormElement, name: string, message: string): void {
   const error = form.querySelector(`[data-error-for="${name}"]`);
   if (!error) {
@@ -158,6 +192,35 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   let closeTimer: number | undefined;
   let profileRequest = 0;
   let openFrame = 0;
+  let qrUrl = "";
+
+  function clearQr(): void {
+    if (qrUrl) {
+      URL.revokeObjectURL(qrUrl);
+      qrUrl = "";
+    }
+    dialog.querySelector<HTMLImageElement>("[data-2fa-qr]")?.removeAttribute("src");
+  }
+
+  async function openTwoFactror(): Promise<void> {
+    showProfileView(dialog, "twoFactor");
+    clearQr();
+    try {
+      qrUrl = await api.generateTwoFactorQr();
+      const image = dialog.querySelector<HTMLImageElement>("[data-2fa-qr]");
+      if (image) {
+        image.src = qrUrl;
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        resetAuthState("unauthenticated");
+        await navigate("/login");
+        return;
+      }
+      showToast("Не удалось получить QR-код", false);
+      showProfileView(dialog, "menu");
+    }
+  }
 
   function showToast(message: string, ok = true): void {
     toastText.textContent = message;
@@ -188,6 +251,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     const form = passwordForm(dialog);
     if (form) {
       clearPasswordForm(form);
+      clearQr();
     }
     window.clearTimeout(closeTimer);
     if (!wasOpen) {
@@ -261,6 +325,8 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       const form = passwordForm(dialog);
       if (form) {
         clearPasswordForm(form);
+        clearQr();
+        dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactor']")?.reset();
       }
       showProfileView(dialog, "menu");
       return;
@@ -268,6 +334,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
     if (target.closest("[data-profile-password]")) {
       showProfileView(dialog, "password");
+      return;
+    }
+
+    if (target.closest("[data-profile-two-factor]")) {
+      void openTwoFactror();
       return;
     }
 
@@ -281,11 +352,52 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   function onKeyDown(event: KeyboardEvent): void {
     if (event.key === "Escape" && !dialog.hidden) {
       closeProfile();
+      return;
+    }
+
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches("[data-2fa-digit]")) {
+      return;
+    }
+
+    const inputs = digitInputs(input);
+    const index = inputs.indexOf(input);
+
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      input.value = event.key;
+      inputs[index + 1]?.focus();
+      input.form && setProfileError(input.form, "code", "");
+      return;
+    }
+
+    if (event.key === "Backspace" && input.value === "") {
+      const previous = inputs[index - 1];
+      if (previous) {
+        previous.value = "";
+        previous.focus();
+      }
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      inputs[index - 1]?.focus();
+    }
+    if (event.key === "ArrowRight") {
+      inputs[index + 1]?.focus();
     }
   }
 
   function onInput(event: Event): void {
     const input = event.target;
+    if (input instanceof HTMLInputElement && input.matches("[data-2fa-digit]")) {
+      fillDigit(input);
+      const form = input.form;
+      if (form) {
+        setProfileError(form, "code", "");
+      }
+      return;
+    }
     if (
       !(input instanceof HTMLInputElement) ||
       !input.form?.matches("[data-profile-form='password']")
@@ -318,10 +430,36 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
   async function onSubmit(event: SubmitEvent): Promise<void> {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || form.dataset.profileForm !== "password") {
+    if (!(form instanceof HTMLFormElement)) {
       return;
     }
     event.preventDefault();
+
+    if (form.dataset.profileForm === "twoFactor") {
+      const code = twoFactorCode(form);
+      if (!/^\d{6}$/.test(code)) {
+        setProfileError(form, "code", "Введите 6 цифр из приложения");
+        return;
+      }
+      try {
+        await api.enableTwoFactor(code);
+        clearQr();
+        form.reset();
+        showProfileView(dialog, "menu");
+        showToast("Двухфакторная аутентификация включена");
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          setProfileError(form, "code", "Неверный код");
+          return;
+        }
+        showToast("Не удалось включить 2FA, попробуйте позже", false);
+      }
+      return;
+    }
+
+    if (form.dataset.profileForm !== "password") {
+      return;
+    }
 
     const currentPassword = (form.elements.namedItem("currentPassword") as HTMLInputElement).value;
     const newPassword = (form.elements.namedItem("newPassword") as HTMLInputElement).value;
@@ -425,6 +563,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   return () => {
     window.clearTimeout(toastTimer);
     window.clearTimeout(closeTimer);
+    clearQr();
     page.removeEventListener("click", onClick);
     page.removeEventListener("keydown", onKeyDown);
     page.removeEventListener("input", onInput);

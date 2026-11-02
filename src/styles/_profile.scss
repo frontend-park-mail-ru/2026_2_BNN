@@ -155,9 +155,20 @@
     font: inherit;
     font-size: 15px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: #d5e0ee;
+    }
 
     &_primary {
       background: var(--accent);
+
+      &:hover,
+      &:focus-visible {
+        background: var(--accent-soft);
+      }
     }
 
     &_danger {
@@ -270,6 +281,36 @@
     margin-top: 18px;
   }
 
+  &__code {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  &__digit {
+    width: 44px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid #c5d0de;
+    border-radius: 10px;
+    background: #fff;
+    color: $ink;
+    font: inherit;
+    font-size: 24px;
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  &__field_error &__digit {
+    color: $error;
+    border-color: $error;
+  }
+
   &__control {
     position: relative;
   }
@@ -345,5 +386,5 @@
   display: block;
   width: 256px;
   height: 256px;
-  margin: 12px 0 8px;
+  margin: 12px auto 8px;
 }

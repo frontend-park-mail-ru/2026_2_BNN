@@ -91,11 +91,18 @@
         <form class="profile-form" data-profile-view="twoFactor" data-profile-form="twoFactor" hidden novalidate>
             <p class="profile-form__label">1. Отсканируйте QR в Google Authenticator или другом TOTP-приложении. Аккаунт будет называться BNN_Notes.</p>
             <img class="profile-form__qr" data-2fa-qr alt="QR-код для подключения 2FA" width="256" height="256">
-            <label class="profile-form__field">
+            <div class="profile-form__field">
                 <span class="profile-form__label">2. Введите первый код из приложения</span>
-                <input class="profile-form__input" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+                <div class="profile-form__code">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Цифра 1">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 2">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 3">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 4">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 5">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 6">
+                </div>
                 <small class="profile-form__error" data-error-for="code"></small>
-            </label>
+            </div>
             <div class="profile-form__actions">
                 <button class="profile__button profile__button_primary" type="submit">Подтвердить</button>
                 <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
