@@ -26,15 +26,33 @@ export class ApiError extends Error {
   }
 }
 
-/** Текстовое содержимое блока заметки в ответе API. */
-export interface NoteBlockContent {
-  type?: string;
-  text?: string;
+export type BlockType =
+  | "text"
+  | "heading"
+  | "subtitle"
+  | "bulleted"
+  | "numbered"
+  | "checklist"
+  | "quote"
+  | "file"
+  | "image";
+
+export interface BlockContent {
+  type: BlockType;
+  text: string;
+  checked?: boolean;
+  attachmentId?: string;
+  url?: string;
 }
 
-/** Блок заметки в ответе API. */
 export interface NoteBlock {
-  content?: string | NoteBlockContent;
+  id: string;
+  content: BlockContent;
+}
+
+export interface BlockInput {
+  id?: string;
+  content: BlockContent;
 }
 
 /** Заметка в формате ответа бэкенда. */
@@ -42,7 +60,14 @@ export interface Note {
   id: string;
   parent_note_id?: string | null;
   title: string;
-  blocks: NoteBlock[];
+  blocks?: NoteBlock[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Attachment {
+  id: string;
+  url: string;
 }
 
 /**
@@ -222,6 +247,40 @@ class Api {
   }
 
   /**
+   * Отправляет запрос на создание новой заметки.
+   *
+   * @param input Начальные данные заметки - название и идентификатор родительской заметки.
+   * @returns Созданная заметка в формате ответа сервера.
+   */
+  async createNote(input: { title?: string; parent_note_id?: string } = {}): Promise<Note> {
+    const note = await this.request<Note>("/api/notes", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    if (!note) {
+      throw new ApiError("Не удалось создать заметку", 500);
+    }
+    return note;
+  }
+
+  /**
+   * Отправляет обновлённую версию заметки.
+   *
+   * @param id Идентификатор заметки.
+   * @param data Содержимое заметки.
+   * @returns Заметка в формате ответа сервера.
+   */
+  async updateNote(id: string, data: { title: string; blocks: BlockInput[] }): Promise<Note> {
+    const note = await this.request<Note>(`/api/notes/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    if (!note) {
+      throw new ApiError("Заметка не найдена", 404);
+    }
+    return note;
+  }
+  /**
    * Запрашивает одну заметку по id.
    *
    * @param id Идентификатор заметки.
@@ -240,6 +299,32 @@ class Api {
       throw new ApiError("Заметка не найдена", 404);
     }
     return note;
+  }
+
+  async deleteNote(id: string): Promise<void> {
+    await this.request(`/api/notes/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  async uploadAttachment(blockId: string, file: File): Promise<Attachment> {
+    const body = new FormData();
+    body.append("file", file);
+
+    const attachment = await this.request<Attachment>(
+      `/api/blocks/${encodeURIComponent(blockId)}/attachments`,
+      { method: "POST", body },
+      {
+        413: "Файл больше 10 МБ",
+        415: "Можно загрузить только JPEG, PNG, WebP, GIF или PDF",
+      }
+    );
+    if (!attachment) {
+      throw new ApiError("Не удалось загрузить файл", 500);
+    }
+    return attachment;
+  }
+
+  async deleteAttachment(id: string): Promise<void> {
+    await this.request(`/api/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
   /**

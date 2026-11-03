@@ -29,7 +29,7 @@
             <span class="notebook__status">{{> icon name="file" size="l"}}</span>
             <h2 class="notebook__message-title">У вас пока нет заметок</h2>
             <p class="notebook__message-text">Создайте первую заметку, и она появится здесь</p>
-            <button class="notebook__action" type="button">Создать заметку</button>
+            <button class="notebook__action" type="button" data-new-note>Создать заметку</button>
         </div>
     </article>
 {{else if isWelcome}}
@@ -38,7 +38,7 @@
             <span class="notebook__status">{{> icon name="file" size="l"}}</span>
             <h2 class="notebook__message-title">Добро пожаловать</h2>
             <p class="notebook__message-text">Выберите заметку<br>или создайте новую</p>
-            <button class="notebook__action" type="button">Создать заметку</button>
+            <button class="notebook__action" type="button" data-new-note>Создать заметку</button>
         </div>
     </article>
 {{else}}
