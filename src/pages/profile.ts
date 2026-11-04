@@ -205,7 +205,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       if (image) {
         image.src = qrUrl;
       }
-      dialog.querySelector<HTMLInputElement>("[data-profile-form='twoFactor'] [data-2fa-digit]")?.focus();
+      dialog
+        .querySelector<HTMLInputElement>("[data-profile-form='twoFactor'] [data-2fa-digit]")
+        ?.focus();
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         resetAuthState("unauthenticated");
@@ -230,7 +232,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
   function openTwoFactorDisable(): void {
     showProfileView(dialog, "twoFactorDisable");
-    dialog.querySelector<HTMLInputElement>("[data-profile-form='twoFactorDisable'] [data-2fa-digit]")?.focus();
+    dialog
+      .querySelector<HTMLInputElement>("[data-profile-form='twoFactorDisable'] [data-2fa-digit]")
+      ?.focus();
   }
 
   function showToast(message: string, ok = true): void {
