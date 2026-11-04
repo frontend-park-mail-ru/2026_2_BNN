@@ -1,5 +1,13 @@
-import { api, ApiError, type Note as ApiNote } from "../api";
-import { router, navigate, resetAuthState } from "../router";
+import {
+  api,
+  ApiError,
+  type NoteBlock,
+  type BlockType,
+  type Note as ApiNote,
+  type BlockContent,
+  type BlockInput,
+} from "../api";
+import { router, navigate, resetAuthState, type PageContext } from "../router";
 import { User } from "../store/app-store";
 import { mountProfile } from "./profile";
 
@@ -27,17 +35,57 @@ const NOTES_LIMIT = 100;
 const SEARCH_DELAY = 200;
 const SEARCH_RESULTS_LIMIT = 8;
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
+const SAVE_DELAY = 1000;
+const TOAST_DELAY = 4000;
+const TITLE_MAX_LENGTH = 255;
 
-interface PageContext {
-  path: string;
-  params: Record<string, string>;
+const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "checklist"];
+
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+const FILE_ACCEPT = IMAGE_ACCEPT + ",application/pdf";
+
+const BLOCK_OPTIONS: Array<{ type: BlockType; label: string }> = [
+  { type: "text", label: "Текст" },
+  { type: "heading", label: "Заголовок" },
+  { type: "subtitle", label: "Подзаголовок" },
+  { type: "bulleted", label: "Маркированный список" },
+  { type: "numbered", label: "Нумерованный список" },
+  { type: "checklist", label: "Чек-лист" },
+  { type: "quote", label: "Цитата" },
+  { type: "file", label: "Файл" },
+  { type: "image", label: "Изображение" },
+];
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+const SAVE_STATUS: Record<SaveStatus, string> = {
+  idle: "",
+  saving: "Сохраняется…",
+  saved: "Сохранено",
+  error: "Не сохранено",
+};
+
+interface BlockView {
+  id: string;
+  type: BlockType;
+  text: string;
+  checked: boolean;
+  placeholder: string;
+  isChecklist: boolean;
+  isAttachment: boolean;
+  isImage: boolean;
+  url: string;
+  contentJson: string;
+  isUploading: boolean;
+  uploadError: string;
 }
 
 interface Note {
   id: string;
   parentId: string | null;
   title: string;
-  paragraphs: string[];
+  blocks: NoteBlock[];
+  isLoaded: boolean;
   text: string;
 }
 
@@ -61,6 +109,8 @@ interface NotesElements {
   searchBox: HTMLElement;
   searchResults: HTMLElement;
   logoutDialog: HTMLElement;
+  deleteDialog: HTMLElement;
+  toast: HTMLElement;
 }
 
 interface NotesInstance {
@@ -68,11 +118,24 @@ interface NotesInstance {
   search: HTMLInputElement;
   searchBox: HTMLElement;
   searchTimer: number | undefined;
+  mainRegion: HTMLElement;
+  noteId: string | undefined;
+  saveStatus: SaveStatus;
+  saveTimer: number | undefined;
+  saving: Promise<void> | null;
+  hasPendingChanges: boolean;
+  toastTimer: number | undefined;
+  deleting: boolean;
   onSearchInput: () => void;
-  onSearchFocus: () => void;
   onSearchFocusOut: (event: FocusEvent) => void;
+  renderSearchResults: () => void;
   onPageClick: (event: MouseEvent) => void;
   onPageKeyDown: (event: KeyboardEvent) => void;
+  finishSaving: () => Promise<void>;
+  onNoteInput: (event: Event) => void;
+  onNoteChange: (event: Event) => void;
+  onNoteKeyDown: (event: KeyboardEvent) => void;
+  onBeforeUnload: (event: BeforeUnloadEvent) => void;
   destroyProfile: () => void;
 }
 
@@ -81,6 +144,8 @@ const store: NotesStore = { status: "idle", notes: [] };
 let notesRequest: Promise<void> | null = null;
 let mounted: NotesInstance | null = null;
 let loadVersion = 0;
+let pendingFocusNoteId: string | null = null;
+let pendingToast = "";
 
 /**
  * Сбрасывает локальное состояние notes-страницы.
@@ -123,35 +188,33 @@ function getNotesElements(root: ParentNode): NotesElements | null {
   const searchBox = page.querySelector<HTMLElement>(".search");
   const searchResults = page.querySelector<HTMLElement>("[data-search-results]");
   const logoutDialog = page.querySelector<HTMLElement>("[data-logout-dialog]");
+  const deleteDialog = page.querySelector<HTMLElement>("[data-delete-dialog]");
+  const toast = page.querySelector<HTMLElement>("[data-toast]");
 
-  if (!listRegion || !mainRegion || !search || !searchBox || !searchResults || !logoutDialog) {
+  if (
+    !listRegion ||
+    !mainRegion ||
+    !search ||
+    !searchBox ||
+    !searchResults ||
+    !logoutDialog ||
+    !deleteDialog ||
+    !toast
+  ) {
     return null;
   }
 
-  return { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog };
-}
-
-/**
- * Извлекает текстовые блоки заметки в массив абзацев.
- *
- * @param note Исходная заметка из API.
- * @returns Непустые тексты блоков по порядку.
- */
-function getParagraphs(note: ApiNote): string[] {
-  const paragraphs: string[] = [];
-
-  if (!Array.isArray(note.blocks)) {
-    return paragraphs;
-  }
-
-  for (const block of note.blocks) {
-    const content = block.content;
-    const text = typeof content === "string" ? content : content?.text;
-    if (text) {
-      paragraphs.push(text);
-    }
-  }
-  return paragraphs;
+  return {
+    page,
+    listRegion,
+    mainRegion,
+    search,
+    searchBox,
+    searchResults,
+    logoutDialog,
+    deleteDialog,
+    toast,
+  };
 }
 
 /**
@@ -161,16 +224,16 @@ function getParagraphs(note: ApiNote): string[] {
  * @returns Заметка для шаблонов и поиска.
  */
 function normalizeNote(note: ApiNote): Note {
-  const title = note.title || "Без названия";
-  const parentId = note.parent_note_id ? String(note.parent_note_id) : null;
-  const paragraphs = getParagraphs(note);
+  const title = note.title;
+  const blocks = note.blocks ?? [];
 
   return {
-    id: String(note.id),
-    parentId: parentId,
+    id: note.id,
+    parentId: note.parent_note_id ?? null,
     title: title,
-    paragraphs: paragraphs,
-    text: paragraphs.join(" "),
+    blocks: blocks,
+    isLoaded: Array.isArray(note.blocks),
+    text: blocks.map((block) => block.content.text).join(" "),
   };
 }
 
@@ -258,23 +321,82 @@ function findNote(notes: Note[], id: string | null | undefined): Note | null {
   return null;
 }
 
+function putNote(note: Note): void {
+  const index = store.notes.findIndex((item) => item.id === note.id);
+  if (index === -1) {
+    store.notes.unshift(note);
+  } else {
+    store.notes[index] = note;
+  }
+}
+
+function toBlockView(block: NoteBlock): BlockView {
+  const isAttachment = block.content.type === "file" || block.content.type === "image";
+  return {
+    id: block.id,
+    type: block.content.type,
+    text: block.content.text,
+    checked: block.content.checked === true,
+    placeholder: "",
+    isChecklist: block.content.type === "checklist",
+    isAttachment: isAttachment,
+    isImage: block.content.type === "image",
+    url: block.content.url ?? "",
+    contentJson: isAttachment ? JSON.stringify(block.content) : "",
+    isUploading: false,
+    uploadError: isAttachment && !block.content.url ? "Файл не загружен" : "",
+  };
+}
+
+function getEditorBlocks(note: Note): BlockView[] {
+  const blocks: BlockView[] = [];
+
+  for (const block of note.blocks) {
+    blocks.push(toBlockView(block));
+  }
+
+  const last = blocks[blocks.length - 1];
+  if (!last || last.isAttachment) {
+    blocks.push({
+      ...toBlockView({ id: "", content: { type: "text", text: "" } }),
+      placeholder: blocks.length === 0 ? "Начните писать..." : "",
+    });
+  }
+
+  return blocks;
+}
+
+function createDraft(): Note {
+  return { id: "new", parentId: null, title: "", blocks: [], isLoaded: true, text: "" };
+}
+
+function pickFile(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.addEventListener("change", () => resolve(input.files?.[0] ?? null));
+    input.addEventListener("cancel", () => resolve(null));
+    input.click();
+  });
+}
+
 /**
  * Формирует view-model для Handlebars-шаблонов страницы заметок.
  *
  * @param context Роут-контекст.
  * @returns Данные для шаблонов `notes`, `notes-list` и `notes-main`.
  */
-function buildView(context: PageContext) {
-  const path = context.path;
-  const params = context.params;
-
-  const currentSection = getCurrentSection(path);
-  const currentNote = findNote(store.notes, params.id);
+function buildView(context: PageContext, noteId: string | undefined, saveStatus: SaveStatus) {
+  const currentSection = getCurrentSection(context.path);
+  const currentNote = noteId === "new" ? createDraft() : findNote(store.notes, noteId);
 
   const isReady = store.status === "ready";
   const isError = store.status === "error";
-  const isLoading = !isReady && !isError;
+  const isListLoading = !isReady && !isError;
+  const isNoteLoading = currentNote !== null && !currentNote.isLoaded;
   const hasNotes = store.notes.length > 0;
+  const hasNote = currentNote !== null && currentNote.isLoaded;
 
   function isActive(section: Section): boolean {
     return section === currentSection;
@@ -286,25 +408,33 @@ function buildView(context: PageContext) {
   }
 
   const notes: Array<NoteLink & { isActive: boolean }> = [];
+  if (noteId === "new") {
+    notes.push({ href: "/notes/" + "new", title: "Без названия", isActive: true });
+  }
   for (const note of store.notes) {
     notes.push({
       href: "/notes/" + note.id,
-      title: note.title,
+      title: note.title || "Без названия",
       isActive: note === currentNote,
     });
   }
 
   let title = "";
-  let paragraphs: string[] = [];
+  let displayTitle = "";
+  let blocks: BlockView[] = [];
   const breadcrumbs = [{ href: "/notes", label: "Все заметки" }];
 
   if (currentNote) {
     title = currentNote.title;
-    paragraphs = currentNote.paragraphs;
+    displayTitle = currentNote.title || "Без названия";
+    blocks = getEditorBlocks(currentNote);
 
     const parentNote = findNote(store.notes, currentNote.parentId);
     if (parentNote) {
-      breadcrumbs.push({ href: "/notes/" + parentNote.id, label: parentNote.title });
+      breadcrumbs.push({
+        href: "/notes/" + parentNote.id,
+        label: parentNote.title || "Без названия",
+      });
     }
   }
 
@@ -318,16 +448,20 @@ function buildView(context: PageContext) {
     sections: sections,
     mailSection: { ...NOTIFICATIONS_SECTION, isActive: isActive(NOTIFICATIONS_SECTION) },
 
-    isLoading: isLoading,
+    isListLoading: isListLoading,
+    isLoading: isListLoading || isNoteLoading,
     isError: isError,
-    isEmpty: isReady && !hasNotes,
+    isEmpty: isReady && !hasNotes && !(noteId === "new"),
     isWelcome: isReady && hasNotes && !currentNote,
     skeletonRows: SKELETON_ROWS,
 
     notes: notes,
+    hasNote: hasNote,
     title: title,
-    paragraphs: paragraphs,
+    displayTitle: displayTitle,
+    blocks: blocks,
     breadcrumbs: breadcrumbs,
+    saveStatus: SAVE_STATUS[saveStatus],
   };
 }
 
@@ -390,7 +524,7 @@ export class NotesPage {
    */
   async render(context: PageContext): Promise<string> {
     const template = Handlebars.templates["notes"];
-    const view = buildView(context);
+    const view = buildView(context, context.params.id, "idle");
     return template(view);
   }
 
@@ -407,8 +541,17 @@ export class NotesPage {
       return;
     }
 
-    const { page, listRegion, mainRegion, search, searchBox, searchResults, logoutDialog } =
-      elements;
+    const {
+      page,
+      listRegion,
+      mainRegion,
+      search,
+      searchBox,
+      searchResults,
+      logoutDialog,
+      deleteDialog,
+      toast,
+    } = elements;
 
     const destroyProfile = mountProfile(page, {
       notesCount: () => store.notes.length,
@@ -426,22 +569,92 @@ export class NotesPage {
       search: search,
       searchBox: searchBox,
       searchTimer: undefined,
+      mainRegion: mainRegion,
+      noteId: context.params.id,
+      saveStatus: "idle",
+      saveTimer: undefined,
+      saving: null,
+      hasPendingChanges: false,
+      toastTimer: undefined,
+      deleting: false,
       onSearchInput: onSearchInput,
-      onSearchFocus: onSearchFocus,
       onSearchFocusOut: onSearchFocusOut,
+      renderSearchResults: renderSearchResults,
       onPageClick: onPageClick,
       onPageKeyDown: onPageKeyDown,
+      finishSaving: finishSaving,
+      onNoteInput: onNoteInput,
+      onNoteChange: onNoteChange,
+      onNoteKeyDown: onNoteKeyDown,
+      onBeforeUnload: onBeforeUnload,
       destroyProfile: destroyProfile,
     };
 
-    /** Перерисовывает список заметок и основную колонку из текущего store. */
+    async function loadNote(id: string): Promise<void> {
+      try {
+        const loaded = normalizeNote(await api.getNote(id));
+
+        if (mounted !== instance) {
+          return;
+        }
+
+        putNote(loaded);
+        update();
+      } catch (error) {
+        if (mounted !== instance) {
+          return;
+        }
+
+        if (error instanceof ApiError && error.status === 401) {
+          await goToLogin();
+          return;
+        }
+
+        if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
+          history.replaceState(null, "", "/notes");
+          await router();
+          return;
+        }
+
+        store.status = "error";
+        update();
+      }
+    }
+
     function update(): void {
-      const view = buildView(context);
+      const view = buildView(context, instance.noteId, instance.saveStatus);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
     }
 
-    /** Дожидается загрузки заметок и обновляет UI или уводит на логин при 401. */
+    async function goToLogin(): Promise<void> {
+      resetAuthState("unauthenticated");
+      history.replaceState(null, "", "/login");
+      await router();
+    }
+
+    function checkLoadedNote(): void {
+      const id = instance.noteId;
+      if (!id || id === "new") {
+        return;
+      }
+      const note = findNote(store.notes, id);
+      if (!note || !note.isLoaded) {
+        void loadNote(id);
+      }
+    }
+
+    function focusTitle(): void {
+      mainRegion.querySelector<HTMLElement>("[data-note-title]")?.focus();
+    }
+
+    function focusPendingTitle(): void {
+      if (pendingFocusNoteId !== null && pendingFocusNoteId === instance.noteId) {
+        pendingFocusNoteId = null;
+        focusTitle();
+      }
+    }
+
     async function loadAndShow(): Promise<void> {
       await waitForNotes();
 
@@ -450,14 +663,14 @@ export class NotesPage {
       }
 
       if (store.status === "unauthorized") {
-        resetAuthState("unauthenticated");
-        history.replaceState(null, "", "/login");
-        await router();
+        await goToLogin();
         return;
       }
 
       update();
       renderSearchResults();
+      checkLoadedNote();
+      focusPendingTitle();
     }
 
     /**
@@ -492,21 +705,9 @@ export class NotesPage {
         : "";
     }
 
-    /** Запускает отрисовку подсказок поиска после debounce. */
-    function runSearch(): void {
-      instance.searchTimer = undefined;
-      renderSearchResults();
-    }
-
-    /** Откладывает обновление результатов поиска на `SEARCH_DELAY` мс. */
     function onSearchInput(): void {
       window.clearTimeout(instance.searchTimer);
-      instance.searchTimer = window.setTimeout(runSearch, SEARCH_DELAY);
-    }
-
-    /** Показывает выпадающий список совпадений при фокусе в поле поиска. */
-    function onSearchFocus(): void {
-      renderSearchResults();
+      instance.searchTimer = window.setTimeout(renderSearchResults, SEARCH_DELAY);
     }
 
     /** Скрывает результаты поиска, если фокус ушёл за пределы блока `.search`. */
@@ -533,10 +734,561 @@ export class NotesPage {
       await navigate("/login");
     }
 
-    /** Обрабатывает клики по странице: поиск, retry, logout и профиль. */
+    function setNoteMenu(open: boolean): void {
+      const button = mainRegion.querySelector<HTMLElement>("[data-note-menu-toggle]");
+      const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
+      if (!button || !panel) {
+        return;
+      }
+      panel.hidden = !open;
+      button.classList.toggle("icon-button_active", open);
+      button.setAttribute("aria-expanded", String(open));
+    }
+
+    function openDeleteDialog(): void {
+      setNoteMenu(false);
+      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
+      if (error) {
+        error.hidden = true;
+      }
+      deleteDialog.hidden = false;
+      deleteDialog.querySelector<HTMLElement>("[data-delete-cancel]")?.focus();
+    }
+
+    function closeDeleteDialog(): void {
+      if (!instance.deleting) {
+        deleteDialog.hidden = true;
+      }
+    }
+
+    function setDeleting(deleting: boolean): void {
+      instance.deleting = deleting;
+      for (const button of deleteDialog.querySelectorAll<HTMLButtonElement>("button")) {
+        button.disabled = deleting;
+      }
+      deleteDialog
+        .querySelector("[data-delete]")
+        ?.classList.toggle("modal__button_loading", deleting);
+    }
+
+    function showDeleteError(message: string): void {
+      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
+      if (error) {
+        error.textContent = message;
+        error.hidden = false;
+      }
+    }
+
+    async function deleteNote(): Promise<void> {
+      if (instance.deleting) {
+        return;
+      }
+      setDeleting(true);
+      await finishSaving();
+      if (mounted !== instance) {
+        return;
+      }
+
+      const id = instance.noteId;
+      try {
+        if (id && id !== "new") {
+          await api.deleteNote(id);
+        }
+      } catch (error) {
+        if (mounted !== instance) {
+          return;
+        }
+        if (error instanceof ApiError && error.status === 401) {
+          await goToLogin();
+          return;
+        }
+        if (!(error instanceof ApiError && error.status === 404)) {
+          setDeleting(false);
+          showDeleteError(
+            error instanceof ApiError ? error.message : "Не удалось связаться с сервером"
+          );
+          return;
+        }
+      }
+
+      window.clearTimeout(instance.saveTimer);
+      instance.hasPendingChanges = false;
+
+      const index = store.notes.findIndex((note) => note.id === id);
+      let next: Note | undefined;
+      if (index !== -1) {
+        store.notes.splice(index, 1);
+        next = store.notes[index] ?? store.notes[index - 1];
+      }
+
+      if (mounted !== instance) {
+        return;
+      }
+
+      pendingToast = "Заметка удалена";
+      history.replaceState(null, "", next ? "/notes/" + next.id : "/notes");
+      await router();
+    }
+
+    function showToast(text: string): void {
+      const label = toast.querySelector<HTMLElement>("[data-toast-text]");
+      if (label) {
+        label.textContent = text;
+      }
+      toast.hidden = false;
+      window.clearTimeout(instance.toastTimer);
+      instance.toastTimer = window.setTimeout(hideToast, TOAST_DELAY);
+    }
+
+    function hideToast(): void {
+      toast.hidden = true;
+    }
+
+    function timerSave(): void {
+      instance.hasPendingChanges = true;
+      setSaveStatus("idle");
+      window.clearTimeout(instance.saveTimer);
+      instance.saveTimer = window.setTimeout(() => void runSave(), SAVE_DELAY);
+    }
+
+    async function saveNote(): Promise<void> {
+      if (!instance.hasPendingChanges) {
+        return;
+      }
+
+      window.clearTimeout(instance.saveTimer);
+      instance.saveTimer = undefined;
+      instance.hasPendingChanges = false;
+      setSaveStatus("saving");
+
+      const title = readTitle();
+      const { elements, blocks, skipped } = collectBlocks();
+      let failed = false;
+
+      try {
+        if (instance.noteId === "new") {
+          if (title === "" && blocks.length === 0) {
+            setSaveStatus("idle");
+            return;
+          }
+
+          const created = await api.createNote({ title });
+          instance.noteId = created.id;
+          putNote(normalizeNote({ ...created, blocks: [] }));
+
+          if (mounted === instance) {
+            history.replaceState(null, "", "/notes/" + created.id);
+            replaceDraftCard(created.id);
+          }
+        }
+
+        const noteId = instance.noteId;
+        if (!noteId) {
+          return;
+        }
+
+        const saved = await api.updateNote(noteId, { title, blocks });
+        applyBlockIds(elements, saved.blocks ?? []);
+
+        for (const element of skipped) {
+          element.removeAttribute("data-block-id");
+        }
+
+        putNote(normalizeNote(saved));
+        setSaveStatus("saved");
+      } catch (error) {
+        failed = true;
+        instance.hasPendingChanges = true;
+
+        if (error instanceof ApiError && error.status === 401) {
+          if (mounted === instance) {
+            await goToLogin();
+          }
+          return;
+        }
+
+        setSaveStatus("error");
+      } finally {
+        if (!failed && instance.hasPendingChanges && mounted === instance) {
+          timerSave();
+        }
+      }
+    }
+
+    function runSave(): Promise<void> {
+      if (!instance.saving) {
+        instance.saving = saveNote().finally(() => {
+          instance.saving = null;
+        });
+      }
+      return instance.saving;
+    }
+
+    async function finishSaving(): Promise<void> {
+      if (instance.saving) {
+        await instance.saving;
+      }
+      window.clearTimeout(instance.saveTimer);
+      if (instance.hasPendingChanges) {
+        await runSave();
+      }
+    }
+
+    function openDraft(): void {
+      if (instance.noteId === "new") {
+        focusTitle();
+        return;
+      }
+      pendingFocusNoteId = "new";
+      void navigate("/notes/" + "new");
+    }
+
+    function readTitle(): string {
+      const title = mainRegion.querySelector<HTMLElement>("[data-note-title]");
+      return (title?.textContent ?? "").trim().slice(0, TITLE_MAX_LENGTH);
+    }
+
+    function readBlock(element: HTMLElement): BlockContent | null {
+      if (element.dataset.content) {
+        return JSON.parse(element.dataset.content) as BlockContent;
+      }
+
+      const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
+      const check = element.querySelector<HTMLInputElement>("[data-block-check]");
+      if (text.trim() === "" && !check) {
+        return null;
+      }
+
+      const content: BlockContent = { type: element.dataset.blockType as BlockType, text };
+      if (check) {
+        content.checked = check.checked;
+      }
+      return content;
+    }
+
+    function collectBlocks(): {
+      elements: HTMLElement[];
+      blocks: BlockInput[];
+      skipped: HTMLElement[];
+    } {
+      const elements: HTMLElement[] = [];
+      const blocks: BlockInput[] = [];
+      const skipped: HTMLElement[] = [];
+
+      for (const element of mainRegion.querySelectorAll<HTMLElement>("[data-block]")) {
+        const content = readBlock(element);
+        if (!content) {
+          skipped.push(element);
+          continue;
+        }
+
+        const id = element.dataset.blockId;
+        elements.push(element);
+        blocks.push(id ? { id, content } : { content });
+      }
+
+      return { elements, blocks, skipped };
+    }
+
+    function openBlockMenu(block: HTMLElement): void {
+      closeBlockMenu();
+      block.insertAdjacentHTML(
+        "beforeend",
+        Handlebars.partials["block-menu"]({ options: BLOCK_OPTIONS })
+      );
+    }
+
+    function closeBlockMenu(): void {
+      mainRegion.querySelector("[data-block-menu]")?.remove();
+    }
+
+    function moveBlockMenu(menu: HTMLElement, step: number): void {
+      const items = Array.from(menu.querySelectorAll<HTMLElement>("[data-block-option]"));
+      const current = items.findIndex((item) => item.classList.contains("block-menu__item_active"));
+      const next = items[(current + step + items.length) % items.length];
+      items[current]?.classList.remove("block-menu__item_active");
+      next.classList.add("block-menu__item_active");
+      next.scrollIntoView({ block: "nearest" });
+    }
+
+    function chooseBlockType(block: HTMLElement, type: BlockType): void {
+      closeBlockMenu();
+
+      if (type === "file" || type === "image") {
+        void attachFile(block, type);
+        return;
+      }
+
+      const next = replaceBlock(
+        block,
+        toBlockView({ id: block.dataset.blockId ?? "", content: { type, text: "" } })
+      );
+      const text = next.querySelector<HTMLElement>("[data-block-text]");
+      if (text) {
+        placeCaret(text, false);
+      }
+      timerSave();
+    }
+
+    async function attachFile(block: HTMLElement, type: BlockType): Promise<void> {
+      const file = await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT);
+      if (!file || !block.isConnected) {
+        return;
+      }
+
+      const content: BlockContent = { type, text: file.name };
+      const uploading = replaceBlock(block, {
+        ...toBlockView({ id: block.dataset.blockId ?? "", content }),
+        isUploading: true,
+      });
+      if (!uploading.nextElementSibling) {
+        insertBlockAfter(uploading, "text");
+      }
+
+      timerSave();
+      await finishSaving();
+      if (mounted !== instance) {
+        return;
+      }
+
+      const blockId = uploading.dataset.blockId ?? "";
+      let uploadError = blockId ? "" : "Не удалось сохранить заметку";
+
+      if (blockId) {
+        try {
+          const attachment = await api.uploadAttachment(blockId, file);
+          content.attachmentId = attachment.id;
+          content.url = attachment.url;
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            if (mounted === instance) {
+              await goToLogin();
+            }
+            return;
+          }
+          uploadError =
+            error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
+        }
+      }
+
+      if (!uploading.isConnected) {
+        return;
+      }
+
+      const view = toBlockView({ id: blockId, content });
+      replaceBlock(uploading, uploadError ? { ...view, uploadError } : view);
+      timerSave();
+    }
+
+    async function removeAttachment(block: HTMLElement): Promise<void> {
+      const content = readBlock(block);
+      block.remove();
+      timerSave();
+
+      if (content?.attachmentId) {
+        await api.deleteAttachment(content.attachmentId).catch(() => null);
+      }
+    }
+
+    function applyBlockIds(elements: HTMLElement[], saved: NoteBlock[]): void {
+      for (let i = 0; i < elements.length && i < saved.length; i++) {
+        elements[i].dataset.blockId = saved[i].id;
+      }
+    }
+
+    function setSaveStatus(status: SaveStatus): void {
+      instance.saveStatus = status;
+      const label = mainRegion.querySelector<HTMLElement>("[data-save-status]");
+      if (label) {
+        label.textContent = SAVE_STATUS[status];
+        label.classList.toggle("notebook__save-status_error", status === "error");
+      }
+    }
+
+    function showTitleInList(title: string): void {
+      const text = title || "Без названия";
+      const card = listRegion.querySelector<HTMLElement>(".card_active .card__title");
+      if (card) {
+        card.textContent = text;
+      }
+      const crumbs = mainRegion.querySelectorAll<HTMLElement>(".notebook__crumb");
+      const last = crumbs[crumbs.length - 1];
+      if (last) {
+        last.textContent = text;
+      }
+    }
+
+    function replaceDraftCard(id: string): void {
+      const card = listRegion.querySelector<HTMLAnchorElement>(`a[href="/notes/${"new"}"]`);
+      if (card) {
+        card.href = "/notes/" + id;
+      }
+    }
+
+    function placeCaret(element: HTMLElement, atEnd: boolean): void {
+      element.focus();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(!atEnd);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+
+    function cutAfterCaret(text: HTMLElement): DocumentFragment | null {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        return null;
+      }
+
+      const range = selection.getRangeAt(0);
+      if (!text.contains(range.startContainer) || !text.contains(range.endContainer)) {
+        return null;
+      }
+
+      range.deleteContents();
+      const tail = document.createRange();
+      tail.selectNodeContents(text);
+      tail.setStart(range.startContainer, range.startOffset);
+      return tail.extractContents();
+    }
+
+    function insertBlockAfter(block: HTMLElement, type: BlockType): HTMLElement | null {
+      const view = toBlockView({ id: "", content: { type, text: "" } });
+      block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
+      return block.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]") ?? null;
+    }
+
+    function replaceBlock(block: HTMLElement, view: BlockView): HTMLElement {
+      block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
+      const next = block.nextElementSibling as HTMLElement;
+      block.remove();
+      return next;
+    }
+
+    function onNoteKeyDown(event: KeyboardEvent): void {
+      const target = event.target;
+      if (event.isComposing || !(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const menu = mainRegion.querySelector<HTMLElement>("[data-block-menu]");
+      if (menu && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+        event.preventDefault();
+        moveBlockMenu(menu, event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
+
+      if (menu && event.key === "Enter") {
+        event.preventDefault();
+        const active = menu.querySelector<HTMLElement>(".block-menu__item_active");
+        const block = menu.closest<HTMLElement>("[data-block]");
+        if (active && block) {
+          chooseBlockType(block, active.dataset.blockOption as BlockType);
+        }
+        return;
+      }
+
+      if (event.key === "Enter" && !event.shiftKey) {
+        if (target.matches("[data-note-title]")) {
+          event.preventDefault();
+          const first = mainRegion.querySelector<HTMLElement>("[data-block-text]");
+          if (first) {
+            placeCaret(first, false);
+          }
+          return;
+        }
+
+        const block = target.closest<HTMLElement>("[data-block]");
+        const text = block?.querySelector<HTMLElement>("[data-block-text]");
+        if (!block || !text) {
+          return;
+        }
+
+        event.preventDefault();
+        const tail = cutAfterCaret(text);
+        const type = block.dataset.blockType as BlockType;
+        const next = insertBlockAfter(block, LIST_TYPES.includes(type) ? type : "text");
+        if (next) {
+          if (tail) {
+            next.append(tail);
+          }
+          placeCaret(next, false);
+        }
+        timerSave();
+        return;
+      }
+
+      if (event.key === "Backspace") {
+        const block = target.closest<HTMLElement>("[data-block]");
+        const text = block?.querySelector<HTMLElement>("[data-block-text]");
+        const previous =
+          block?.previousElementSibling?.querySelector<HTMLElement>("[data-block-text]");
+
+        if (!block || !text || !previous || text.innerText.trim() !== "") {
+          return;
+        }
+
+        event.preventDefault();
+        block.remove();
+        placeCaret(previous, true);
+        timerSave();
+      }
+    }
+
     function onPageClick(event: MouseEvent): void {
       const target = event.target;
+
       if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (!target.closest("[data-note-menu]")) {
+        setNoteMenu(false);
+      }
+
+      if (!target.closest("[data-block-menu]")) {
+        closeBlockMenu();
+      }
+
+      const option = target.closest<HTMLElement>("[data-block-option]");
+      const optionBlock = option?.closest<HTMLElement>("[data-block]");
+      if (option && optionBlock) {
+        chooseBlockType(optionBlock, option.dataset.blockOption as BlockType);
+        return;
+      }
+
+      const attachmentBlock = target
+        .closest("[data-attachment-remove]")
+        ?.closest<HTMLElement>("[data-block]");
+      if (attachmentBlock) {
+        void removeAttachment(attachmentBlock);
+        return;
+      }
+
+      if (target.closest("[data-note-menu-toggle]")) {
+        const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
+        setNoteMenu(panel?.hidden === true);
+        return;
+      }
+
+      if (target.closest("[data-delete-open]")) {
+        openDeleteDialog();
+        return;
+      }
+
+      if (target.closest("[data-delete-cancel]") || target === deleteDialog) {
+        closeDeleteDialog();
+        return;
+      }
+
+      if (target.closest("[data-delete]")) {
+        void deleteNote();
+        return;
+      }
+
+      if (target.closest("[data-toast-close]")) {
+        hideToast();
         return;
       }
 
@@ -566,13 +1318,19 @@ export class NotesPage {
         return;
       }
 
+      const newNoteButton = target.closest<HTMLButtonElement>("[data-new-note]");
+      if (newNoteButton) {
+        openDraft();
+        return;
+      }
       const logoutButton = target.closest<HTMLButtonElement>("[data-logout]");
       if (logoutButton) {
         void logOut(logoutButton);
+        return;
       }
     }
 
-    /** По Escape закрывает поиск и диалог выхода. */
+    /** По Escape закрывает поиск, меню заметки, меню блоков и диалоги выхода и удаления. */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
@@ -580,17 +1338,67 @@ export class NotesPage {
 
       searchResults.hidden = true;
       closeLogoutDialog();
+      setNoteMenu(false);
+      closeDeleteDialog();
+      closeBlockMenu();
+    }
+
+    function onNoteInput(event: Event): void {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.matches("[data-note-title]")) {
+        showTitleInList(readTitle());
+      }
+
+      if (target.matches("[data-block-text]")) {
+        const block = target.closest<HTMLElement>("[data-block]");
+        if (block && target.innerText.trim() === "/") {
+          openBlockMenu(block);
+        } else {
+          closeBlockMenu();
+        }
+      }
+
+      if (target.closest("[data-note-title], [data-block-text]")) {
+        timerSave();
+      }
+    }
+
+    function onNoteChange(event: Event): void {
+      if (event.target instanceof HTMLInputElement && event.target.matches("[data-block-check]")) {
+        timerSave();
+      }
+    }
+
+    function onBeforeUnload(event: BeforeUnloadEvent): void {
+      if (instance.hasPendingChanges || instance.saving) {
+        event.preventDefault();
+      }
     }
 
     search.addEventListener("input", onSearchInput);
-    search.addEventListener("focus", onSearchFocus);
+    search.addEventListener("focus", renderSearchResults);
     searchBox.addEventListener("focusout", onSearchFocusOut);
     page.addEventListener("click", onPageClick);
     page.addEventListener("keydown", onPageKeyDown);
+    mainRegion.addEventListener("input", onNoteInput);
+    mainRegion.addEventListener("change", onNoteChange);
+    mainRegion.addEventListener("keydown", onNoteKeyDown);
+    window.addEventListener("beforeunload", onBeforeUnload);
 
     mounted = instance;
 
+    if (pendingToast) {
+      showToast(pendingToast);
+      pendingToast = "";
+    }
+
     if (store.status === "ready") {
+      checkLoadedNote();
+      focusPendingTitle();
       return;
     }
 
@@ -602,18 +1410,26 @@ export class NotesPage {
    *
    * @returns {void}
    */
-  destroy(): void {
-    if (!mounted) {
+  async destroy(): Promise<void> {
+    const leaving = mounted;
+    if (!leaving) {
       return;
     }
-
-    window.clearTimeout(mounted.searchTimer);
-    mounted.search.removeEventListener("input", mounted.onSearchInput);
-    mounted.search.removeEventListener("focus", mounted.onSearchFocus);
-    mounted.searchBox.removeEventListener("focusout", mounted.onSearchFocusOut);
-    mounted.page.removeEventListener("click", mounted.onPageClick);
-    mounted.page.removeEventListener("keydown", mounted.onPageKeyDown);
-    mounted.destroyProfile();
     mounted = null;
+
+    window.clearTimeout(leaving.searchTimer);
+    window.clearTimeout(leaving.toastTimer);
+    leaving.search.removeEventListener("input", leaving.onSearchInput);
+    leaving.search.removeEventListener("focus", leaving.renderSearchResults);
+    leaving.searchBox.removeEventListener("focusout", leaving.onSearchFocusOut);
+    leaving.page.removeEventListener("click", leaving.onPageClick);
+    leaving.page.removeEventListener("keydown", leaving.onPageKeyDown);
+    leaving.mainRegion.removeEventListener("input", leaving.onNoteInput);
+    leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
+    leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
+    window.removeEventListener("beforeunload", leaving.onBeforeUnload);
+    leaving.destroyProfile();
+
+    await leaving.finishSaving();
   }
 }
