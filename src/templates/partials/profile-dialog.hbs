@@ -48,7 +48,8 @@
         
         <div class="profile__menu" data-profile-view="menu" hidden>
             <button class="profile__button" type="button" data-profile-password>Сменить пароль</button>
-            <button class="profile__button" type="button" data-profile-two-factor>Включить двухфакторную аутентификацию</button>
+            <button class="profile__button" type="button" data-profile-two-factor-enable>Включить двухфакторную аутентификацию</button>
+            <button class="profile__button" type="button" data-profile-two-factor-disable hidden>Отключить двухфакторную аутентификацию</button>
             <button class="profile__button profile__button_danger" type="button" data-profile-logout>Выйти из аккаунта</button>
         </div>
 
@@ -105,6 +106,24 @@
             </div>
             <div class="profile-form__actions">
                 <button class="profile__button profile__button_primary" type="submit">Подтвердить</button>
+                <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
+            </div>
+        </form>
+        <form class="profile-form" data-profile-view="twoFactorDisable" data-profile-form="twoFactorDisable" hidden novalidate>
+            <p class="profile-form__label">Введите код из приложения, чтобы отключить двухфакторную аутентификацию</p>
+            <div class="profile-form__field">
+                <div class="profile-form__code">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Цифра 1">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 2">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 3">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 4">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 5">
+                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 6">
+                </div>
+                <small class="profile-form__error" data-error-for="code"></small>
+            </div>
+            <div class="profile-form__actions">
+                <button class="profile__button profile__button_primary" type="submit">Отключить</button>
                 <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
             </div>
         </form>

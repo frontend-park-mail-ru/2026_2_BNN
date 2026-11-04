@@ -1,5 +1,6 @@
 import { NotesPage, resetNotesStore } from "./pages/notes";
 import { LoginPage } from "./pages/login";
+import { LoginTwoFactorPage } from "./pages/login-2fa";
 import { SignupPage } from "./pages/signup";
 import { NotFoundPage } from "./pages/notfound";
 import { api } from "./api";
@@ -26,6 +27,7 @@ interface RouteRecord {
 const notesPage = new NotesPage();
 const notFoundPage = new NotFoundPage();
 const loginPage = new LoginPage();
+const loginTwoFactorPage = new LoginTwoFactorPage();
 const signupPage = new SignupPage();
 
 const routes: RouteRecord[] = [
@@ -36,7 +38,9 @@ const routes: RouteRecord[] = [
   { path: "/notes/notifications", page: notesPage, auth: true },
   { path: "/notes/:id", page: notesPage, auth: true },
   { path: "/login", page: loginPage, guest: true },
+  { path: "/login/2fa", page: loginTwoFactorPage, guest: true },
   { path: "/signup", page: signupPage, guest: true },
+  { path: "/profile", page: notesPage, auth: true },
 ];
 
 /**

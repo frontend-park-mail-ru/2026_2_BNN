@@ -110,9 +110,13 @@ export class LoginPage implements AuthPage {
     setFormLoading(form, true);
 
     try {
-      await api.logIn(login, password);
+      const result = await api.logIn(login, password);
+      if (result.kind === "twoFactor") {
+        await navigate("/login/2fa");
+        return;
+      }
       resetAuthState();
-      await navigate("/");
+      await navigate("/notes");
     } catch (error) {
       if (!this.form) {
         return;
@@ -121,6 +125,8 @@ export class LoginPage implements AuthPage {
       if (error instanceof ApiError) {
         if (error.status === 401) {
           setFormFieldError(this.form, "password", "Неверный логин или пароль");
+        } else if (error.status === 403) {
+          setFormFeedback(this.form, "Этот аккаунт создан через GitHub. Войдите через GitHub");
         } else {
           setFormFeedback(this.form, error.message ?? "Произошла ошибка при авторизации");
         }

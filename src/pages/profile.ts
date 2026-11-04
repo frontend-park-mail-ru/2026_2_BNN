@@ -4,6 +4,11 @@ import type { User } from "../store/app-store";
 import { getNewPasswordError, getRepeatPasswordError } from "../utils/auth-form";
 import { formatJoined } from "../utils/date";
 import { handlePasswordToggleClick, resetPasswordToggles } from "../utils/password-toggle";
+import {
+  fillTwoFactorDigit,
+  handleTwoFactorKeyDown,
+  twoFactorCode,
+} from "../utils/two-factor-input";
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;
@@ -13,7 +18,7 @@ const PROFILE_OPEN_FAILED = "Не удалось открыть профиль, 
 const PASSWORD_SAVE_FAILED = "Не удалось сохранить пароль, попробуйте позже";
 const AVATAR_UPDATE_FAILED = "Не удалось обновить аватар, попробуйте позже";
 
-type ProfileView = "loading" | "menu" | "password" | "twoFactor";
+type ProfileView = "loading" | "menu" | "password" | "twoFactor" | "twoFactorDisable";
 
 /** Колбэки и данные, которые страница заметок передаёт в модалку профиля. */
 export interface ProfileOptions {
@@ -41,40 +46,6 @@ function passwordForm(dialog: HTMLElement): HTMLFormElement | null {
  * @param name Имя поля (`currentPassword`, `newPassword`, `repeatPassword`).
  * @param message Текст ошибки; пустая строка скрывает ошибку.
  */
-function twoFactorCode(form: HTMLFormElement): string {
-  return [...form.querySelectorAll<HTMLInputElement>("[data-2fa-digit]")]
-    .map((input) => input.value)
-    .join("");
-}
-
-function digitInputs(input: HTMLInputElement): HTMLInputElement[] {
-  const code = input.closest(".profile-form__code");
-  if (!code) {
-    return [];
-  }
-  return [...code.querySelectorAll<HTMLInputElement>("[data-2fa-digit]")];
-}
-
-function fillDigit(input: HTMLInputElement): void {
-  const digits = input.value.replace(/\D/g, "");
-  const inputs = digitInputs(input);
-  const index = inputs.indexOf(input);
-
-  if (digits.length <= 1) {
-    input.value = digits;
-    if (digits.length === 1) {
-      inputs[index + 1]?.focus();
-    }
-    return;
-  }
-
-  for (let offset = 0; offset < digits.length && index + offset < inputs.length; offset++) {
-    inputs[index + offset].value = digits[offset];
-  }
-  const next = Math.min(index + digits.length, inputs.length - 1);
-  inputs[next]?.focus();
-}
-
 function setProfileError(form: HTMLFormElement, name: string, message: string): void {
   const error = form.querySelector(`[data-error-for="${name}"]`);
   if (!error) {
@@ -146,7 +117,28 @@ function waitAtLeast(started: number, min: number): Promise<void> {
  * @param profile Профиль пользователя.
  * @param notesCount Число заметок для статистики.
  */
-function fillProfile(page: HTMLElement, profile: User, notesCount: number): void {
+function syncProfileMenu(dialog: HTMLElement, profile: User): void {
+  const passwordButton = dialog.querySelector<HTMLElement>("[data-profile-password]");
+  if (passwordButton) {
+    passwordButton.hidden = profile.oauth_provider === "github";
+  }
+
+  const enableButton = dialog.querySelector<HTMLElement>("[data-profile-two-factor-enable]");
+  const disableButton = dialog.querySelector<HTMLElement>("[data-profile-two-factor-disable]");
+  if (enableButton) {
+    enableButton.hidden = profile.is_2fa_enabled;
+  }
+  if (disableButton) {
+    disableButton.hidden = !profile.is_2fa_enabled;
+  }
+}
+
+function fillProfile(
+  page: HTMLElement,
+  dialog: HTMLElement,
+  profile: User,
+  notesCount: number
+): void {
   page.querySelectorAll("[data-user-login]").forEach((node) => {
     node.textContent = profile.login;
   });
@@ -167,6 +159,8 @@ function fillProfile(page: HTMLElement, profile: User, notesCount: number): void
     .forEach((image) => {
       image.src = src;
     });
+
+  syncProfileMenu(dialog, profile);
 }
 
 /**
@@ -211,15 +205,32 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       if (image) {
         image.src = qrUrl;
       }
+      dialog.querySelector<HTMLInputElement>("[data-profile-form='twoFactor'] [data-2fa-digit]")?.focus();
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         resetAuthState("unauthenticated");
         await navigate("/login");
         return;
       }
+      if (error instanceof ApiError && error.status === 409) {
+        try {
+          const profile = await api.getProfile();
+          fillProfile(page, dialog, profile, options.notesCount());
+        } catch {
+          /* профиль обновится при следующем открытии */
+        }
+        showToast("Двухфакторная аутентификация уже включена", false);
+        showProfileView(dialog, "menu");
+        return;
+      }
       showToast("Не удалось получить QR-код", false);
       showProfileView(dialog, "menu");
     }
+  }
+
+  function openTwoFactorDisable(): void {
+    showProfileView(dialog, "twoFactorDisable");
+    dialog.querySelector<HTMLInputElement>("[data-profile-form='twoFactorDisable'] [data-2fa-digit]")?.focus();
   }
 
   function showToast(message: string, ok = true): void {
@@ -275,7 +286,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       if (request !== profileRequest) {
         return;
       }
-      fillProfile(page, profile, options.notesCount());
+      fillProfile(page, dialog, profile, options.notesCount());
       showProfileView(dialog, "menu");
     } catch (error) {
       if (request !== profileRequest) {
@@ -327,6 +338,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         clearPasswordForm(form);
         clearQr();
         dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactor']")?.reset();
+        dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactorDisable']")?.reset();
       }
       showProfileView(dialog, "menu");
       return;
@@ -337,8 +349,13 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
 
-    if (target.closest("[data-profile-two-factor]")) {
+    if (target.closest("[data-profile-two-factor-enable]")) {
       void openTwoFactror();
+      return;
+    }
+
+    if (target.closest("[data-profile-two-factor-disable]")) {
+      openTwoFactorDisable();
       return;
     }
 
@@ -356,42 +373,19 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
 
     const input = event.target;
-    if (!(input instanceof HTMLInputElement) || !input.matches("[data-2fa-digit]")) {
-      return;
-    }
-
-    const inputs = digitInputs(input);
-    const index = inputs.indexOf(input);
-
-    if (/^\d$/.test(event.key)) {
-      event.preventDefault();
-      input.value = event.key;
-      inputs[index + 1]?.focus();
-      input.form && setProfileError(input.form, "code", "");
-      return;
-    }
-
-    if (event.key === "Backspace" && input.value === "") {
-      const previous = inputs[index - 1];
-      if (previous) {
-        previous.value = "";
-        previous.focus();
-      }
-      return;
-    }
-
-    if (event.key === "ArrowLeft") {
-      inputs[index - 1]?.focus();
-    }
-    if (event.key === "ArrowRight") {
-      inputs[index + 1]?.focus();
+    if (input instanceof HTMLInputElement && input.form?.dataset.profileForm) {
+      handleTwoFactorKeyDown(event, () => {
+        if (input.form) {
+          setProfileError(input.form, "code", "");
+        }
+      });
     }
   }
 
   function onInput(event: Event): void {
     const input = event.target;
     if (input instanceof HTMLInputElement && input.matches("[data-2fa-digit]")) {
-      fillDigit(input);
+      fillTwoFactorDigit(input);
       const form = input.form;
       if (form) {
         setProfileError(form, "code", "");
@@ -442,17 +436,50 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         return;
       }
       try {
-        await api.enableTwoFactor(code);
+        const profile = await api.enableTwoFactor(code);
         clearQr();
         form.reset();
+        fillProfile(page, dialog, profile, options.notesCount());
         showProfileView(dialog, "menu");
         showToast("Двухфакторная аутентификация включена");
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
+        if (error instanceof ApiError && error.status === 403) {
           setProfileError(form, "code", "Неверный код");
           return;
         }
+        if (error instanceof ApiError && error.status === 401) {
+          resetAuthState("unauthenticated");
+          await navigate("/login");
+          return;
+        }
         showToast("Не удалось включить 2FA, попробуйте позже", false);
+      }
+      return;
+    }
+
+    if (form.dataset.profileForm === "twoFactorDisable") {
+      const code = twoFactorCode(form);
+      if (!/^\d{6}$/.test(code)) {
+        setProfileError(form, "code", "Введите 6 цифр из приложения");
+        return;
+      }
+      try {
+        const profile = await api.disableTwoFactor(code);
+        form.reset();
+        fillProfile(page, dialog, profile, options.notesCount());
+        showProfileView(dialog, "menu");
+        showToast("Двухфакторная аутентификация отключена");
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 403) {
+          setProfileError(form, "code", "Неверный код");
+          return;
+        }
+        if (error instanceof ApiError && error.status === 401) {
+          resetAuthState("unauthenticated");
+          await navigate("/login");
+          return;
+        }
+        showToast("Не удалось отключить 2FA, попробуйте позже", false);
       }
       return;
     }
@@ -490,6 +517,10 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
         setProfileError(form, "currentPassword", "Неверный пароль");
+        return;
+      }
+      if (error instanceof ApiError && error.status === 400) {
+        showToast(error.message, false);
         return;
       }
       if (error instanceof ApiError && error.status === 401) {
@@ -535,7 +566,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       .then(
         (profile) => {
           avatar?.classList.remove("login-form__submit_loading");
-          fillProfile(page, profile, options.notesCount());
+          fillProfile(page, dialog, profile, options.notesCount());
           showToast("Аватар обновлён");
         },
         async (error: unknown) => {
