@@ -39,18 +39,18 @@
     position: relative;
     z-index: 1;
     flex: 0 1 auto;
-    width: min(100%, 546px);
+    width: min(100%, 424px);
     max-width: 100%;
     margin-inline: auto;
-    padding: 32px clamp(24px, 8vw, 83px) 60px;
+    padding: 32px clamp(24px, 8vw, 32px) 24px;
     border-radius: 60px;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.72);
     box-shadow:
       inset 0 0 0 1px rgba(15, 33, 64, 0.1),
       inset 0 0 24px rgba(255, 255, 255, 0.33);
-    backdrop-filter: blur(12px) saturate(140%) brightness(1.04);
     -webkit-backdrop-filter: blur(12px) saturate(140%) brightness(1.04);
+    backdrop-filter: blur(12px) saturate(140%) brightness(1.04);
 
     @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       background: rgba(255, 255, 255, 0.35);
@@ -108,8 +108,8 @@
   }
 
   &__logo {
-    width: 72px;
-    height: 72px;
+    width: 54px;
+    height: 54px;
     flex-shrink: 0;
     margin: 0;
     background-image: url("/assets/icons/logo-auth.svg");
@@ -140,18 +140,20 @@
   align-items: stretch;
   width: 100%;
   max-width: 100%;
-  margin-top: 44px;
+  margin-top: 20px;
   margin-inline: auto;
 
   &__field {
     position: relative;
     display: block;
+    width: 90%;
+    margin-inline: auto;
 
     &:has(.login-form__input:focus),
     &:has(.login-form__input:not(:placeholder-shown)) {
       .login-form__label {
         color: #878787;
-        transform: translateY(-2px) scale(0.625);
+        transform: translateY(-2px) scale(0.75);
       }
     }
   }
@@ -201,35 +203,31 @@
     top: 0;
     left: 0;
     color: $ink;
-    font-size: 32px;
+    font-size: 18px;
     font-weight: 400;
-    line-height: 40px;
+    line-height: 24px;
     transform-origin: left top;
     transition:
       transform 0.2s ease,
       color 0.2s ease;
     pointer-events: none;
-
-    @media (max-width: 640px) {
-      font-size: 26px;
-    }
   }
 
   &__input {
     display: block;
     width: 100%;
     max-width: 100%;
-    height: 68px;
+    height: 44px;
     margin: 0;
-    padding: 28px 0 2px;
+    padding: 18px 0 2px;
     border: none;
     border-bottom: 2px solid $ink;
     border-radius: 0;
     background: transparent;
     color: $ink;
     font-family: var(--font-main);
-    font-size: 32px;
-    line-height: 36px;
+    font-size: 16px;
+    line-height: 22px;
 
     &::placeholder {
       color: transparent;
@@ -243,10 +241,6 @@
     &:focus {
       outline: none;
       border-bottom-color: var(--accent);
-    }
-
-    @media (max-width: 640px) {
-      font-size: 26px;
     }
   }
 
@@ -267,12 +261,12 @@
 
   &__submit {
     position: relative;
-    align-self: stretch;
-    width: 100%;
+    align-self: center;
+    width: 90%;
     max-width: 100%;
-    height: 58px;
-    margin-top: 40px;
-    padding: 0 35px;
+    height: 52px;
+    margin-top: 10px;
+    padding: 0 24px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -282,7 +276,7 @@
     background: var(--accent);
     color: #0a2349;
     font-family: var(--font-input);
-    font-size: 36px;
+    font-size: 22px;
     font-weight: 400;
     line-height: 1;
     cursor: pointer;
@@ -317,11 +311,6 @@
         opacity: 1;
         animation: login-spinner 0.8s linear infinite;
       }
-    }
-
-    @media (max-width: 640px) {
-      font-size: 26px;
-      padding: 0 20px;
     }
   }
 
@@ -369,18 +358,14 @@
     text-align: center;
     color: $ink;
     font-family: var(--font-input);
-    font-size: 18px;
-
-    @media (max-width: 640px) {
-      font-size: 16px;
-    }
+    font-size: 16px;
   }
 
   &__divider {
     display: flex;
     align-items: center;
-    align-self: stretch;
-    width: 100%;
+    align-self: center;
+    width: 90%;
     gap: 12px;
     margin: 16px 0;
     color: $muted;
@@ -400,18 +385,18 @@
   &__github {
     display: flex;
     align-items: center;
-    align-self: stretch;
+    align-self: center;
     justify-content: center;
     gap: 10px;
-    width: 100%;
-    height: 58px;
+    width: 90%;
+    height: 52px;
     margin-top: 0;
     border-radius: 999px;
     background-color: rgba(115, 176, 255, 0);
     box-shadow: inset 0 0 0 1px rgba(15, 33, 64, 0.16);
     color: $ink;
     font-family: var(--font-input);
-    font-size: 20px;
+    font-size: 22px;
     text-decoration: none;
     transition:
       background-color 0.3s ease,
@@ -424,10 +409,11 @@
     &:active {
       transform: scale(0.985);
     }
+  }
 
-    @media (max-width: 640px) {
-      font-size: 16px;
-    }
+  &__github_signup {
+    font-size: 15px;
+    white-space: nowrap;
   }
 
   &__github-mark {

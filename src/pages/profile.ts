@@ -123,13 +123,11 @@ function syncProfileMenu(dialog: HTMLElement, profile: User): void {
     passwordButton.hidden = profile.oauth_provider === "github";
   }
 
-  const enableButton = dialog.querySelector<HTMLElement>("[data-profile-two-factor-enable]");
-  const disableButton = dialog.querySelector<HTMLElement>("[data-profile-two-factor-disable]");
-  if (enableButton) {
-    enableButton.hidden = profile.is_2fa_enabled;
-  }
-  if (disableButton) {
-    disableButton.hidden = !profile.is_2fa_enabled;
+  const twoFactorButton = dialog.querySelector<HTMLElement>("[data-profile-two-factor]");
+  if (twoFactorButton) {
+    const enabled = profile.is_2fa_enabled;
+    twoFactorButton.dataset.twoFactorAction = enabled ? "disable" : "enable";
+    twoFactorButton.textContent = enabled ? "Отключить защиту входа" : "Включить защиту входа";
   }
 }
 
@@ -196,7 +194,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     dialog.querySelector<HTMLImageElement>("[data-2fa-qr]")?.removeAttribute("src");
   }
 
-  async function openTwoFactror(): Promise<void> {
+  async function openTwoFactor(): Promise<void> {
     showProfileView(dialog, "twoFactor");
     clearQr();
     try {
@@ -221,7 +219,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         } catch {
           /* профиль обновится при следующем открытии */
         }
-        showToast("Двухфакторная аутентификация уже включена", false);
+        showToast("Защита входа уже включена", false);
         showProfileView(dialog, "menu");
         return;
       }
@@ -353,13 +351,13 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
 
-    if (target.closest("[data-profile-two-factor-enable]")) {
-      void openTwoFactror();
-      return;
-    }
-
-    if (target.closest("[data-profile-two-factor-disable]")) {
-      openTwoFactorDisable();
+    const twoFactorButton = target.closest<HTMLElement>("[data-profile-two-factor]");
+    if (twoFactorButton) {
+      if (twoFactorButton.dataset.twoFactorAction === "disable") {
+        openTwoFactorDisable();
+      } else {
+        void openTwoFactor();
+      }
       return;
     }
 
@@ -445,7 +443,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         form.reset();
         fillProfile(page, dialog, profile, options.notesCount());
         showProfileView(dialog, "menu");
-        showToast("Двухфакторная аутентификация включена");
+        showToast("Защита входа включена");
       } catch (error) {
         if (error instanceof ApiError && error.status === 403) {
           setProfileError(form, "code", "Неверный код");
@@ -456,7 +454,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
           await navigate("/login");
           return;
         }
-        showToast("Не удалось включить 2FA, попробуйте позже", false);
+        showToast("Не удалось включить защиту входа, попробуйте позже", false);
       }
       return;
     }
@@ -472,7 +470,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         form.reset();
         fillProfile(page, dialog, profile, options.notesCount());
         showProfileView(dialog, "menu");
-        showToast("Двухфакторная аутентификация отключена");
+        showToast("Защита входа отключена");
       } catch (error) {
         if (error instanceof ApiError && error.status === 403) {
           setProfileError(form, "code", "Неверный код");
@@ -483,7 +481,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
           await navigate("/login");
           return;
         }
-        showToast("Не удалось отключить 2FA, попробуйте позже", false);
+        showToast("Не удалось отключить защиту входа, попробуйте позже", false);
       }
       return;
     }

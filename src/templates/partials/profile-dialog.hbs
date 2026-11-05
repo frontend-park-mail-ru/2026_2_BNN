@@ -48,8 +48,7 @@
         
         <div class="profile__menu" data-profile-view="menu" hidden>
             <button class="profile__button" type="button" data-profile-password>Сменить пароль</button>
-            <button class="profile__button" type="button" data-profile-two-factor-enable>Включить двухфакторную аутентификацию</button>
-            <button class="profile__button" type="button" data-profile-two-factor-disable hidden>Отключить двухфакторную аутентификацию</button>
+            <button class="profile__button" type="button" data-profile-two-factor data-two-factor-action="enable">Включить защиту входа</button>
             <button class="profile__button profile__button_danger" type="button" data-profile-logout>Выйти из аккаунта</button>
         </div>
 
@@ -90,19 +89,11 @@
             </div>
         </form>
         <form class="profile-form" data-profile-view="twoFactor" data-profile-form="twoFactor" hidden novalidate>
-            <p class="profile-form__label">1. Отсканируйте QR в Google Authenticator или другом TOTP-приложении. Аккаунт будет называться BNN_Notes.</p>
-            <img class="profile-form__qr" data-2fa-qr alt="QR-код для подключения 2FA" width="256" height="256">
+            <p class="profile-form__label profile-form__step">1. Отсканируйте QR в Google Authenticator или другом TOTP-приложении. Аккаунт будет называться BNN_Notes.</p>
+            <img class="profile-form__qr" data-2fa-qr alt="QR-код для подключения 2FA" width="171" height="171">
             <div class="profile-form__field">
-                <span class="profile-form__label">2. Введите первый код из приложения</span>
-                <div class="profile-form__code">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Цифра 1">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 2">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 3">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 4">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 5">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 6">
-                </div>
-                <small class="profile-form__error" data-error-for="code"></small>
+                <span class="profile-form__label profile-form__step">2. Введите первый код из приложения</span>
+                {{> 2fa-code-input prefix="profile-form"}}
             </div>
             <div class="profile-form__actions">
                 <button class="profile__button profile__button_primary" type="submit">Подтвердить</button>
@@ -110,17 +101,9 @@
             </div>
         </form>
         <form class="profile-form" data-profile-view="twoFactorDisable" data-profile-form="twoFactorDisable" hidden novalidate>
-            <p class="profile-form__label">Введите код из приложения, чтобы отключить двухфакторную аутентификацию</p>
+            <p class="profile-form__label">Введите код из приложения, чтобы отключить защиту входа</p>
             <div class="profile-form__field">
-                <div class="profile-form__code">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Цифра 1">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 2">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 3">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 4">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 5">
-                    <input class="profile-form__digit" data-2fa-digit type="text" inputmode="numeric" maxlength="1" aria-label="Цифра 6">
-                </div>
-                <small class="profile-form__error" data-error-for="code"></small>
+                {{> 2fa-code-input prefix="profile-form"}}
             </div>
             <div class="profile-form__actions">
                 <button class="profile__button profile__button_primary" type="submit">Отключить</button>
