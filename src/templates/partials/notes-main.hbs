@@ -1,4 +1,13 @@
-{{#if isLoading}}
+{{#if isConnectionLost}}
+    <article class="notebook notebook_centered">
+        <div class="notebook__message">
+            <span class="notebook__status notebook__status_error">{{> icon name="alert" size="l"}}</span>
+            <h2 class="notebook__message-title">Потеря соединения</h2>
+            <p class="notebook__message-text">Эти данные ещё не загружались.<br>Они откроются, когда появится интернет</p>
+            <button class="notebook__action notebook__action_secondary" type="button" data-retry>Повторить</button>
+        </div>
+    </article>
+{{else if isLoading}}
     <article class="notebook notebook_busy" aria-busy="true">
         <div class="notebook__toolbar">
             <span class="skeleton skeleton_line skeleton_crumbs"></span>
