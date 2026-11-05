@@ -71,7 +71,6 @@ interface BlockView {
   type: BlockType;
   text: string;
   checked: boolean;
-  placeholder: string;
   isChecklist: boolean;
   isAttachment: boolean;
   isImage: boolean;
@@ -341,7 +340,6 @@ function toBlockView(block: NoteBlock): BlockView {
     type: block.content.type,
     text: block.content.text,
     checked: block.content.checked === true,
-    placeholder: "",
     isChecklist: block.content.type === "checklist",
     isAttachment: isAttachment,
     isImage: block.content.type === "image",
@@ -361,10 +359,7 @@ function getEditorBlocks(note: Note): BlockView[] {
 
   const last = blocks[blocks.length - 1];
   if (!last || last.isAttachment) {
-    blocks.push({
-      ...toBlockView({ id: "", content: { type: "text", text: "" } }),
-      placeholder: blocks.length === 0 ? "Начните писать..." : "",
-    });
+    blocks.push(toBlockView({ id: "", content: { type: "text", text: "" } }));
   }
 
   return blocks;
@@ -1383,6 +1378,9 @@ export class NotesPage {
       }
 
       if (target.closest("[data-note-title], [data-block-text]")) {
+        if (target.textContent === "") {
+          target.replaceChildren();
+        }
         timerSave();
       }
     }
