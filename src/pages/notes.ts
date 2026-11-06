@@ -70,7 +70,6 @@ interface BlockView {
   type: BlockType;
   text: string;
   checked: boolean;
-  placeholder: string;
   isChecklist: boolean;
   isAttachment: boolean;
   isImage: boolean;
@@ -136,6 +135,8 @@ interface NotesInstance {
   onNoteChange: (event: Event) => void;
   onNoteKeyDown: (event: KeyboardEvent) => void;
   onBeforeUnload: (event: BeforeUnloadEvent) => void;
+  onOnline: () => void;
+  onOffline: () => void;
   destroyProfile: () => void;
 }
 
@@ -146,6 +147,7 @@ let mounted: NotesInstance | null = null;
 let loadVersion = 0;
 let pendingFocusNoteId: string | null = null;
 let pendingToast = "";
+let connectionLost = false;
 
 /**
  * Сбрасывает локальное состояние notes-страницы.
@@ -337,7 +339,6 @@ function toBlockView(block: NoteBlock): BlockView {
     type: block.content.type,
     text: block.content.text,
     checked: block.content.checked === true,
-    placeholder: "",
     isChecklist: block.content.type === "checklist",
     isAttachment: isAttachment,
     isImage: block.content.type === "image",
@@ -357,10 +358,7 @@ function getEditorBlocks(note: Note): BlockView[] {
 
   const last = blocks[blocks.length - 1];
   if (!last || last.isAttachment) {
-    blocks.push({
-      ...toBlockView({ id: "", content: { type: "text", text: "" } }),
-      placeholder: blocks.length === 0 ? "Начните писать..." : "",
-    });
+    blocks.push(toBlockView({ id: "", content: { type: "text", text: "" } }));
   }
 
   return blocks;
@@ -451,6 +449,7 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     isListLoading: isListLoading,
     isLoading: isListLoading || isNoteLoading,
     isError: isError,
+    isConnectionLost: connectionLost,
     isEmpty: isReady && !hasNotes && !(noteId === "new"),
     isWelcome: isReady && hasNotes && !currentNote,
     skeletonRows: SKELETON_ROWS,
@@ -489,14 +488,14 @@ async function loadNotes(): Promise<void> {
       return;
     }
 
-    store.notes = [];
-
     if (error instanceof ApiError && error.status === 401) {
+      store.notes = [];
       store.status = "unauthorized";
       return;
     }
 
-    store.status = "error";
+    connectionLost = error instanceof TypeError;
+    store.status = store.notes.length > 0 ? "ready" : "error";
   }
 }
 
@@ -523,6 +522,7 @@ export class NotesPage {
    * @returns {Promise<string>}
    */
   async render(context: PageContext): Promise<string> {
+    connectionLost = false;
     const template = Handlebars.templates["notes"];
     const view = buildView(context, context.params.id, "idle");
     return template(view);
@@ -587,6 +587,8 @@ export class NotesPage {
       onNoteChange: onNoteChange,
       onNoteKeyDown: onNoteKeyDown,
       onBeforeUnload: onBeforeUnload,
+      onOnline: onOnline,
+      onOffline: onOffline,
       destroyProfile: destroyProfile,
     };
 
@@ -613,6 +615,12 @@ export class NotesPage {
         if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
           history.replaceState(null, "", "/notes");
           await router();
+          return;
+        }
+
+        if (error instanceof TypeError) {
+          connectionLost = true;
+          update();
           return;
         }
 
@@ -728,6 +736,7 @@ export class NotesPage {
     /** Вызывает API logout и переводит пользователя на страницу входа. */
     async function logOut(button: HTMLButtonElement): Promise<void> {
       button.disabled = true;
+      await finishSaving();
       await api.logOut().catch(() => null);
 
       resetAuthState("unauthenticated");
@@ -814,6 +823,8 @@ export class NotesPage {
       window.clearTimeout(instance.saveTimer);
       instance.hasPendingChanges = false;
 
+      void fetchAllNotes().catch(() => null);
+
       const index = store.notes.findIndex((note) => note.id === id);
       let next: Note | undefined;
       if (index !== -1) {
@@ -862,6 +873,7 @@ export class NotesPage {
       setSaveStatus("saving");
 
       const title = readTitle();
+      const listChanged = findNote(store.notes, instance.noteId)?.title !== title;
       const { elements, blocks, skipped } = collectBlocks();
       let failed = false;
 
@@ -896,6 +908,9 @@ export class NotesPage {
 
         putNote(normalizeNote(saved));
         setSaveStatus("saved");
+        if (listChanged) {
+          void fetchAllNotes().catch(() => null);
+        }
       } catch (error) {
         failed = true;
         instance.hasPendingChanges = true;
@@ -1293,9 +1308,7 @@ export class NotesPage {
       }
 
       if (target.closest("[data-retry]")) {
-        store.status = "idle";
-        update();
-        void loadAndShow();
+        retryLoad();
         return;
       }
 
@@ -1363,7 +1376,35 @@ export class NotesPage {
       }
 
       if (target.closest("[data-note-title], [data-block-text]")) {
+        if (target.textContent === "") {
+          target.replaceChildren();
+        }
         timerSave();
+      }
+    }
+
+    function retryLoad(): void {
+      connectionLost = false;
+      store.status = "idle";
+      update();
+      void loadAndShow();
+    }
+
+    function onOffline(): void {
+      showToast("Потеря соединения");
+      window.clearTimeout(instance.toastTimer);
+      toast.classList.add("toast_error");
+    }
+
+    function onOnline(): void {
+      hideToast();
+      toast.classList.remove("toast_error");
+
+      if (instance.hasPendingChanges) {
+        void runSave();
+      }
+      if (connectionLost) {
+        retryLoad();
       }
     }
 
@@ -1388,12 +1429,18 @@ export class NotesPage {
     mainRegion.addEventListener("change", onNoteChange);
     mainRegion.addEventListener("keydown", onNoteKeyDown);
     window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
 
     mounted = instance;
 
     if (pendingToast) {
       showToast(pendingToast);
       pendingToast = "";
+    }
+
+    if (!navigator.onLine) {
+      onOffline();
     }
 
     if (store.status === "ready") {
@@ -1428,6 +1475,8 @@ export class NotesPage {
     leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
     leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
+    window.removeEventListener("online", leaving.onOnline);
+    window.removeEventListener("offline", leaving.onOffline);
     leaving.destroyProfile();
 
     await leaving.finishSaving();
