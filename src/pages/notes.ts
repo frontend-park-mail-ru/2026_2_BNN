@@ -141,6 +141,7 @@ interface NotesInstance {
   onPaste: (event: ClipboardEvent) => void;
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent) => void;
+  onDragLeave: (event: DragEvent) => void;
   destroyProfile: () => void;
 }
 
@@ -596,6 +597,7 @@ export class NotesPage {
       onPaste: onPaste,
       onDragOver: onDragOver,
       onDrop: onDrop,
+      onDragLeave: onDragLeave,
       destroyProfile: destroyProfile,
     };
 
@@ -1481,7 +1483,15 @@ export class NotesPage {
     function onDragOver(event: DragEvent): void {
       if (event.dataTransfer?.types.includes("Files")) {
         event.preventDefault();
-        event.dataTransfer.dropEffect = findDropTarget(event) ? "copy" : "none";
+        const target = findDropTarget(event);
+        event.dataTransfer.dropEffect = target ? "copy" : "none";
+        mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", target !== null);
+      }
+    }
+
+    function onDragLeave(event: DragEvent): void {
+      if (!event.relatedTarget) {
+        mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", false);
       }
     }
 
@@ -1491,6 +1501,7 @@ export class NotesPage {
       }
 
       event.preventDefault();
+      mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", false);
       const block = findDropTarget(event);
       if (block) {
         void attachFiles(block, Array.from(event.dataTransfer.files));
@@ -1523,6 +1534,7 @@ export class NotesPage {
     window.addEventListener("paste", onPaste);
     window.addEventListener("dragover", onDragOver);
     window.addEventListener("drop", onDrop);
+    window.addEventListener("dragleave", onDragLeave);
 
     mounted = instance;
 
@@ -1572,6 +1584,7 @@ export class NotesPage {
     window.removeEventListener("paste", leaving.onPaste);
     window.removeEventListener("dragover", leaving.onDragOver);
     window.removeEventListener("drop", leaving.onDrop);
+    window.removeEventListener("dragleave", leaving.onDragLeave);
     leaving.destroyProfile();
 
     await leaving.finishSaving();

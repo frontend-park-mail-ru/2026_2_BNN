@@ -532,6 +532,11 @@
     justify-content: center;
   }
 
+  &_drop {
+    outline: 2px dashed var(--accent);
+    outline-offset: -8px;
+  }
+
   &_busy {
     .notebook__content {
       display: flex;
