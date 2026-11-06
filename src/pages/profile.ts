@@ -78,6 +78,16 @@ function clearPasswordForm(form: HTMLFormElement): void {
 }
 
 /**
+ * Сбрасывает введённые цифры и сообщение «Неверный код».
+ *
+ * @param form Форма включения или отключения двухфакторной аутентификации.
+ */
+function clearTwoFactorForm(form: HTMLFormElement): void {
+  form.reset();
+  setProfileError(form, "code", "");
+}
+
+/**
  * Переключает видимые секции модалки: загрузка, меню или смена пароля.
  *
  * @param dialog Корневой элемент `[data-profile-dialog]`.
@@ -200,7 +210,16 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     dialog.querySelector<HTMLImageElement>("[data-2fa-qr]")?.removeAttribute("src");
   }
 
+  function clearTwoFactorForms(): void {
+    dialog
+      .querySelectorAll<HTMLFormElement>(
+        "[data-profile-form='twoFactor'], [data-profile-form='twoFactorDisable']"
+      )
+      .forEach(clearTwoFactorForm);
+  }
+
   async function openTwoFactor(): Promise<void> {
+    clearTwoFactorForms();
     showProfileView(dialog, "twoFactor");
     clearQr();
     try {
@@ -235,6 +254,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   }
 
   function openTwoFactorDisable(): void {
+    clearTwoFactorForms();
     showProfileView(dialog, "twoFactorDisable");
     dialog
       .querySelector<HTMLInputElement>("[data-profile-form='twoFactorDisable'] [data-2fa-digit]")
@@ -272,6 +292,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     if (form) {
       clearPasswordForm(form);
     }
+    clearTwoFactorForms();
     clearQr();
 
     window.clearTimeout(closeTimer);
@@ -348,8 +369,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         clearPasswordForm(form);
       }
       clearQr();
-      dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactor']")?.reset();
-      dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactorDisable']")?.reset();
+      clearTwoFactorForms();
       showProfileView(dialog, "menu");
       return;
     }
