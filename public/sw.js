@@ -3,7 +3,15 @@ const API_CACHE = "bnn-api";
 const HANDLEBARS_URL =
   "https://cdn.jsdelivr.net/npm/handlebars@4.7.9/dist/handlebars.runtime.min.js";
 
-const SHELL_FILES = ["/templates.compiled.js", "/assets/icons/ui/sprite.svg", HANDLEBARS_URL];
+const SHELL_FILES = [
+  "/templates.compiled.js",
+  "/assets/icons/ui/sprite.svg",
+  "/assets/icons/logo-auth.svg",
+  "/assets/icons/logo-shape.svg",
+  "/assets/images/avatar-default.svg",
+  "/assets/images/background_v1.svg",
+  HANDLEBARS_URL,
+];
 const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars/"];
 const BYPASS_PATHS = ["/api/", "/swagger/"];
 const NOTE_PATH = /^\/api\/notes\/[^/]+$/;

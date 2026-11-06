@@ -38,7 +38,6 @@ const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 const SAVE_DELAY = 1000;
 const TOAST_DELAY = 4000;
 const TITLE_MAX_LENGTH = 255;
-const API_CACHE = "bnn-api";
 
 const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "checklist"];
 
@@ -739,7 +738,6 @@ export class NotesPage {
       button.disabled = true;
       await finishSaving();
       await api.logOut().catch(() => null);
-      await window.caches?.delete(API_CACHE);
 
       resetAuthState("unauthenticated");
       await navigate("/login");

@@ -27,6 +27,7 @@ const notesPage = new NotesPage();
 const notFoundPage = new NotFoundPage();
 const loginPage = new LoginPage();
 const signupPage = new SignupPage();
+const API_CACHE = "bnn-api";
 
 const routes: RouteRecord[] = [
   { path: "/", page: notesPage, auth: true },
@@ -200,6 +201,7 @@ export async function navigate(url: string): Promise<void> {
  */
 export function resetAuthState(authStatus: "unknown" | "unauthenticated" = "unknown"): void {
   api.clearCachedProfile(authStatus);
+  window.caches?.delete(API_CACHE);
   resetNotesStore();
 }
 
