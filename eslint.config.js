@@ -48,6 +48,16 @@ module.exports = [
   },
 
   {
+    files: ["public/sw.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: {
+        ...globals.serviceworker,
+      },
+    },
+  },
+
+  {
     files: ["scripts/**/*.ts"],
     languageOptions: {
       globals: {

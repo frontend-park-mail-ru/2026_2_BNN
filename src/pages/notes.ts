@@ -70,7 +70,6 @@ interface BlockView {
   type: BlockType;
   text: string;
   checked: boolean;
-  placeholder: string;
   isChecklist: boolean;
   isAttachment: boolean;
   isImage: boolean;
@@ -136,6 +135,12 @@ interface NotesInstance {
   onNoteChange: (event: Event) => void;
   onNoteKeyDown: (event: KeyboardEvent) => void;
   onBeforeUnload: (event: BeforeUnloadEvent) => void;
+  onOnline: () => void;
+  onOffline: () => void;
+  onPaste: (event: ClipboardEvent) => void;
+  onDragOver: (event: DragEvent) => void;
+  onDrop: (event: DragEvent) => void;
+  onDragLeave: (event: DragEvent) => void;
   destroyProfile: () => void;
 }
 
@@ -146,6 +151,7 @@ let mounted: NotesInstance | null = null;
 let loadVersion = 0;
 let pendingFocusNoteId: string | null = null;
 let pendingToast = "";
+let connectionLost = false;
 
 /**
  * Сбрасывает локальное состояние notes-страницы.
@@ -348,7 +354,6 @@ function toBlockView(block: NoteBlock): BlockView {
     type: block.content.type,
     text: block.content.text,
     checked: block.content.checked === true,
-    placeholder: "",
     isChecklist: block.content.type === "checklist",
     isAttachment: isAttachment,
     isImage: block.content.type === "image",
@@ -374,10 +379,7 @@ function getEditorBlocks(note: Note): BlockView[] {
 
   const last = blocks[blocks.length - 1];
   if (!last || last.isAttachment) {
-    blocks.push({
-      ...toBlockView({ id: "", content: { type: "text", text: "" } }),
-      placeholder: blocks.length === 0 ? "Начните писать..." : "",
-    });
+    blocks.push(toBlockView({ id: "", content: { type: "text", text: "" } }));
   }
 
   return blocks;
@@ -481,6 +483,7 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     isListLoading: isListLoading,
     isLoading: isListLoading || isNoteLoading,
     isError: isError,
+    isConnectionLost: connectionLost,
     isEmpty: isReady && !hasNotes && !(noteId === "new"),
     isWelcome: isReady && hasNotes && !currentNote,
     skeletonRows: SKELETON_ROWS,
@@ -519,14 +522,14 @@ async function loadNotes(): Promise<void> {
       return;
     }
 
-    store.notes = [];
-
     if (error instanceof ApiError && error.status === 401) {
+      store.notes = [];
       store.status = "unauthorized";
       return;
     }
 
-    store.status = "error";
+    connectionLost = error instanceof TypeError;
+    store.status = store.notes.length > 0 ? "ready" : "error";
   }
 }
 
@@ -553,6 +556,7 @@ export class NotesPage {
    * @returns {Promise<string>}
    */
   async render(context: PageContext): Promise<string> {
+    connectionLost = false;
     const template = Handlebars.templates["notes"];
     const view = buildView(context, context.params.id, "idle");
     return template(view);
@@ -617,6 +621,12 @@ export class NotesPage {
       onNoteChange: onNoteChange,
       onNoteKeyDown: onNoteKeyDown,
       onBeforeUnload: onBeforeUnload,
+      onOnline: onOnline,
+      onOffline: onOffline,
+      onPaste: onPaste,
+      onDragOver: onDragOver,
+      onDrop: onDrop,
+      onDragLeave: onDragLeave,
       destroyProfile: destroyProfile,
     };
 
@@ -643,6 +653,12 @@ export class NotesPage {
         if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
           history.replaceState(null, "", "/notes");
           await router();
+          return;
+        }
+
+        if (error instanceof TypeError) {
+          connectionLost = true;
+          update();
           return;
         }
 
@@ -758,6 +774,7 @@ export class NotesPage {
     /** Вызывает API logout и переводит пользователя на страницу входа. */
     async function logOut(button: HTMLButtonElement): Promise<void> {
       button.disabled = true;
+      await finishSaving();
       await api.logOut().catch(() => null);
 
       resetAuthState("unauthenticated");
@@ -844,6 +861,8 @@ export class NotesPage {
       window.clearTimeout(instance.saveTimer);
       instance.hasPendingChanges = false;
 
+      void fetchAllNotes().catch(() => null);
+
       const index = store.notes.findIndex((note) => note.id === id);
       let next: Note | undefined;
       if (index !== -1) {
@@ -895,6 +914,7 @@ export class NotesPage {
 
       try {
         const title = readTitle();
+        const listChanged = findNote(store.notes, instance.noteId)?.title !== title;
         const { elements, blocks, skipped } = collectBlocks();
 
         if (instance.noteId === "new") {
@@ -927,6 +947,9 @@ export class NotesPage {
 
         putNote(normalizeNote(saved));
         setSaveStatus("saved");
+        if (listChanged) {
+          void fetchAllNotes().catch(() => null);
+        }
       } catch (error) {
         failed = true;
         instance.hasPendingChanges = true;
@@ -1065,8 +1088,8 @@ export class NotesPage {
       timerSave();
     }
 
-    async function attachFile(block: HTMLElement, type: BlockType): Promise<void> {
-      const file = await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT);
+    async function attachFile(block: HTMLElement, type: BlockType, given?: File): Promise<void> {
+      const file = given ?? (await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
       if (!file || !block.isConnected) {
         return;
       }
@@ -1078,6 +1101,11 @@ export class NotesPage {
       });
       if (!uploading.nextElementSibling) {
         insertBlockAfter(uploading, "text");
+      }
+      const nextText =
+        uploading.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]");
+      if (nextText && document.activeElement === document.body) {
+        placeCaret(nextText, false);
       }
 
       timerSave();
@@ -1113,6 +1141,34 @@ export class NotesPage {
       const view = toBlockView({ id: blockId, content });
       replaceBlock(uploading, uploadError ? { ...view, uploadError } : view);
       timerSave();
+    }
+
+    async function attachFiles(block: HTMLElement, files: File[]): Promise<void> {
+      closeBlockMenu();
+
+      const slots: HTMLElement[] = [];
+      let slot = block;
+      for (let i = 0; i < files.length; i++) {
+        if (i > 0 || readBlock(slot)) {
+          insertBlockAfter(slot, "text");
+          slot = slot.nextElementSibling as HTMLElement;
+        }
+        slots.push(slot);
+      }
+
+      const next = slot.nextElementSibling as HTMLElement | null;
+      const nextText =
+        next && !readBlock(next)
+          ? next.querySelector<HTMLElement>("[data-block-text]")
+          : insertBlockAfter(slot, "text");
+      if (nextText) {
+        placeCaret(nextText, false);
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const type = files[i].type.startsWith("image/") ? "image" : "file";
+        await attachFile(slots[i], type, files[i]);
+      }
     }
 
     async function removeAttachment(block: HTMLElement): Promise<void> {
@@ -1328,9 +1384,7 @@ export class NotesPage {
       }
 
       if (target.closest("[data-retry]")) {
-        store.status = "idle";
-        update();
-        void loadAndShow();
+        retryLoad();
         return;
       }
 
@@ -1398,7 +1452,92 @@ export class NotesPage {
       }
 
       if (target.closest("[data-note-title], [data-block-text]")) {
+        if (target.textContent === "") {
+          target.replaceChildren();
+        }
         timerSave();
+      }
+    }
+
+    function retryLoad(): void {
+      connectionLost = false;
+      store.status = "idle";
+      update();
+      void loadAndShow();
+    }
+
+    function onOffline(): void {
+      showToast("Потеря соединения");
+      window.clearTimeout(instance.toastTimer);
+      toast.classList.add("toast_error");
+    }
+
+    function onOnline(): void {
+      hideToast();
+      toast.classList.remove("toast_error");
+
+      if (instance.hasPendingChanges) {
+        void runSave();
+      }
+      if (connectionLost) {
+        retryLoad();
+      }
+    }
+
+    function findFileTarget(target: EventTarget | null): HTMLElement | null {
+      const block = target instanceof Element ? target.closest<HTMLElement>("[data-block]") : null;
+      const blocks = mainRegion.querySelectorAll<HTMLElement>("[data-block]");
+      return block ?? blocks[blocks.length - 1] ?? null;
+    }
+
+    function onPaste(event: ClipboardEvent): void {
+      const data = event.clipboardData;
+      if (
+        !data ||
+        data.files.length === 0 ||
+        data.getData("text/plain") !== "" ||
+        event.target instanceof HTMLInputElement
+      ) {
+        return;
+      }
+
+      const block = findFileTarget(event.target);
+      if (block) {
+        event.preventDefault();
+        void attachFiles(block, Array.from(data.files));
+      }
+    }
+
+    function findDropTarget(event: DragEvent): HTMLElement | null {
+      const inNote = event.target instanceof Node && mainRegion.contains(event.target);
+      return inNote ? findFileTarget(event.target) : null;
+    }
+
+    function onDragOver(event: DragEvent): void {
+      if (event.dataTransfer?.types.includes("Files")) {
+        event.preventDefault();
+        const target = findDropTarget(event);
+        event.dataTransfer.dropEffect = target ? "copy" : "none";
+        mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", target !== null);
+      }
+    }
+
+    function onDragLeave(event: DragEvent): void {
+      if (!event.relatedTarget) {
+        mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", false);
+      }
+    }
+
+    function onDrop(event: DragEvent): void {
+      if (!event.dataTransfer?.types.includes("Files")) {
+        return;
+      }
+
+      event.preventDefault();
+      mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", false);
+      const block = findDropTarget(event);
+      if (block) {
+        void attachFiles(block, Array.from(event.dataTransfer.files));
       }
     }
 
@@ -1423,12 +1562,22 @@ export class NotesPage {
     mainRegion.addEventListener("change", onNoteChange);
     mainRegion.addEventListener("keydown", onNoteKeyDown);
     window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("paste", onPaste);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("drop", onDrop);
+    window.addEventListener("dragleave", onDragLeave);
 
     mounted = instance;
 
     if (pendingToast) {
       showToast(pendingToast);
       pendingToast = "";
+    }
+
+    if (!navigator.onLine) {
+      onOffline();
     }
 
     if (store.status === "ready") {
@@ -1463,6 +1612,12 @@ export class NotesPage {
     leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
     leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
+    window.removeEventListener("online", leaving.onOnline);
+    window.removeEventListener("offline", leaving.onOffline);
+    window.removeEventListener("paste", leaving.onPaste);
+    window.removeEventListener("dragover", leaving.onDragOver);
+    window.removeEventListener("drop", leaving.onDrop);
+    window.removeEventListener("dragleave", leaving.onDragLeave);
     leaving.destroyProfile();
 
     await leaving.finishSaving();
