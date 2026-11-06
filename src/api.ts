@@ -26,6 +26,7 @@ export class ApiError extends Error {
   }
 }
 
+/** Тип содержимого блока заметки. */
 export type BlockType =
   | "text"
   | "heading"
@@ -37,6 +38,7 @@ export type BlockType =
   | "file"
   | "image";
 
+/** Содержимое блока заметки. */
 export interface BlockContent {
   type: BlockType;
   text: string;
@@ -45,11 +47,13 @@ export interface BlockContent {
   url?: string;
 }
 
+/** Блок заметки с идентификатором. */
 export interface NoteBlock {
   id: string;
   content: BlockContent;
 }
 
+/** Блок, который клиент отправляет при сохранении заметки. */
 export interface BlockInput {
   id?: string;
   content: BlockContent;
@@ -65,6 +69,7 @@ export interface Note {
   updated_at: string;
 }
 
+/** Загруженный файл, прикреплённый к блоку. */
 export interface Attachment {
   id: string;
   url: string;
@@ -207,6 +212,7 @@ class Api {
    * Записывает пользователя в store как авторизованного.
    *
    * @param profile Профиль из ответа API.
+   * @returns Сохранённый профиль.
    */
   private setAuthenticatedUser(profile: User): User {
     setState({
@@ -382,10 +388,22 @@ class Api {
     return note;
   }
 
+  /**
+   * Удаляет заметку.
+   *
+   * @param id Идентификатор заметки.
+   */
   async deleteNote(id: string): Promise<void> {
     await this.request(`/api/notes/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
+  /**
+   * Загружает файл в блок заметки.
+   *
+   * @param blockId Идентификатор блока.
+   * @param file Файл вложения.
+   * @returns Метаданные загруженного файла.
+   */
   async uploadAttachment(blockId: string, file: File): Promise<Attachment> {
     const body = new FormData();
     body.append("file", file);
@@ -404,6 +422,11 @@ class Api {
     return attachment;
   }
 
+  /**
+   * Удаляет вложение.
+   *
+   * @param id Идентификатор вложения.
+   */
   async deleteAttachment(id: string): Promise<void> {
     await this.request(`/api/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
@@ -524,7 +547,7 @@ class Api {
    * @returns Временный URL PNG 256×256.
    */
   async generateTwoFactorQr(): Promise<string> {
-    const response = await fetch("/api/auth/2fa/generate", {
+    const response = await fetch(`${this.baseUrl}/api/auth/2fa/generate`, {
       credentials: "include",
     });
 

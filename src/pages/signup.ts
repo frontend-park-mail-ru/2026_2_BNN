@@ -23,6 +23,7 @@ type SignupField = (typeof SIGNUP_FIELDS)[number];
  * Проверяет, что имя поля относится к форме регистрации.
  *
  * @param name Имя из `HTMLInputElement.name`.
+ * @returns `true`, если имя есть среди полей регистрации.
  */
 function isSignupField(name: string): name is SignupField {
   return (SIGNUP_FIELDS as readonly string[]).includes(name);

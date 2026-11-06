@@ -93,6 +93,7 @@ function mergeState(current: unknown, patch: unknown): unknown {
 let state = createInitialState();
 const listeners = new Set<(nextState: AppState) => void>();
 
+/** Сообщает подписчикам, что состояние изменилось. */
 function notify(): void {
   for (const listener of listeners) {
     listener(state);

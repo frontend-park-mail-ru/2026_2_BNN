@@ -447,34 +447,4 @@
     line-height: 1.4;
     text-align: center;
   }
-
-  &__code {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 4px;
-  }
-
-  &__digit {
-    width: 44px;
-    height: 52px;
-    padding: 0;
-    border: 1px solid #c5d0de;
-    border-radius: 10px;
-    background: #fff;
-    color: $ink;
-    font: inherit;
-    font-size: 24px;
-    text-align: center;
-
-    &:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-  }
-
-  &__field:has(.login-form__error:not(:empty)) &__digit {
-    color: $error;
-    border-color: $error;
-  }
 }

@@ -21,11 +21,21 @@ export class LoginTwoFactorPage {
   private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
   private onInput: ((event: Event) => void) | null = null;
 
+  /**
+   * Рендерит HTML страницы ввода кода.
+   *
+   * @returns Готовая HTML-строка страницы.
+   */
   async render(): Promise<string> {
     const template = Handlebars.templates["login-2fa"];
     return template({ title: "Код из приложения" });
   }
 
+  /**
+   * Подключает ввод кода и отправку формы после вставки страницы в DOM.
+   *
+   * @param root Корневой узел отрисованной страницы.
+   */
   mount(root: ParentNode): void {
     const form = root.querySelector<HTMLFormElement>("[data-form-type='login-2fa']");
     if (!form) {
@@ -61,6 +71,9 @@ export class LoginTwoFactorPage {
     form.querySelector<HTMLInputElement>("[data-2fa-digit]")?.focus();
   }
 
+  /**
+   * Снимает обработчики страницы при уходе с маршрута.
+   */
   destroy(): void {
     const form = this.form;
     if (!form || !this.onSubmit || !this.onKeyDown || !this.onInput) {
@@ -75,6 +88,11 @@ export class LoginTwoFactorPage {
     this.onInput = null;
   }
 
+  /**
+   * Проверяет код и завершает вход, если сервер его принял.
+   *
+   * @param event Событие отправки формы.
+   */
   private async handleSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const form = this.form;

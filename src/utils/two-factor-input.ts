@@ -1,19 +1,34 @@
-/** Собирает шестизначный код из ячеек `[data-2fa-digit]` внутри формы или контейнера. */
+/**
+ * Собирает шестизначный код из ячеек `[data-2fa-digit]` внутри формы или контейнера.
+ *
+ * @param root Форма или контейнер с ячейками кода.
+ * @returns Введённые цифры подряд.
+ */
 export function twoFactorCode(root: ParentNode): string {
   return [...root.querySelectorAll<HTMLInputElement>("[data-2fa-digit]")]
     .map((input) => input.value)
     .join("");
 }
 
+/**
+ * Возвращает ячейки кода в том же блоке, что и текущее поле.
+ *
+ * @param input Ячейка `[data-2fa-digit]`.
+ * @returns Поля кода по порядку или пустой список, если блока нет.
+ */
 function digitInputs(input: HTMLInputElement): HTMLInputElement[] {
-  const code = input.closest(".profile-form__code, .login-form__code");
+  const code = input.closest(".code-input");
   if (!code) {
     return [];
   }
   return [...code.querySelectorAll<HTMLInputElement>("[data-2fa-digit]")];
 }
 
-/** Обрабатывает ввод и вставку цифр в ячейках TOTP. */
+/**
+ * Обрабатывает ввод и вставку цифр в ячейках TOTP.
+ *
+ * @param input Ячейка, в которую ввели или вставили значение.
+ */
 export function fillTwoFactorDigit(input: HTMLInputElement): void {
   const digits = input.value.replace(/\D/g, "");
   const inputs = digitInputs(input);
@@ -37,6 +52,8 @@ export function fillTwoFactorDigit(input: HTMLInputElement): void {
 /**
  * Обрабатывает клавиатуру в ячейке TOTP.
  *
+ * @param event Событие клавиатуры.
+ * @param onChange Вызывается после ввода цифры.
  * @returns `true`, если событие обработано и не нужно стандартное поведение.
  */
 export function handleTwoFactorKeyDown(event: KeyboardEvent, onChange: () => void): boolean {
@@ -57,10 +74,12 @@ export function handleTwoFactorKeyDown(event: KeyboardEvent, onChange: () => voi
   }
 
   if (event.key === "Backspace" && input.value === "") {
+    event.preventDefault();
     const previous = inputs[index - 1];
     if (previous) {
       previous.value = "";
       previous.focus();
+      onChange();
     }
     return true;
   }

@@ -111,11 +111,10 @@ function waitAtLeast(started: number, min: number): Promise<void> {
 }
 
 /**
- * Обновляет логин, дату регистрации, счётчик заметок и аватар на странице и в модалке.
+ * Показывает кнопки смены пароля и защиты входа по данным профиля.
  *
- * @param page Корень `.notes`.
+ * @param dialog Корневой элемент `[data-profile-dialog]`.
  * @param profile Профиль пользователя.
- * @param notesCount Число заметок для статистики.
  */
 function syncProfileMenu(dialog: HTMLElement, profile: User): void {
   const passwordButton = dialog.querySelector<HTMLElement>("[data-profile-password]");
@@ -127,10 +126,17 @@ function syncProfileMenu(dialog: HTMLElement, profile: User): void {
   if (twoFactorButton) {
     const enabled = profile.is_2fa_enabled;
     twoFactorButton.dataset.twoFactorAction = enabled ? "disable" : "enable";
-    twoFactorButton.textContent = enabled ? "Отключить защиту входа" : "Включить защиту входа";
   }
 }
 
+/**
+ * Обновляет логин, дату регистрации, счётчик заметок и аватар на странице и в модалке.
+ *
+ * @param page Корень `.notes`.
+ * @param dialog Корневой элемент `[data-profile-dialog]`.
+ * @param profile Профиль пользователя.
+ * @param notesCount Число заметок для статистики.
+ */
 function fillProfile(
   page: HTMLElement,
   dialog: HTMLElement,
@@ -219,7 +225,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         } catch {
           /* профиль обновится при следующем открытии */
         }
-        showToast("Защита входа уже включена", false);
+        showToast("Двухфакторная аутентификация уже включена", false);
         showProfileView(dialog, "menu");
         return;
       }
@@ -261,11 +267,13 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     window.cancelAnimationFrame(openFrame);
     const wasOpen = dialog.classList.contains("modal_open");
     dialog.classList.remove("modal_open");
+
     const form = passwordForm(dialog);
     if (form) {
       clearPasswordForm(form);
-      clearQr();
     }
+    clearQr();
+
     window.clearTimeout(closeTimer);
     if (!wasOpen) {
       dialog.hidden = true;
@@ -338,10 +346,10 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       const form = passwordForm(dialog);
       if (form) {
         clearPasswordForm(form);
-        clearQr();
-        dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactor']")?.reset();
-        dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactorDisable']")?.reset();
       }
+      clearQr();
+      dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactor']")?.reset();
+      dialog.querySelector<HTMLFormElement>("[data-profile-form='twoFactorDisable']")?.reset();
       showProfileView(dialog, "menu");
       return;
     }
@@ -443,7 +451,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         form.reset();
         fillProfile(page, dialog, profile, options.notesCount());
         showProfileView(dialog, "menu");
-        showToast("Защита входа включена");
+        showToast("Двухфакторная аутентификация включена");
       } catch (error) {
         if (error instanceof ApiError && error.status === 403) {
           setProfileError(form, "code", "Неверный код");
@@ -454,7 +462,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
           await navigate("/login");
           return;
         }
-        showToast("Не удалось включить защиту входа, попробуйте позже", false);
+        showToast("Не удалось включить двухфакторную аутентификацию, попробуйте позже", false);
       }
       return;
     }
@@ -470,7 +478,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         form.reset();
         fillProfile(page, dialog, profile, options.notesCount());
         showProfileView(dialog, "menu");
-        showToast("Защита входа отключена");
+        showToast("Двухфакторная аутентификация отключена");
       } catch (error) {
         if (error instanceof ApiError && error.status === 403) {
           setProfileError(form, "code", "Неверный код");
@@ -481,7 +489,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
           await navigate("/login");
           return;
         }
-        showToast("Не удалось отключить защиту входа, попробуйте позже", false);
+        showToast("Не удалось отключить двухфакторную аутентификацию, попробуйте позже", false);
       }
       return;
     }

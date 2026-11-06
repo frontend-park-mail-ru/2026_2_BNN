@@ -6,21 +6,33 @@ import { NotFoundPage } from "./pages/notfound";
 import { api } from "./api";
 import { getState, setState } from "./store/app-store";
 
+/** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
+  /** Путь без query и hash. */
   path: string;
+  /** Параметры из шаблона, например `id` в `/notes/:id`. */
   params: Partial<Record<string, string>>;
 }
 
+/** Контракт SPA-страницы: отрисовка, подключение и снятие обработчиков. */
 interface Page {
+  /** Возвращает HTML страницы. */
   render(context: PageContext): Promise<string>;
+  /** Подключает обработчики после вставки разметки в DOM. */
   mount?(root: ParentNode, context: PageContext): void | Promise<void>;
+  /** Снимает обработчики при уходе с маршрута. */
   destroy?(): void | Promise<void>;
 }
 
+/** Запись таблицы маршрутов. */
 interface RouteRecord {
+  /** Шаблон пути, например `/notes/:id`. */
   path: string;
+  /** Страница, которую открывает этот маршрут. */
   page: Page;
+  /** Маршрут доступен только авторизованному пользователю. */
   auth?: boolean;
+  /** Маршрут доступен только гостю. */
   guest?: boolean;
 }
 

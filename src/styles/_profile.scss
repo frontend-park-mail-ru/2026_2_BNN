@@ -71,6 +71,11 @@
       overflow: hidden;
       clip: rect(0 0 0 0);
     }
+
+    &.login-form__submit_loading {
+      background: none;
+      cursor: wait;
+    }
   }
 
   &__name {
@@ -237,7 +242,7 @@
 
   &__label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 16px;
     font-size: 14px;
   }
 
@@ -283,36 +288,6 @@
     display: flex;
     gap: 12px;
     margin-top: 18px;
-  }
-
-  &__code {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 8px;
-  }
-
-  &__digit {
-    width: 44px;
-    height: 52px;
-    padding: 0;
-    border: 1px solid #c5d0de;
-    border-radius: 10px;
-    background: #fff;
-    color: $ink;
-    font: inherit;
-    font-size: 24px;
-    text-align: center;
-
-    &:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-  }
-
-  &__field_error &__digit {
-    color: $error;
-    border-color: $error;
   }
 
   &__control {
@@ -393,4 +368,44 @@
   width: 171px;
   height: 171px;
   margin: 12px auto 8px;
+}
+
+.code-input {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+
+  &__digit {
+    width: 44px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid #c5d0de;
+    border-radius: 10px;
+    background: #fff;
+    color: $ink;
+    font: inherit;
+    font-size: 24px;
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  &__error {
+    display: block;
+    min-height: 18px;
+    margin-top: 8px;
+    color: $error;
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+  }
+}
+
+:has([data-error-for="code"]:not(:empty)) .code-input__digit {
+  color: $error;
+  border-color: $error;
 }
