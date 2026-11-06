@@ -138,6 +138,9 @@ interface NotesInstance {
   onBeforeUnload: (event: BeforeUnloadEvent) => void;
   onOnline: () => void;
   onOffline: () => void;
+  onPaste: (event: ClipboardEvent) => void;
+  onDragOver: (event: DragEvent) => void;
+  onDrop: (event: DragEvent) => void;
   destroyProfile: () => void;
 }
 
@@ -590,6 +593,9 @@ export class NotesPage {
       onBeforeUnload: onBeforeUnload,
       onOnline: onOnline,
       onOffline: onOffline,
+      onPaste: onPaste,
+      onDragOver: onDragOver,
+      onDrop: onDrop,
       destroyProfile: destroyProfile,
     };
 
@@ -1047,8 +1053,8 @@ export class NotesPage {
       timerSave();
     }
 
-    async function attachFile(block: HTMLElement, type: BlockType): Promise<void> {
-      const file = await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT);
+    async function attachFile(block: HTMLElement, type: BlockType, given?: File): Promise<void> {
+      const file = given ?? (await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
       if (!file || !block.isConnected) {
         return;
       }
@@ -1060,6 +1066,11 @@ export class NotesPage {
       });
       if (!uploading.nextElementSibling) {
         insertBlockAfter(uploading, "text");
+      }
+      const nextText =
+        uploading.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]");
+      if (nextText && document.activeElement === document.body) {
+        placeCaret(nextText, false);
       }
 
       timerSave();
@@ -1095,6 +1106,34 @@ export class NotesPage {
       const view = toBlockView({ id: blockId, content });
       replaceBlock(uploading, uploadError ? { ...view, uploadError } : view);
       timerSave();
+    }
+
+    async function attachFiles(block: HTMLElement, files: File[]): Promise<void> {
+      closeBlockMenu();
+
+      const slots: HTMLElement[] = [];
+      let slot = block;
+      for (let i = 0; i < files.length; i++) {
+        if (i > 0 || readBlock(slot)) {
+          insertBlockAfter(slot, "text");
+          slot = slot.nextElementSibling as HTMLElement;
+        }
+        slots.push(slot);
+      }
+
+      const next = slot.nextElementSibling as HTMLElement | null;
+      const nextText =
+        next && !readBlock(next)
+          ? next.querySelector<HTMLElement>("[data-block-text]")
+          : insertBlockAfter(slot, "text");
+      if (nextText) {
+        placeCaret(nextText, false);
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const type = files[i].type.startsWith("image/") ? "image" : "file";
+        await attachFile(slots[i], type, files[i]);
+      }
     }
 
     async function removeAttachment(block: HTMLElement): Promise<void> {
@@ -1410,6 +1449,54 @@ export class NotesPage {
       }
     }
 
+    function findFileTarget(target: EventTarget | null): HTMLElement | null {
+      const block = target instanceof Element ? target.closest<HTMLElement>("[data-block]") : null;
+      const blocks = mainRegion.querySelectorAll<HTMLElement>("[data-block]");
+      return block ?? blocks[blocks.length - 1] ?? null;
+    }
+
+    function onPaste(event: ClipboardEvent): void {
+      const data = event.clipboardData;
+      if (
+        !data ||
+        data.files.length === 0 ||
+        data.getData("text/plain") !== "" ||
+        event.target instanceof HTMLInputElement
+      ) {
+        return;
+      }
+
+      const block = findFileTarget(event.target);
+      if (block) {
+        event.preventDefault();
+        void attachFiles(block, Array.from(data.files));
+      }
+    }
+
+    function findDropTarget(event: DragEvent): HTMLElement | null {
+      const inNote = event.target instanceof Node && mainRegion.contains(event.target);
+      return inNote ? findFileTarget(event.target) : null;
+    }
+
+    function onDragOver(event: DragEvent): void {
+      if (event.dataTransfer?.types.includes("Files")) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = findDropTarget(event) ? "copy" : "none";
+      }
+    }
+
+    function onDrop(event: DragEvent): void {
+      if (!event.dataTransfer?.types.includes("Files")) {
+        return;
+      }
+
+      event.preventDefault();
+      const block = findDropTarget(event);
+      if (block) {
+        void attachFiles(block, Array.from(event.dataTransfer.files));
+      }
+    }
+
     function onNoteChange(event: Event): void {
       if (event.target instanceof HTMLInputElement && event.target.matches("[data-block-check]")) {
         timerSave();
@@ -1433,6 +1520,9 @@ export class NotesPage {
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
+    window.addEventListener("paste", onPaste);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("drop", onDrop);
 
     mounted = instance;
 
@@ -1479,6 +1569,9 @@ export class NotesPage {
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
     window.removeEventListener("online", leaving.onOnline);
     window.removeEventListener("offline", leaving.onOffline);
+    window.removeEventListener("paste", leaving.onPaste);
+    window.removeEventListener("dragover", leaving.onDragOver);
+    window.removeEventListener("drop", leaving.onDrop);
     leaving.destroyProfile();
 
     await leaving.finishSaving();
