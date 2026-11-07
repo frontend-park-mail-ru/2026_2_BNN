@@ -1,31 +1,45 @@
 import { NotesPage, resetNotesStore } from "./pages/notes";
 import { LoginPage } from "./pages/login";
+import { LoginTwoFactorPage } from "./pages/login-2fa";
 import { SignupPage } from "./pages/signup";
 import { NotFoundPage } from "./pages/notfound";
 import { api } from "./api";
 import { getState, setState } from "./store/app-store";
 
+/** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
+  /** Путь без query и hash. */
   path: string;
+  /** Параметры из шаблона, например `id` в `/notes/:id`. */
   params: Partial<Record<string, string>>;
 }
 
+/** Контракт SPA-страницы: отрисовка, подключение и снятие обработчиков. */
 interface Page {
+  /** Возвращает HTML страницы. */
   render(context: PageContext): Promise<string>;
+  /** Подключает обработчики после вставки разметки в DOM. */
   mount?(root: ParentNode, context: PageContext): void | Promise<void>;
+  /** Снимает обработчики при уходе с маршрута. */
   destroy?(): void | Promise<void>;
 }
 
+/** Запись таблицы маршрутов. */
 interface RouteRecord {
+  /** Шаблон пути, например `/notes/:id`. */
   path: string;
+  /** Страница, которую открывает этот маршрут. */
   page: Page;
+  /** Маршрут доступен только авторизованному пользователю. */
   auth?: boolean;
+  /** Маршрут доступен только гостю. */
   guest?: boolean;
 }
 
 const notesPage = new NotesPage();
 const notFoundPage = new NotFoundPage();
 const loginPage = new LoginPage();
+const loginTwoFactorPage = new LoginTwoFactorPage();
 const signupPage = new SignupPage();
 const API_CACHE = "bnn-api";
 
@@ -37,6 +51,7 @@ const routes: RouteRecord[] = [
   { path: "/notes/notifications", page: notesPage, auth: true },
   { path: "/notes/:id", page: notesPage, auth: true },
   { path: "/login", page: loginPage, guest: true },
+  { path: "/login/2fa", page: loginTwoFactorPage, guest: true },
   { path: "/signup", page: signupPage, guest: true },
   { path: "/profile", page: notesPage, auth: true },
 ];

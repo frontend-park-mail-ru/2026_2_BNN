@@ -13,16 +13,9 @@
     <div class="header__actions">
         <button class="header__create" type="button" data-new-note>+ Новая заметка</button>
         <div class="user-menu">
-            <button class="user-menu__avatar" type="button" aria-label="Меню пользователя" aria-haspopup="true">
+            <button class="user-menu__avatar" type="button" aria-label="Профиль пользователя" data-profile-open>
                 <img class="user-menu__image" src="{{#if avatarUrl}}{{avatarUrl}}{{else}}/assets/images/avatar-default.svg{{/if}}" alt="">
             </button>
-            <div class="user-menu__panel">
-                <div class="user-menu__card" role="menu">
-                    <button class="user-menu__item" type="button" role="menuitem" data-profile-open data-user-login>{{#if userLogin}}{{userLogin}}{{else}}Профиль{{/if}}</button>
-                    <a class="user-menu__item" href="/settings" role="menuitem" data-link>Настройки</a>
-                    <button class="user-menu__item user-menu__item_danger" type="button" role="menuitem" data-logout-open>Выйти</button>
-                </div>
-            </div>
         </div>
     </div>
 </header>

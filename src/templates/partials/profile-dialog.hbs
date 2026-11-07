@@ -48,6 +48,7 @@
         
         <div class="profile__menu" data-profile-view="menu" hidden>
             <button class="profile__button" type="button" data-profile-password>Сменить пароль</button>
+            <button class="profile__button" type="button" data-profile-two-factor data-two-factor-action="enable">Двухфакторная аутентификация</button>
             <button class="profile__button profile__button_danger" type="button" data-profile-logout>Выйти из аккаунта</button>
         </div>
 
@@ -84,6 +85,28 @@
             </label>
             <div class="profile-form__actions">
                 <button class="profile__button profile__button_primary" type="submit">Сохранить</button>
+                <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
+            </div>
+        </form>
+        <form class="profile-form" data-profile-view="twoFactor" data-profile-form="twoFactor" hidden novalidate>
+            <p class="profile-form__label profile-form__step">1. Отсканируйте QR в Google Authenticator или другом TOTP-приложении. Аккаунт будет называться BNN_Notes.</p>
+            <img class="profile-form__qr" data-2fa-qr alt="QR-код для подключения 2FA" width="171" height="171">
+            <div class="profile-form__field">
+                <span class="profile-form__label profile-form__step">2. Введите первый код из приложения</span>
+                {{> 2fa-code-input}}
+            </div>
+            <div class="profile-form__actions">
+                <button class="profile__button profile__button_primary" type="submit">Подтвердить</button>
+                <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
+            </div>
+        </form>
+        <form class="profile-form" data-profile-view="twoFactorDisable" data-profile-form="twoFactorDisable" hidden novalidate>
+            <p class="profile-form__label">Введите код из приложения, чтобы отключить защиту входа</p>
+            <div class="profile-form__field">
+                {{> 2fa-code-input}}
+            </div>
+            <div class="profile-form__actions">
+                <button class="profile__button profile__button_primary" type="submit">Отключить</button>
                 <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
             </div>
         </form>

@@ -506,6 +506,11 @@ function findNote(notes: Note[], id: string | null | undefined): Note | null {
   return null;
 }
 
+/**
+ * Кладёт заметку в локальный список: новую — в начало, существующую — на то же место.
+ *
+ * @param note Заметка в формате UI.
+ */
 function putNote(note: Note): void {
   const index = store.notes.findIndex((item) => item.id === note.id);
   if (index === -1) {
@@ -515,6 +520,12 @@ function putNote(note: Note): void {
   }
 }
 
+/**
+ * Готовит блок заметки к отрисовке в редакторе.
+ *
+ * @param block Блок из API.
+ * @returns Данные блока для шаблона.
+ */
 function toBlockView(block: NoteBlock): BlockView {
   const isAttachment = block.content.type === "file" || block.content.type === "image";
   return {
@@ -532,6 +543,12 @@ function toBlockView(block: NoteBlock): BlockView {
   };
 }
 
+/**
+ * Собирает блоки редактора и добавляет пустой текстовый блок в конец, если его нет.
+ *
+ * @param note Заметка в формате UI.
+ * @returns Блоки для редактора.
+ */
 function getEditorBlocks(note: Note): BlockView[] {
   const blocks: BlockView[] = [];
 
@@ -547,6 +564,11 @@ function getEditorBlocks(note: Note): BlockView[] {
   return blocks;
 }
 
+/**
+ * Создаёт пустую заметку, которой ещё нет на сервере.
+ *
+ * @returns Черновик с id `new`.
+ */
 function createDraft(): Note {
   return {
     id: "new",
@@ -560,6 +582,12 @@ function createDraft(): Note {
   };
 }
 
+/**
+ * Открывает системный диалог выбора файла.
+ *
+ * @param accept Значение атрибута `accept`.
+ * @returns Выбранный файл или `null`, если выбор отменён.
+ */
 function pickFile(accept: string): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input");
@@ -575,6 +603,8 @@ function pickFile(accept: string): Promise<File | null> {
  * Формирует view-model для Handlebars-шаблонов страницы заметок.
  *
  * @param context Роут-контекст.
+ * @param noteId Идентификатор заметки из маршрута или `new` для черновика.
+ * @param saveStatus Состояние сохранения заметки.
  * @returns Данные для шаблонов `notes`, `notes-list` и `notes-main`.
  */
 function buildView(context: PageContext, noteId: string | undefined, saveStatus: SaveStatus) {
@@ -1333,7 +1363,7 @@ export class NotesPage {
       const tagIds = mainRegion.querySelector("[data-note-tags]") ? getNoteTagIds() : undefined;
       let failed = false;
 
-      try {
+      try {    
         if (instance.noteId === "new") {
           if (title === "" && blocks.length === 0 && !tagIds?.length) {
             setSaveStatus("idle");
@@ -1429,7 +1459,11 @@ export class NotesPage {
 
     function readBlock(element: HTMLElement): BlockContent | null {
       if (element.dataset.content) {
-        return JSON.parse(element.dataset.content) as BlockContent;
+        try {
+          return JSON.parse(element.dataset.content) as BlockContent;
+        } catch {
+          return null;
+        }
       }
 
       const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
