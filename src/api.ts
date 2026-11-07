@@ -82,6 +82,7 @@ export class ApiError extends Error {
   }
 }
 
+/** Тип содержимого блока заметки. */
 export type BlockType =
   | "text"
   | "heading"
@@ -93,6 +94,7 @@ export type BlockType =
   | "file"
   | "image";
 
+/** Содержимое блока заметки. */
 export interface BlockContent {
   type: BlockType;
   text: string;
@@ -101,11 +103,13 @@ export interface BlockContent {
   url?: string;
 }
 
+/** Блок заметки с идентификатором. */
 export interface NoteBlock {
   id: string;
   content: BlockContent;
 }
 
+/** Блок, который клиент отправляет при сохранении заметки. */
 export interface BlockInput {
   id?: string;
   content: BlockContent;
@@ -139,6 +143,7 @@ export interface Note {
   updated_at: string;
 }
 
+/** Загруженный файл, прикреплённый к блоку. */
 export interface Attachment {
   id: string;
   url: string;
@@ -314,23 +319,105 @@ class Api {
   }
 
   /**
-   * Авторизует пользователя.
+   * Записывает пользователя в store как авторизованного.
+   *
+   * @param profile Профиль из ответа API.
+   * @returns Сохранённый профиль.
+   */
+  private setAuthenticatedUser(profile: User): User {
+    setState({
+      auth: {
+        status: "authenticated",
+        isLoggedIn: true,
+        user: profile,
+      },
+    });
+    return profile;
+  }
+
+  /**
+   * Авторизует пользователя паролем.
    *
    * @param login Логин.
    * @param password Пароль.
-   * @returns Ответ сервера.
+   * @returns Полная сессия (200) или ожидание кода 2FA (202, кука `bnn_2fa`).
    */
-  async logIn(login: string, password: string): Promise<void> {
-    await this.request(
-      "/api/auth/signin",
+  async logIn(
+    login: string,
+    password: string
+  ): Promise<{ kind: "session"; user: User } | { kind: "twoFactor" }> {
+    const response = await fetch(`${this.baseUrl}/api/auth/signin`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login, password }),
+    });
+
+    if (response.status === 202) {
+      return { kind: "twoFactor" };
+    }
+
+    if (!response.ok) {
+      const messages: Record<number, string> = {
+        401: "Неверный логин или пароль",
+        403: "Этот аккаунт создан через GitHub. Войдите через GitHub",
+      };
+      const text = await response.text();
+      let message = getErrorMessage(response.status, messages);
+      if (text) {
+        try {
+          const data: unknown = JSON.parse(text);
+          if (isRecord(data) && data.message) {
+            message = String(data.message);
+          }
+        } catch {
+          if (/oauth/i.test(text)) {
+            message = messages[403];
+          }
+        }
+      }
+      throw new ApiError(message, response.status);
+    }
+
+    const text = await response.text();
+    if (!text) {
+      throw new ApiError("Сервер не вернул профиль", 500);
+    }
+
+    let profile: User;
+    try {
+      profile = JSON.parse(text) as User;
+    } catch {
+      throw new Error("Сервер вернул некорректный JSON");
+    }
+
+    return { kind: "session", user: this.setAuthenticatedUser(profile) };
+  }
+
+  /**
+   * Завершает вход после signin/OAuth при включённой 2FA (кука `bnn_2fa`).
+   *
+   * @param code Шесть цифр из TOTP-приложения.
+   * @returns Профиль и полная сессия.
+   */
+  async verifyTwoFactor(code: string): Promise<User> {
+    const profile = await this.request<User>(
+      "/api/auth/2fa/verify",
       {
         method: "POST",
-        body: JSON.stringify({ login, password }),
+        body: JSON.stringify({ code }),
       },
       {
-        401: "Неверный логин или пароль",
+        401: "Время истекло — войдите снова",
+        403: "Неверный код",
       }
     );
+
+    if (!profile) {
+      throw new ApiError("Профиль не найден", 500);
+    }
+
+    return this.setAuthenticatedUser(profile);
   }
 
   /**
@@ -414,10 +501,22 @@ class Api {
     return note;
   }
 
+  /**
+   * Удаляет заметку.
+   *
+   * @param id Идентификатор заметки.
+   */
   async deleteNote(id: string): Promise<void> {
     await this.request(`/api/notes/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
+  /**
+   * Загружает файл в блок заметки.
+   *
+   * @param blockId Идентификатор блока.
+   * @param file Файл вложения.
+   * @returns Метаданные загруженного файла.
+   */
   async uploadAttachment(blockId: string, file: File): Promise<Attachment> {
     const body = new FormData();
     body.append("file", file);
@@ -436,6 +535,11 @@ class Api {
     return attachment;
   }
 
+  /**
+   * Удаляет вложение.
+   *
+   * @param id Идентификатор вложения.
+   */
   async deleteAttachment(id: string): Promise<void> {
     await this.request(`/api/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
@@ -514,14 +618,7 @@ class Api {
       if (!profile) {
         throw new ApiError("Профиль не найден", 404);
       }
-      setState({
-        auth: {
-          status: "authenticated",
-          isLoggedIn: true,
-          user: profile,
-        },
-      });
-      return profile;
+      return this.setAuthenticatedUser(profile);
     });
   }
 
@@ -566,7 +663,7 @@ class Api {
         }),
       },
       {
-        400: "Новый пароль не прошёл валидацию или битый JSON",
+        400: "Смена пароля недоступна для этого аккаунта",
         403: "Неверный старый пароль",
         413: "Тело запроса больше 4096 байт",
       }
@@ -600,14 +697,7 @@ class Api {
       throw new ApiError("Профиль не найден", 404);
     }
 
-    setState({
-      auth: {
-        status: "authenticated",
-        isLoggedIn: true,
-        user: profile,
-      },
-    });
-    return profile;
+    return this.setAuthenticatedUser(profile);
   }
 
   /**
@@ -622,6 +712,79 @@ class Api {
     }
     const url = avatar.startsWith("http") ? avatar : `${this.baseUrl}${avatar}`;
     return safeResourceUrl(url) || DEFAULT_AVATAR;
+  }
+
+  /**
+   * Запрашивает новый QR для подключения 2FA.
+   * Сервер сразу сохраняет новый секрет: предыдущий QR становится недействительным.
+   * Адрес нужно освободить через URL.revokeObjectURL, когда картинка больше не нужна.
+   *
+   * @returns Временный URL PNG 256×256.
+   */
+  async generateTwoFactorQr(): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/auth/2fa/generate`, {
+      credentials: "include",
+    });
+
+    if (response.status === 401) {
+      throw new ApiError("Нужно войти в аккаунт", 401);
+    }
+
+    if (response.status === 409) {
+      throw new ApiError("Двухфакторная аутентификация уже включена", 409);
+    }
+
+    if (!response.ok) {
+      throw new ApiError("Не удалось получить QR-код", response.status);
+    }
+
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  /**
+   * Подтверждает код из приложения и включает 2FA.
+   *
+   * @param code Шесть цифр из TOTP-приложения.
+   * @returns Профиль с is_2fa_enabled: true.
+   */
+  async enableTwoFactor(code: string): Promise<User> {
+    await this.request(
+      "/api/auth/2fa/enable",
+      {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      },
+      {
+        400: "Сначала запросите QR-код",
+        401: "Нужно войти в аккаунт",
+        403: "Неверный код",
+      }
+    );
+
+    return this.getProfile();
+  }
+
+  /**
+   * Отключает 2FA кодом из приложения.
+   *
+   * @param code Шесть цифр из TOTP-приложения.
+   * @returns Профиль с is_2fa_enabled: false.
+   */
+  async disableTwoFactor(code: string): Promise<User> {
+    await this.request(
+      "/api/auth/2fa/disable",
+      {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      },
+      {
+        401: "Нужно войти в аккаунт",
+        403: "Неверный код",
+      }
+    );
+
+    return this.getProfile();
   }
 }
 

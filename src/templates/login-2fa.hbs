@@ -1,0 +1,24 @@
+<main class="login">
+    {{> glass-filter}}
+    <section class="login__panel">
+        <div class="login__brand">
+            <div class="login__brand-row">
+                <div class="login__logo" aria-hidden="true"></div>
+                <h1 class="login__title">Brand New Notes</h1>
+            </div>
+            <p class="login__tagline">Двухфакторная аутентификация</p>
+        </div>
+        <form class="login-form" data-form-type="login-2fa" novalidate>
+            <p class="login-form__intro">Введите 6 цифр из приложения-аутентификатора</p>
+            <div class="login-form__field">
+                {{> 2fa-code-input}}
+            </div>
+            <button class="login-form__submit" type="submit">
+                <span class="login-form__submit-label">Подтвердить</span>
+                <span class="login-form__spinner" aria-hidden="true"></span>
+            </button>
+            <p class="login-form__feedback"></p>
+            <p class="login-form__hint"><a class="login-form__link" href="/login" data-link>Вернуться ко входу</a></p>
+        </form>
+    </section>
+</main>

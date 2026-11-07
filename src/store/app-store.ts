@@ -1,13 +1,15 @@
 /** Состояние сессии при загрузке и после проверки auth. */
 export type AuthStatus = "unknown" | "loading" | "authenticated" | "unauthenticated";
 
-/** Профиль пользователя из `/api/auth/me`. */
+/** Профиль пользователя из `/api/auth/me` и успешных auth-ответов. */
 export interface User {
   id: string;
   login: string;
   avatar: string | null;
   created_at: string;
   updated_at: string;
+  is_2fa_enabled: boolean;
+  oauth_provider: "github" | null;
 }
 
 /** Глобальное клиентское состояние SPA. */
@@ -91,6 +93,7 @@ function mergeState(current: unknown, patch: unknown): unknown {
 let state = createInitialState();
 const listeners = new Set<(nextState: AppState) => void>();
 
+/** Сообщает подписчикам, что состояние изменилось. */
 function notify(): void {
   for (const listener of listeners) {
     listener(state);
