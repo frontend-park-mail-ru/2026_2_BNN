@@ -1368,7 +1368,7 @@ export class NotesPage {
       const tagIds = mainRegion.querySelector("[data-note-tags]") ? getNoteTagIds() : undefined;
       let failed = false;
 
-      try {    
+      try {
         if (instance.noteId === "new") {
           if (title === "" && blocks.length === 0 && !tagIds?.length) {
             setSaveStatus("idle");
