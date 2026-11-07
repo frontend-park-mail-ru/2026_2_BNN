@@ -1,0 +1,17 @@
+{{#each tags}}
+    <button class="tag-picker__item" type="button" role="menuitemcheckbox" aria-checked="{{#if isSelected}}true{{else}}false{{/if}}" data-tag-picker-toggle="{{id}}">
+        <span class="tag-picker__dot" style="--tag-color: {{color}}"></span>
+        <span class="tag-picker__name">{{name}}</span>
+        {{#if isSelected}}{{> icon name="check" size="s"}}{{/if}}
+    </button>
+{{/each}}
+{{#if createName}}
+    <button class="tag-picker__item tag-picker__item_create" type="button" data-tag-picker-create>
+        <span class="tag-picker__name">Создать «{{createName}}»</span>
+    </button>
+{{/if}}
+{{#unless tags.length}}
+    {{#unless createName}}
+        <p class="tag-picker__empty">{{#if hasQuery}}Ничего не найдено{{else}}Тегов пока нет — введите название{{/if}}</p>
+    {{/unless}}
+{{/unless}}

@@ -7,6 +7,15 @@ const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   413: "Слишком большой запрос",
 };
 
+/** Запросы, где 401 означает неверные данные входа, а не истёкшую сессию. */
+const NO_REFRESH_PATHS = [
+  "/api/auth/signin",
+  "/api/auth/signup",
+  "/api/auth/refresh",
+  "/api/auth/logout",
+  "/api/auth/2fa/verify",
+];
+
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
 const TECHNICAL_ERROR_MESSAGE = "Технические неполадки, попробуйте позже";
 
@@ -55,12 +64,30 @@ export interface BlockInput {
   content: BlockContent;
 }
 
+/** Тег пользователя. */
+export interface Tag {
+  id: string;
+  name: string;
+  /** Цвет в формате `#RRGGBBAA`. */
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Данные для создания и изменения тега. */
+export interface TagInput {
+  name: string;
+  color: string;
+}
+
 /** Заметка в формате ответа бэкенда. */
 export interface Note {
   id: string;
   parent_note_id?: string | null;
   title: string;
   blocks?: NoteBlock[];
+  /** Есть только в ответах на одну заметку. */
+  tags?: Tag[];
   created_at: string;
   updated_at: string;
 }
@@ -112,12 +139,34 @@ function getErrorMessage(status: number, messages: Record<number, string>): stri
  */
 class Api {
   private readonly baseUrl: string;
+  private refreshing: Promise<boolean> | null = null;
 
   /**
    * @param baseUrl Базовый URL для всех API-запросов.
    */
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Обновляет куку `bnn_access` по `bnn_refresh`. Параллельные запросы ждут одно обновление:
+   * старый refresh после использования больше не работает.
+   *
+   * @returns `true`, если сессию удалось продлить.
+   */
+  private refreshSession(): Promise<boolean> {
+    if (!this.refreshing) {
+      this.refreshing = fetch(`${this.baseUrl}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      })
+        .then((response) => response.ok)
+        .catch(() => false)
+        .finally(() => {
+          this.refreshing = null;
+        });
+    }
+    return this.refreshing;
   }
 
   /**
@@ -141,11 +190,20 @@ class Api {
       headers["Content-Type"] = "application/json";
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...options,
-      credentials: "include",
-      headers,
-    });
+    const send = (): Promise<Response> =>
+      fetch(`${this.baseUrl}${path}`, {
+        ...options,
+        credentials: "include",
+        headers,
+      });
+
+    let response = await send();
+
+    if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
+      if (await this.refreshSession()) {
+        response = await send();
+      }
+    }
 
     if (!response.ok) {
       const text = await response.text();
@@ -270,7 +328,10 @@ class Api {
    * @param data Содержимое заметки.
    * @returns Заметка в формате ответа сервера.
    */
-  async updateNote(id: string, data: { title: string; blocks: BlockInput[] }): Promise<Note> {
+  async updateNote(
+    id: string,
+    data: { title: string; blocks: BlockInput[]; tag_ids?: string[] }
+  ): Promise<Note> {
     const note = await this.request<Note>(`/api/notes/${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(data),
@@ -325,6 +386,70 @@ class Api {
 
   async deleteAttachment(id: string): Promise<void> {
     await this.request(`/api/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  /**
+   * Запрашивает теги пользователя, отсортированные по названию.
+   *
+   * @returns Список тегов.
+   */
+  async getTags(): Promise<Tag[]> {
+    const tags = await this.request<Tag[]>("/api/tags");
+    return tags ?? [];
+  }
+
+  /**
+   * Создаёт тег.
+   *
+   * @param input Название и цвет.
+   * @returns Созданный тег.
+   */
+  async createTag(input: TagInput): Promise<Tag> {
+    const tag = await this.request<Tag>(
+      "/api/tags",
+      { method: "POST", body: JSON.stringify(input) },
+      { 400: "Название от 1 до 30 символов", 409: "Тег с таким названием уже есть" }
+    );
+    if (!tag) {
+      throw new ApiError("Не удалось создать тег", 500);
+    }
+    return tag;
+  }
+
+  /**
+   * Меняет название и цвет тега.
+   *
+   * @param id Идентификатор тега.
+   * @param input Новые название и цвет.
+   * @returns Обновлённый тег.
+   */
+  async updateTag(id: string, input: TagInput): Promise<Tag> {
+    const tag = await this.request<Tag>(
+      `/api/tags/${encodeURIComponent(id)}`,
+      { method: "PUT", body: JSON.stringify(input) },
+      {
+        400: "Название от 1 до 30 символов",
+        404: "Тег не найден",
+        409: "Тег с таким названием уже есть",
+      }
+    );
+    if (!tag) {
+      throw new ApiError("Тег не найден", 404);
+    }
+    return tag;
+  }
+
+  /**
+   * Удаляет тег и снимает его со всех заметок.
+   *
+   * @param id Идентификатор тега.
+   */
+  async deleteTag(id: string): Promise<void> {
+    await this.request(
+      `/api/tags/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+      { 404: "Тег не найден" }
+    );
   }
 
   /**

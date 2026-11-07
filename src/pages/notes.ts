@@ -6,10 +6,20 @@ import {
   type Note as ApiNote,
   type BlockContent,
   type BlockInput,
+  type Tag,
 } from "../api";
 import { router, navigate, resetAuthState, type PageContext } from "../router";
 import { User } from "../store/app-store";
+import {
+  TAG_NAME_MAX_LENGTH,
+  findTagByName,
+  nextTagColor,
+  sortTags,
+  toTagView,
+  type TagView,
+} from "../utils/tags";
 import { mountProfile } from "./profile";
+import { mountTagsDialog } from "./tags-dialog";
 
 interface Section {
   href: string;
@@ -34,6 +44,8 @@ const ALL_SECTIONS: Section[] = [...SECTIONS, NOTIFICATIONS_SECTION];
 const NOTES_LIMIT = 100;
 const SEARCH_DELAY = 200;
 const SEARCH_RESULTS_LIMIT = 8;
+const SEARCH_TAGS_LIMIT = 5;
+const DETAILS_CONCURRENCY = 4;
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 const SAVE_DELAY = 1000;
 const TOAST_DELAY = 4000;
@@ -86,6 +98,9 @@ interface Note {
   blocks: NoteBlock[];
   isLoaded: boolean;
   text: string;
+  tags: Tag[];
+  /** Теги известны: список `/notes/all` их не возвращает. */
+  tagsLoaded: boolean;
 }
 
 interface NoteLink {
@@ -98,6 +113,7 @@ type NotesStatus = "idle" | "loading" | "ready" | "error" | "unauthorized";
 interface NotesStore {
   status: NotesStatus;
   notes: Note[];
+  tags: Tag[];
 }
 
 interface NotesElements {
@@ -141,17 +157,23 @@ interface NotesInstance {
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent) => void;
   onDragLeave: (event: DragEvent) => void;
+  onDetailsLoaded: () => void;
+  listFrame: number;
   destroyProfile: () => void;
+  destroyTags: () => void;
 }
 
-const store: NotesStore = { status: "idle", notes: [] };
+const store: NotesStore = { status: "idle", notes: [], tags: [] };
 
 let notesRequest: Promise<void> | null = null;
+let detailsRequest: Promise<void> | null = null;
+let detailsFailed = false;
 let mounted: NotesInstance | null = null;
 let loadVersion = 0;
 let pendingFocusNoteId: string | null = null;
 let pendingToast = "";
 let connectionLost = false;
+let activeTagIds: string[] = [];
 
 /**
  * Сбрасывает локальное состояние notes-страницы.
@@ -163,7 +185,10 @@ export function resetNotesStore(): void {
   loadVersion++;
   store.status = "idle";
   store.notes = [];
+  store.tags = [];
   notesRequest = null;
+  detailsRequest = null;
+  activeTagIds = [];
 }
 
 /**
@@ -240,6 +265,8 @@ function normalizeNote(note: ApiNote): Note {
     blocks: blocks,
     isLoaded: Array.isArray(note.blocks),
     text: blocks.map((block) => block.content.text).join(" "),
+    tags: note.tags ?? [],
+    tagsLoaded: Array.isArray(note.blocks) || Array.isArray(note.tags),
   };
 }
 
@@ -283,27 +310,179 @@ function getCurrentSection(path: string): Section {
 }
 
 /**
+ * Достаёт из поисковой строки запрос по тегам: `#учёба` ищет только среди тегов.
+ *
+ * @param query Поисковая строка.
+ * @returns Запрос в нижнем регистре и признак поиска только по тегам.
+ */
+function parseSearch(query: string): { search: string; onlyTags: boolean } {
+  const search = query.trim().toLowerCase();
+  if (search.startsWith("#")) {
+    return { search: search.slice(1).trim(), onlyTags: true };
+  }
+  return { search, onlyTags: false };
+}
+
+/**
  * Фильтрует список заметок по поисковому запросу.
  *
  * @param notes Список заметок.
  * @param query Поисковая строка.
- * @returns Заметки, в названии или тексте которых есть запрос.
+ * @returns Заметки, в названии, тексте или тегах которых есть запрос.
  */
 function filterNotes(notes: Note[], query: string): Note[] {
-  const search = query.trim().toLowerCase();
+  const { search, onlyTags } = parseSearch(query);
 
   if (search === "") {
-    return notes;
+    return onlyTags ? notes.filter((note) => note.tags.length > 0) : notes;
   }
 
   const result: Note[] = [];
   for (const note of notes) {
+    const tagMatch = note.tags.some((tag) => tag.name.toLowerCase().includes(search));
     const noteText = (note.title + " " + note.text).toLowerCase();
-    if (noteText.includes(search)) {
+    if (tagMatch || (!onlyTags && noteText.includes(search))) {
       result.push(note);
     }
   }
   return result;
+}
+
+/**
+ * Ищет теги, название которых содержит запрос.
+ *
+ * @param query Поисковая строка, можно с `#`.
+ * @returns Подходящие теги.
+ */
+function filterTags(query: string): Tag[] {
+  const { search } = parseSearch(query);
+  if (search === "") {
+    return [];
+  }
+  return store.tags.filter((tag) => tag.name.toLowerCase().includes(search));
+}
+
+/**
+ * Проверяет, что у заметки есть все теги из фильтра.
+ *
+ * @param note Заметка.
+ * @returns `true`, если заметка проходит фильтр.
+ */
+function matchesTagFilter(note: Note): boolean {
+  return activeTagIds.every((id) => note.tags.some((tag) => tag.id === id));
+}
+
+/**
+ * Собирает теги по id, подставляя актуальные название и цвет из общего списка.
+ *
+ * @param ids Идентификаторы тегов.
+ * @param fallback Теги заметки на случай, если общего списка нет.
+ * @returns Теги в том же порядке.
+ */
+function tagsByIds(ids: string[], fallback: Tag[]): Tag[] {
+  const result: Tag[] = [];
+  for (const id of ids) {
+    const tag =
+      store.tags.find((item) => item.id === id) ?? fallback.find((item) => item.id === id);
+    if (tag) {
+      result.push(tag);
+    }
+  }
+  return result;
+}
+
+/**
+ * Добавляет или заменяет тег в общем списке и в загруженных заметках.
+ *
+ * @param tag Тег из ответа API.
+ */
+function putTag(tag: Tag): void {
+  store.tags = sortTags([...store.tags.filter((item) => item.id !== tag.id), tag]);
+  for (const note of store.notes) {
+    note.tags = note.tags.map((item) => (item.id === tag.id ? tag : item));
+  }
+}
+
+/**
+ * Убирает тег из общего списка, заметок и фильтра.
+ *
+ * @param id Идентификатор тега.
+ */
+function removeTag(id: string): void {
+  store.tags = store.tags.filter((tag) => tag.id !== id);
+  activeTagIds = activeTagIds.filter((item) => item !== id);
+  for (const note of store.notes) {
+    note.tags = note.tags.filter((tag) => tag.id !== id);
+  }
+}
+
+/**
+ * Проверяет, есть ли заметки, теги которых ещё не загружены.
+ *
+ * @returns `true`, если нужно догрузить заметки.
+ */
+function hasMissingDetails(): boolean {
+  return store.notes.some((note) => !note.tagsLoaded);
+}
+
+/**
+ * Догружает заметки без тегов: список `/notes/all` не возвращает теги,
+ * а фильтру и поиску по тегам они нужны.
+ *
+ * @returns Promise, который завершится после загрузки всех заметок.
+ */
+function loadMissingDetails(): Promise<void> {
+  if (!detailsRequest) {
+    detailsRequest = fetchMissingDetails().finally(() => {
+      detailsRequest = null;
+      mounted?.onDetailsLoaded();
+    });
+  }
+  return detailsRequest;
+}
+
+/**
+ * Загружает недостающие заметки по одной, не больше `DETAILS_CONCURRENCY` одновременно.
+ *
+ * @returns {Promise<void>}
+ */
+async function fetchMissingDetails(): Promise<void> {
+  const version = loadVersion;
+  const queue = store.notes.filter((note) => !note.tagsLoaded).map((note) => note.id);
+  detailsFailed = false;
+
+  async function worker(): Promise<void> {
+    while (queue.length > 0 && version === loadVersion) {
+      const id = queue.shift() as string;
+      let loaded: Note | null = null;
+
+      try {
+        loaded = normalizeNote(await api.getNote(id));
+      } catch (error) {
+        if (error instanceof TypeError || (error instanceof ApiError && error.status === 401)) {
+          detailsFailed = true;
+          queue.length = 0;
+          return;
+        }
+      }
+
+      if (version !== loadVersion) {
+        return;
+      }
+
+      const index = store.notes.findIndex((note) => note.id === id);
+      if (index !== -1 && !store.notes[index].tagsLoaded) {
+        store.notes[index] = loaded ?? { ...store.notes[index], tagsLoaded: true };
+      }
+      mounted?.onDetailsLoaded();
+    }
+  }
+
+  const workers: Promise<void>[] = [];
+  for (let i = 0; i < DETAILS_CONCURRENCY; i++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
 }
 
 /**
@@ -369,7 +548,16 @@ function getEditorBlocks(note: Note): BlockView[] {
 }
 
 function createDraft(): Note {
-  return { id: "new", parentId: null, title: "", blocks: [], isLoaded: true, text: "" };
+  return {
+    id: "new",
+    parentId: null,
+    title: "",
+    blocks: [],
+    isLoaded: true,
+    text: "",
+    tags: [],
+    tagsLoaded: true,
+  };
 }
 
 function pickFile(accept: string): Promise<File | null> {
@@ -409,11 +597,15 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     sections.push({ ...section, isActive: isActive(section) });
   }
 
+  const isFiltering = activeTagIds.length > 0;
   const notes: Array<NoteLink & { isActive: boolean }> = [];
   if (noteId === "new") {
     notes.push({ href: "/notes/" + "new", title: "Без названия", isActive: true });
   }
   for (const note of store.notes) {
+    if (isFiltering && !matchesTagFilter(note)) {
+      continue;
+    }
     notes.push({
       href: "/notes/" + note.id,
       title: note.title || "Без названия",
@@ -421,15 +613,25 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     });
   }
 
+  const filterTagViews: Array<TagView & { isActive: boolean }> = [];
+  for (const tag of store.tags) {
+    filterTagViews.push({ ...toTagView(tag), isActive: activeTagIds.includes(tag.id) });
+  }
+
   let title = "";
   let displayTitle = "";
   let blocks: BlockView[] = [];
+  let noteTags: TagView[] = [];
   const breadcrumbs = [{ href: "/notes", label: "Все заметки" }];
 
   if (currentNote) {
     title = currentNote.title;
     displayTitle = currentNote.title || "Без названия";
     blocks = getEditorBlocks(currentNote);
+    noteTags = tagsByIds(
+      currentNote.tags.map((tag) => tag.id),
+      currentNote.tags
+    ).map(toTagView);
 
     const parentNote = findNote(store.notes, currentNote.parentId);
     if (parentNote) {
@@ -459,10 +661,15 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     skeletonRows: SKELETON_ROWS,
 
     notes: notes,
+    filterTags: filterTagViews,
+    hasActiveTags: isFiltering,
+    isFilterEmpty: isFiltering && notes.length === 0,
+    isFilterLoading: isFiltering && !detailsFailed && hasMissingDetails(),
     hasNote: hasNote,
     title: title,
     displayTitle: displayTitle,
     blocks: blocks,
+    noteTags: noteTags,
     breadcrumbs: breadcrumbs,
     saveStatus: SAVE_STATUS[saveStatus],
   };
@@ -479,13 +686,18 @@ async function loadNotes(): Promise<void> {
   store.status = "loading";
 
   try {
-    const notes = await fetchAllNotes();
+    const [notes, tags] = await Promise.all([fetchAllNotes(), api.getTags().catch(() => null)]);
 
     if (version !== loadVersion) {
       return;
     }
 
     store.notes = notes;
+    detailsFailed = false;
+    if (tags) {
+      store.tags = tags;
+      activeTagIds = activeTagIds.filter((id) => tags.some((tag) => tag.id === id));
+    }
     store.status = "ready";
   } catch (error) {
     if (version !== loadVersion) {
@@ -597,8 +809,32 @@ export class NotesPage {
       onDragOver: onDragOver,
       onDrop: onDrop,
       onDragLeave: onDragLeave,
+      onDetailsLoaded: onDetailsLoaded,
+      listFrame: 0,
       destroyProfile: destroyProfile,
+      destroyTags: () => undefined,
     };
+
+    const tagsDialog = mountTagsDialog(page, {
+      getTags: () => store.tags,
+      onSaved: (tag) => {
+        putTag(tag);
+        refreshTags();
+      },
+      onDeleted: (id) => {
+        const hadTag = getNoteTagIds().includes(id);
+        removeTag(id);
+        refreshTags();
+        if (hadTag) {
+          renderNoteTags(getNoteTagIds().filter((item) => item !== id));
+          timerSave();
+        }
+      },
+      onUnauthorized: goToLogin,
+    });
+    if (tagsDialog) {
+      instance.destroyTags = tagsDialog.destroy;
+    }
 
     async function loadNote(id: string): Promise<void> {
       try {
@@ -641,6 +877,208 @@ export class NotesPage {
       const view = buildView(context, instance.noteId, instance.saveStatus);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
+    }
+
+    /** Перерисовывает только список слева, не трогая открытый редактор. */
+    function renderList(): void {
+      const view = buildView(context, instance.noteId, instance.saveStatus);
+      listRegion.innerHTML = Handlebars.partials["notes-list"](view);
+    }
+
+    function onDetailsLoaded(): void {
+      if (instance.listFrame || mounted !== instance) {
+        return;
+      }
+      instance.listFrame = window.requestAnimationFrame(() => {
+        instance.listFrame = 0;
+        renderList();
+        renderSearchResults();
+      });
+    }
+
+    function needsTagDetails(): boolean {
+      const query = search.value.trim();
+      const tagSearch = query !== "" && (query.startsWith("#") || filterTags(query).length > 0);
+      return (activeTagIds.length > 0 || tagSearch) && hasMissingDetails();
+    }
+
+    function ensureTagDetails(): void {
+      if (store.status === "ready" && !detailsFailed && needsTagDetails()) {
+        void loadMissingDetails();
+      }
+    }
+
+    function applyTagFilter(ids: string[]): void {
+      activeTagIds = ids;
+      renderList();
+      ensureTagDetails();
+    }
+
+    function toggleTagFilter(id: string): void {
+      const ids = activeTagIds.includes(id)
+        ? activeTagIds.filter((item) => item !== id)
+        : [...activeTagIds, id];
+      applyTagFilter(ids);
+    }
+
+    function refreshTags(): void {
+      renderList();
+      if (mainRegion.querySelector("[data-note-tags]")) {
+        renderNoteTags(getNoteTagIds());
+      }
+      renderPickerList();
+    }
+
+    function getNoteTagIds(): string[] {
+      const ids: string[] = [];
+      for (const chip of mainRegion.querySelectorAll<HTMLElement>("[data-note-tag]")) {
+        if (chip.dataset.noteTag) {
+          ids.push(chip.dataset.noteTag);
+        }
+      }
+      return ids;
+    }
+
+    function renderNoteTags(ids: string[]): void {
+      const list = mainRegion.querySelector<HTMLElement>("[data-note-tags]");
+      if (!list) {
+        return;
+      }
+      const fallback = findNote(store.notes, instance.noteId)?.tags ?? [];
+      list.innerHTML = Handlebars.partials["note-tags"]({
+        noteTags: tagsByIds(ids, fallback).map(toTagView),
+      });
+      setTagPickerExpanded(mainRegion.querySelector("[data-tag-picker]") !== null);
+    }
+
+    function setTagPickerExpanded(open: boolean): void {
+      mainRegion
+        .querySelector("[data-tag-picker-open]")
+        ?.setAttribute("aria-expanded", String(open));
+    }
+
+    function tagPickerView(query: string) {
+      const selected = getNoteTagIds();
+      const key = query.trim().toLowerCase();
+      const name = query.trim().slice(0, TAG_NAME_MAX_LENGTH);
+      const tags = store.tags
+        .filter((tag) => tag.name.toLowerCase().includes(key))
+        .map((tag) => ({ ...toTagView(tag), isSelected: selected.includes(tag.id) }));
+      return {
+        tags: tags,
+        hasQuery: key !== "",
+        createName: name !== "" && !findTagByName(store.tags, name) ? name : "",
+      };
+    }
+
+    function openTagPicker(): void {
+      const root = mainRegion.querySelector<HTMLElement>("[data-note-tags-root]");
+      if (!root) {
+        return;
+      }
+      closeTagPicker();
+      root.insertAdjacentHTML("beforeend", Handlebars.partials["tag-picker"](tagPickerView("")));
+      setTagPickerExpanded(true);
+      root.querySelector<HTMLInputElement>("[data-tag-picker-input]")?.focus();
+    }
+
+    function closeTagPicker(): void {
+      mainRegion.querySelector("[data-tag-picker]")?.remove();
+      setTagPickerExpanded(false);
+    }
+
+    function renderPickerList(): void {
+      const picker = mainRegion.querySelector<HTMLElement>("[data-tag-picker]");
+      const input = picker?.querySelector<HTMLInputElement>("[data-tag-picker-input]");
+      const list = picker?.querySelector<HTMLElement>("[data-tag-picker-list]");
+      if (!input || !list) {
+        return;
+      }
+      list.innerHTML = Handlebars.partials["tag-picker-list"](tagPickerView(input.value));
+    }
+
+    function showTagPickerError(message: string): void {
+      const error = mainRegion.querySelector<HTMLElement>("[data-tag-picker-error]");
+      if (error) {
+        error.textContent = message;
+        error.hidden = message === "";
+      }
+    }
+
+    function toggleNoteTag(id: string): void {
+      const ids = getNoteTagIds();
+      renderNoteTags(ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
+      renderPickerList();
+      mainRegion.querySelector<HTMLInputElement>("[data-tag-picker-input]")?.focus();
+      timerSave();
+    }
+
+    let creatingTag = false;
+
+    async function createTagFromPicker(name: string): Promise<void> {
+      if (creatingTag) {
+        return;
+      }
+      creatingTag = true;
+      showTagPickerError("");
+
+      try {
+        const tag = await api.createTag({ name, color: nextTagColor(store.tags) });
+        if (mounted !== instance) {
+          return;
+        }
+        putTag(tag);
+        renderNoteTags([...getNoteTagIds(), tag.id]);
+        const input = mainRegion.querySelector<HTMLInputElement>("[data-tag-picker-input]");
+        if (input) {
+          input.value = "";
+          input.focus();
+        }
+        renderPickerList();
+        renderList();
+        timerSave();
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          await goToLogin();
+          return;
+        }
+        showTagPickerError(
+          error instanceof ApiError ? error.message : "Не удалось связаться с сервером"
+        );
+      } finally {
+        creatingTag = false;
+      }
+    }
+
+    function onTagPickerKeyDown(event: KeyboardEvent, input: HTMLInputElement): void {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTagPicker();
+        mainRegion.querySelector<HTMLElement>("[data-tag-picker-open]")?.focus();
+        return;
+      }
+      if (event.key !== "Enter") {
+        return;
+      }
+
+      event.preventDefault();
+      const name = input.value.trim();
+      if (name === "") {
+        return;
+      }
+      const existing = findTagByName(store.tags, name);
+      if (existing) {
+        input.value = "";
+        toggleNoteTag(existing.id);
+        return;
+      }
+      void createTagFromPicker(name.slice(0, TAG_NAME_MAX_LENGTH));
+    }
+
+    function openTagsDialog(): void {
+      closeTagPicker();
+      searchResults.hidden = true;
+      tagsDialog?.open();
     }
 
     async function goToLogin(): Promise<void> {
@@ -687,6 +1125,7 @@ export class NotesPage {
       renderSearchResults();
       checkLoadedNote();
       focusPendingTitle();
+      ensureTagDetails();
     }
 
     /**
@@ -696,7 +1135,8 @@ export class NotesPage {
      */
     function renderSearchResults(): void {
       const query = search.value.trim();
-      const results: NoteLink[] = [];
+      const results: Array<NoteLink & { tags: TagView[] }> = [];
+      let tags: TagView[] = [];
 
       if (query && store.status === "ready") {
         const found = filterNotes(store.notes, query).slice(0, SEARCH_RESULTS_LIMIT);
@@ -704,9 +1144,13 @@ export class NotesPage {
         for (const note of found) {
           results.push({
             href: "/notes/" + note.id,
-            title: note.title,
+            title: note.title || "Без названия",
+            tags: note.tags.map(toTagView),
           });
         }
+
+        tags = filterTags(query).slice(0, SEARCH_TAGS_LIMIT).map(toTagView);
+        ensureTagDetails();
       }
 
       const canSearch = query !== "" && store.status === "ready";
@@ -717,6 +1161,9 @@ export class NotesPage {
         ? Handlebars.partials["search-results"]({
             hasResults: results.length > 0,
             results: results,
+            hasTags: tags.length > 0,
+            tags: tags,
+            isSearching: detailsRequest !== null,
           })
         : "";
     }
@@ -883,11 +1330,12 @@ export class NotesPage {
       const title = readTitle();
       const listChanged = findNote(store.notes, instance.noteId)?.title !== title;
       const { elements, blocks, skipped } = collectBlocks();
+      const tagIds = mainRegion.querySelector("[data-note-tags]") ? getNoteTagIds() : undefined;
       let failed = false;
 
       try {
         if (instance.noteId === "new") {
-          if (title === "" && blocks.length === 0) {
+          if (title === "" && blocks.length === 0 && !tagIds?.length) {
             setSaveStatus("idle");
             return;
           }
@@ -907,15 +1355,23 @@ export class NotesPage {
           return;
         }
 
-        const saved = await api.updateNote(noteId, { title, blocks });
+        const saved = await api.updateNote(noteId, { title, blocks, tag_ids: tagIds });
         applyBlockIds(elements, saved.blocks ?? []);
 
         for (const element of skipped) {
           element.removeAttribute("data-block-id");
         }
 
-        putNote(normalizeNote(saved));
+        const previous = findNote(store.notes, noteId);
+        const note = normalizeNote(saved);
+        if (!Array.isArray(saved.tags)) {
+          note.tags = tagIds ? tagsByIds(tagIds, previous?.tags ?? []) : (previous?.tags ?? []);
+        }
+        putNote(note);
         setSaveStatus("saved");
+        if (activeTagIds.length > 0 && mounted === instance) {
+          renderList();
+        }
         if (listChanged) {
           void fetchAllNotes().catch(() => null);
         }
@@ -1228,6 +1684,11 @@ export class NotesPage {
         return;
       }
 
+      if (target instanceof HTMLInputElement && target.matches("[data-tag-picker-input]")) {
+        onTagPickerKeyDown(event, target);
+        return;
+      }
+
       const menu = mainRegion.querySelector<HTMLElement>("[data-block-menu]");
       if (menu && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
         event.preventDefault();
@@ -1307,6 +1768,68 @@ export class NotesPage {
         closeBlockMenu();
       }
 
+      if (!target.closest("[data-tag-picker], [data-tag-picker-open]")) {
+        closeTagPicker();
+      }
+
+      if (target.closest("[data-tags-manage]")) {
+        openTagsDialog();
+        return;
+      }
+
+      const filterTag = target.closest<HTMLElement>("[data-tag-filter]");
+      if (filterTag?.dataset.tagFilter) {
+        toggleTagFilter(filterTag.dataset.tagFilter);
+        return;
+      }
+
+      if (target.closest("[data-tag-filter-reset]")) {
+        applyTagFilter([]);
+        return;
+      }
+
+      const searchTag = target.closest<HTMLElement>("[data-search-tag]");
+      if (searchTag?.dataset.searchTag) {
+        window.clearTimeout(instance.searchTimer);
+        search.value = "";
+        searchResults.hidden = true;
+        searchResults.innerHTML = "";
+        applyTagFilter([searchTag.dataset.searchTag]);
+        return;
+      }
+
+      if (target.closest("[data-tag-picker-open]")) {
+        if (mainRegion.querySelector("[data-tag-picker]")) {
+          closeTagPicker();
+        } else {
+          openTagPicker();
+        }
+        return;
+      }
+
+      const pickerTag = target.closest<HTMLElement>("[data-tag-picker-toggle]");
+      if (pickerTag?.dataset.tagPickerToggle) {
+        toggleNoteTag(pickerTag.dataset.tagPickerToggle);
+        return;
+      }
+
+      if (target.closest("[data-tag-picker-create]")) {
+        const input = mainRegion.querySelector<HTMLInputElement>("[data-tag-picker-input]");
+        const name = input?.value.trim().slice(0, TAG_NAME_MAX_LENGTH) ?? "";
+        if (name) {
+          void createTagFromPicker(name);
+        }
+        return;
+      }
+
+      const removeTagButton = target.closest<HTMLElement>("[data-note-tag-remove]");
+      if (removeTagButton?.dataset.noteTagRemove) {
+        const id = removeTagButton.dataset.noteTagRemove;
+        renderNoteTags(getNoteTagIds().filter((item) => item !== id));
+        timerSave();
+        return;
+      }
+
       const option = target.closest<HTMLElement>("[data-block-option]");
       const optionBlock = option?.closest<HTMLElement>("[data-block]");
       if (option && optionBlock) {
@@ -1384,7 +1907,7 @@ export class NotesPage {
       }
     }
 
-    /** По Escape закрывает поиск, меню заметки, меню блоков и диалоги выхода и удаления. */
+    /** По Escape закрывает поиск, меню заметки, меню блоков и тегов, диалоги выхода и удаления. */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
@@ -1395,11 +1918,18 @@ export class NotesPage {
       setNoteMenu(false);
       closeDeleteDialog();
       closeBlockMenu();
+      closeTagPicker();
     }
 
     function onNoteInput(event: Event): void {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.matches("[data-tag-picker-input]")) {
+        showTagPickerError("");
+        renderPickerList();
         return;
       }
 
@@ -1446,6 +1976,11 @@ export class NotesPage {
       }
       if (connectionLost) {
         retryLoad();
+        return;
+      }
+      if (detailsFailed) {
+        detailsFailed = false;
+        ensureTagDetails();
       }
     }
 
@@ -1583,7 +2118,9 @@ export class NotesPage {
     window.removeEventListener("dragover", leaving.onDragOver);
     window.removeEventListener("drop", leaving.onDrop);
     window.removeEventListener("dragleave", leaving.onDragLeave);
+    window.cancelAnimationFrame(leaving.listFrame);
     leaving.destroyProfile();
+    leaving.destroyTags();
 
     await leaving.finishSaving();
   }
