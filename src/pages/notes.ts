@@ -18,6 +18,7 @@ import {
   toTagView,
   type TagView,
 } from "../utils/tags";
+import { safeResourceUrl } from "../utils/url";
 import { mountProfile } from "./profile";
 import { mountTagsDialog } from "./tags-dialog";
 
@@ -174,6 +175,7 @@ let pendingFocusNoteId: string | null = null;
 let pendingToast = "";
 let connectionLost = false;
 let activeTagIds: string[] = [];
+let tagsCollapsed = false;
 
 /**
  * Сбрасывает локальное состояние notes-страницы.
@@ -189,6 +191,7 @@ export function resetNotesStore(): void {
   notesRequest = null;
   detailsRequest = null;
   activeTagIds = [];
+  tagsCollapsed = false;
 }
 
 /**
@@ -517,6 +520,7 @@ function putNote(note: Note): void {
 
 function toBlockView(block: NoteBlock): BlockView {
   const isAttachment = block.content.type === "file" || block.content.type === "image";
+  const url = safeResourceUrl(block.content.url ?? "");
   return {
     id: block.id,
     type: block.content.type,
@@ -525,10 +529,10 @@ function toBlockView(block: NoteBlock): BlockView {
     isChecklist: block.content.type === "checklist",
     isAttachment: isAttachment,
     isImage: block.content.type === "image",
-    url: block.content.url ?? "",
+    url: url,
     contentJson: isAttachment ? JSON.stringify(block.content) : "",
     isUploading: false,
-    uploadError: isAttachment && !block.content.url ? "Файл не загружен" : "",
+    uploadError: isAttachment && !url ? "Файл не загружен" : "",
   };
 }
 
@@ -662,6 +666,7 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
 
     notes: notes,
     filterTags: filterTagViews,
+    tagsCollapsed: tagsCollapsed,
     hasActiveTags: isFiltering,
     isFilterEmpty: isFiltering && notes.length === 0,
     isFilterLoading: isFiltering && !detailsFailed && hasMissingDetails(),
@@ -1770,6 +1775,13 @@ export class NotesPage {
 
       if (!target.closest("[data-tag-picker], [data-tag-picker-open]")) {
         closeTagPicker();
+      }
+
+      if (target.closest("[data-tag-filter-toggle]")) {
+        tagsCollapsed = !tagsCollapsed;
+        renderList();
+        listRegion.querySelector<HTMLElement>("[data-tag-filter-toggle]")?.focus();
+        return;
       }
 
       if (target.closest("[data-tags-manage]")) {

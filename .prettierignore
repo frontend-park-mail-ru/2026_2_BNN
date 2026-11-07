@@ -2,4 +2,5 @@ node_modules
 dist
 build
 /public/templates.compiled.js
+/public/vendor
 templates

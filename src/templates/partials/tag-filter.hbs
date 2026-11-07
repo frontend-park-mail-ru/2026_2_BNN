@@ -1,13 +1,13 @@
 <div class="tag-filter">
     <div class="tag-filter__head">
-        <span class="tag-filter__title">Теги</span>
+        <button class="tag-filter__title" type="button" aria-expanded="{{#if tagsCollapsed}}false{{else}}true{{/if}}" data-tag-filter-toggle>Теги</button>
         {{#if hasActiveTags}}
             <button class="tag-filter__action" type="button" data-tag-filter-reset>Сбросить</button>
         {{/if}}
         <button class="tag-filter__action" type="button" data-tags-manage>{{#if filterTags.length}}Изменить{{else}}Создать{{/if}}</button>
     </div>
     {{#if filterTags.length}}
-        <div class="tag-filter__list">
+        <div class="tag-filter__list"{{#if tagsCollapsed}} hidden{{/if}}>
             {{#each filterTags}}
                 <button class="tag{{#if isActive}} tag_active{{/if}}" type="button" style="--tag-color: {{color}}" aria-pressed="{{#if isActive}}true{{else}}false{{/if}}" title="{{name}}" data-tag-filter="{{id}}">
                     <span class="tag__name">{{name}}</span>

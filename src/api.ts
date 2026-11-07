@@ -1,4 +1,5 @@
 import { getState, setState, type AuthStatus, type User } from "./store/app-store";
+import { safeResourceUrl } from "./utils/url";
 
 const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   400: "Проверьте введённые данные",
@@ -18,6 +19,52 @@ const NO_REFRESH_PATHS = [
 
 const SERVER_ERROR_MESSAGE = "Ошибка сервера, попробуйте позже";
 const TECHNICAL_ERROR_MESSAGE = "Технические неполадки, попробуйте позже";
+const CSRF_COOKIE = "bnn_csrf";
+const CSRF_HEADER = "X-CSRF-Token";
+const MUTATING_METHODS = new Set(["POST", "PUT", "DELETE"]);
+const DEFAULT_AVATAR = "/assets/images/avatar-default.svg";
+
+/**
+ * Читает куку, которую бэкенд отдаёт не как HttpOnly, чтобы её можно было вернуть в заголовке.
+ *
+ * @param name Имя куки.
+ * @returns Значение или пустая строка.
+ */
+function readCookie(name: string): string {
+  const cookies = document.cookie ? document.cookie.split("; ") : [];
+  for (const cookie of cookies) {
+    const separator = cookie.indexOf("=");
+    if (separator === -1 || cookie.slice(0, separator) !== name) {
+      continue;
+    }
+    const value = cookie.slice(separator + 1);
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  return "";
+}
+
+/**
+ * Добавляет `X-CSRF-Token` из куки `bnn_csrf` к изменяющему запросу.
+ * Кука читается заново при каждом вызове: после refresh она может смениться.
+ *
+ * @param method Метод запроса.
+ * @param headers Уже собранные заголовки.
+ * @returns Заголовки с CSRF-токеном для POST, PUT и DELETE.
+ */
+function withCsrf(method: string, headers: Record<string, string>): Record<string, string> {
+  if (!MUTATING_METHODS.has(method.toUpperCase())) {
+    return headers;
+  }
+  const token = readCookie(CSRF_COOKIE);
+  if (!token) {
+    return headers;
+  }
+  return { ...headers, [CSRF_HEADER]: token };
+}
 
 /** Ошибка HTTP-запроса с кодом ответа сервера. */
 export class ApiError extends Error {
@@ -159,6 +206,7 @@ class Api {
       this.refreshing = fetch(`${this.baseUrl}/api/auth/refresh`, {
         method: "POST",
         credentials: "include",
+        headers: withCsrf("POST", {}),
       })
         .then((response) => response.ok)
         .catch(() => false)
@@ -190,16 +238,20 @@ class Api {
       headers["Content-Type"] = "application/json";
     }
 
+    const method = (options.method ?? "GET").toUpperCase();
     const send = (): Promise<Response> =>
       fetch(`${this.baseUrl}${path}`, {
         ...options,
         credentials: "include",
-        headers,
+        headers: withCsrf(method, headers),
       });
 
     let response = await send();
 
-    if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
+    if (
+      (response.status === 401 || response.status === 403) &&
+      !NO_REFRESH_PATHS.some((item) => path.startsWith(item))
+    ) {
       if (await this.refreshSession()) {
         response = await send();
       }
@@ -566,12 +618,10 @@ class Api {
    */
   avatarUrl(avatar: string | null): string {
     if (!avatar) {
-      return "/assets/images/avatar-default.svg";
+      return DEFAULT_AVATAR;
     }
-    if (avatar.startsWith("http")) {
-      return avatar;
-    }
-    return `${this.baseUrl}${avatar}`;
+    const url = avatar.startsWith("http") ? avatar : `${this.baseUrl}${avatar}`;
+    return safeResourceUrl(url) || DEFAULT_AVATAR;
   }
 }
 
