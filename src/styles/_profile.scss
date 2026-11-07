@@ -71,6 +71,11 @@
       overflow: hidden;
       clip: rect(0 0 0 0);
     }
+
+    &.login-form__submit_loading {
+      background: none;
+      cursor: wait;
+    }
   }
 
   &__name {
@@ -155,9 +160,20 @@
     font: inherit;
     font-size: 15px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: #d5e0ee;
+    }
 
     &_primary {
       background: var(--accent);
+
+      &:hover,
+      &:focus-visible {
+        background: var(--accent-soft);
+      }
     }
 
     &_danger {
@@ -226,8 +242,12 @@
 
   &__label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 16px;
     font-size: 14px;
+  }
+
+  &__step {
+    line-height: 1.45;
   }
 
   &__input {
@@ -272,6 +292,8 @@
 
   &__control {
     position: relative;
+    display: block;
+    width: 100%;
   }
 
   &__toggle {
@@ -339,4 +361,51 @@
       transform: none;
     }
   }
+}
+
+.profile-form__qr {
+  display: block;
+  width: 171px;
+  height: 171px;
+  margin: 12px auto 8px;
+}
+
+.code-input {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+
+  &__digit {
+    width: 44px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid #c5d0de;
+    border-radius: 10px;
+    background: #fff;
+    color: $ink;
+    font: inherit;
+    font-size: 24px;
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  &__error {
+    display: block;
+    min-height: 18px;
+    margin-top: 8px;
+    color: $error;
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+  }
+}
+
+:has([data-error-for="code"]:not(:empty)) .code-input__digit {
+  color: $error;
+  border-color: $error;
 }
