@@ -29,7 +29,10 @@
         </div>
     </div>
     <div class="notebook__content">
-        {{#if hasNote}}<h1 class="notebook__title" contenteditable="true" data-note-title data-placeholder="Без названия">{{title}}</h1>
+        {{#if hasNote}}<h1 class="notebook__title" contenteditable="plaintext-only" data-note-title data-placeholder="Без названия">{{title}}</h1>
+        <div class="note-tags" data-note-tags-root>
+            <div class="note-tags__list" data-note-tags>{{> note-tags}}</div>
+        </div>
         <div class="notebook__body" data-note-body>{{#each blocks}}{{> note-block}}{{/each}}</div>
         {{/if}}
     </div>

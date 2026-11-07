@@ -1,16 +1,14 @@
 const STATIC_CACHE = "bnn-static-v1";
 const API_CACHE = "bnn-api";
-const HANDLEBARS_URL =
-  "https://cdn.jsdelivr.net/npm/handlebars@4.7.9/dist/handlebars.runtime.min.js";
 
 const SHELL_FILES = [
   "/templates.compiled.js",
+  "/vendor/handlebars.runtime.min.js",
   "/assets/icons/ui/sprite.svg",
   "/assets/icons/logo-auth.svg",
   "/assets/icons/logo-shape.svg",
   "/assets/images/avatar-default.svg",
   "/assets/images/background_v1.svg",
-  HANDLEBARS_URL,
 ];
 const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars/"];
 const BYPASS_PATHS = ["/api/", "/swagger/"];
@@ -55,11 +53,6 @@ async function networkFirst(request, cacheName, cacheKey = request) {
   }
 }
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request, { ignoreVary: true });
-  return cached ?? fetch(request);
-}
-
 async function syncNote(request) {
   const response = await fetch(request);
 
@@ -86,11 +79,6 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
-
-  if (url.href === HANDLEBARS_URL) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
 
   if (url.origin !== self.location.origin) {
     return;

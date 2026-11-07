@@ -1,0 +1,19 @@
+<form class="tag-form" data-tag-form="{{id}}" novalidate>
+    <div class="tag-form__row">
+        <input class="tag-form__input" name="name" type="text" maxlength="30" value="{{name}}" placeholder="Новый тег" aria-label="Название тега" autocomplete="off">
+        <div class="tag-form__actions">
+            <button class="tag-form__submit" type="submit">{{submitLabel}}</button>
+            {{#if id}}
+                <button class="tag-form__cancel" type="button" data-tag-edit-cancel>Отмена</button>
+            {{/if}}
+        </div>
+    </div>
+    <div class="tag-form__palette" role="radiogroup" aria-label="Цвет тега">
+        {{#each palette}}
+            <label class="tag-form__swatch" style="--tag-color: {{color}}" title="{{label}}">
+                <input class="tag-form__radio" type="radio" name="color" value="{{color}}" aria-label="{{label}}"{{#if isSelected}} checked{{/if}}>
+            </label>
+        {{/each}}
+    </div>
+    <p class="tag-form__error" data-tag-form-error>{{error}}</p>
+</form>
