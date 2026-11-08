@@ -6,12 +6,12 @@
                 {{#if form}}
                     {{#with form}}{{> tag-form}}{{/with}}
                 {{else}}
-                    <span class="tag" style="--tag-color: {{color}}" title="{{{name}}}"><span class="tag__name">{{{name}}}</span></span>
+                    <span class="tag" style="--tag-color: {{color}}" title="{{name}}"><span class="tag__name">{{name}}</span></span>
                     <div class="tags-list__actions">
-                        <button class="tags-list__button" type="button" aria-label="Изменить тег {{{name}}}" data-tag-edit="{{id}}">
+                        <button class="tags-list__button" type="button" aria-label="Изменить тег {{name}}" data-tag-edit="{{id}}">
                             {{> icon name="pencil" size="s"}}
                         </button>
-                        <button class="tags-list__button tags-list__button_danger{{#if isConfirming}} tags-list__button_confirm{{/if}}" type="button" aria-label="Удалить тег {{{name}}}" data-tag-delete="{{id}}">
+                        <button class="tags-list__button tags-list__button_danger{{#if isConfirming}} tags-list__button_confirm{{/if}}" type="button" aria-label="Удалить тег {{name}}" data-tag-delete="{{id}}">
                             {{#if isConfirming}}Удалить?{{else}}{{> icon name="trash" size="s"}}{{/if}}
                         </button>
                     </div>

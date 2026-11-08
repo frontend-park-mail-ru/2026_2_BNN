@@ -1,18 +1,18 @@
 <div class="notebook__block notebook__block_{{type}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
     {{#if isAttachment}}
         {{#if isUploading}}
-            <span class="notebook__attachment-status">Загрузка: {{{text}}}…</span>
+            <span class="notebook__attachment-status">Загрузка: {{text}}…</span>
         {{else if url}}
             {{#if isImage}}
-                <img class="notebook__image" src="{{url}}" alt="{{{text}}}" loading="lazy">
+                <img class="notebook__image" src="{{url}}" alt="{{text}}" loading="lazy">
             {{else}}
-                <a class="notebook__file" href="{{url}}" target="_blank" rel="noopener" download="{{{text}}}">
+                <a class="notebook__file" href="{{url}}" target="_blank" rel="noopener" download="{{text}}">
                     {{> icon name="file"}}
-                    <span class="notebook__file-name">{{{text}}}</span>
+                    <span class="notebook__file-name">{{text}}</span>
                 </a>
             {{/if}}
         {{else}}
-            <span class="notebook__attachment-status notebook__attachment-status_error">{{uploadError}}: {{{text}}}</span>
+            <span class="notebook__attachment-status notebook__attachment-status_error">{{uploadError}}: {{text}}</span>
         {{/if}}
         {{#unless isUploading}}
             <button class="notebook__attachment-remove" type="button" aria-label="Удалить файл" data-attachment-remove>
@@ -21,6 +21,6 @@
         {{/unless}}
     {{else}}
         {{#if isChecklist}}<input class="notebook__check" type="checkbox" data-block-check {{#if checked}}checked{{/if}}>{{/if}}
-        <div class="notebook__text" contenteditable="plaintext-only" data-block-text>{{{text}}}</div>
+        <div class="notebook__text" contenteditable="plaintext-only" data-block-text>{{text}}</div>
     {{/if}}
 </div>
