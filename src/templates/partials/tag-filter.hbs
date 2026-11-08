@@ -9,8 +9,8 @@
     {{#if filterTags.length}}
         <div class="tag-filter__list"{{#if tagsCollapsed}} hidden{{/if}}>
             {{#each filterTags}}
-                <button class="tag{{#if isActive}} tag_active{{/if}}" type="button" style="--tag-color: {{color}}" aria-pressed="{{#if isActive}}true{{else}}false{{/if}}" title="{{name}}" data-tag-filter="{{id}}">
-                    <span class="tag__name">{{name}}</span>
+                <button class="tag{{#if isActive}} tag_active{{/if}}" type="button" style="--tag-color: {{color}}" aria-pressed="{{#if isActive}}true{{else}}false{{/if}}" title="{{{name}}}" data-tag-filter="{{id}}">
+                    <span class="tag__name">{{{name}}}</span>
                 </button>
             {{/each}}
         </div>

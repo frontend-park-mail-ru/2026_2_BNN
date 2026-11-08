@@ -4,7 +4,7 @@
     {{#each tags}}
       <li>
         <button class="search__item search__item_tag" type="button" data-search-tag="{{id}}">
-          <span class="tag" style="--tag-color: {{color}}"><span class="tag__name">{{name}}</span></span>
+          <span class="tag" style="--tag-color: {{color}}"><span class="tag__name">{{{name}}}</span></span>
           <span class="search__hint">Показать заметки</span>
         </button>
       </li>
@@ -17,10 +17,10 @@
     {{#each results}}
       <li>
         <a class="search__item" href="{{href}}" data-link>
-          <span class="search__title">{{title}}</span>
+          <span class="search__title">{{{title}}}</span>
           {{#if tags.length}}
             <span class="search__tags">
-              {{#each tags}}<span class="tag tag_small" style="--tag-color: {{color}}"><span class="tag__name">{{name}}</span></span>{{/each}}
+              {{#each tags}}<span class="tag tag_small" style="--tag-color: {{color}}"><span class="tag__name">{{{name}}}</span></span>{{/each}}
             </span>
           {{/if}}
         </a>
