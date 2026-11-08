@@ -10,7 +10,7 @@ const SHELL_FILES = [
   "/assets/images/avatar-default.svg",
   "/assets/images/background_v1.svg",
 ];
-const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars/"];
+const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars/", "/api/tags"];
 const BYPASS_PATHS = ["/api/", "/swagger/"];
 const NOTE_PATH = /^\/api\/notes\/[^/]+$/;
 

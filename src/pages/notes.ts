@@ -1363,7 +1363,6 @@ export class NotesPage {
       setSaveStatus("saving");
 
       const title = readTitle();
-      const listChanged = findNote(store.notes, instance.noteId)?.title !== title;
       const { elements, blocks, skipped } = collectBlocks();
       const tagIds = mainRegion.querySelector("[data-note-tags]") ? getNoteTagIds() : undefined;
       let failed = false;
@@ -1406,9 +1405,6 @@ export class NotesPage {
         setSaveStatus("saved");
         if (activeTagIds.length > 0 && mounted === instance) {
           renderList();
-        }
-        if (listChanged) {
-          void fetchAllNotes().catch(() => null);
         }
       } catch (error) {
         failed = true;
