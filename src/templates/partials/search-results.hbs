@@ -1,13 +1,34 @@
+{{#if hasTags}}
+  <p class="search__group">Теги</p>
+  <ul class="search__list">
+    {{#each tags}}
+      <li>
+        <button class="search__item search__item_tag" type="button" data-search-tag="{{id}}">
+          <span class="tag" style="--tag-color: {{color}}"><span class="tag__name">{{name}}</span></span>
+          <span class="search__hint">Показать заметки</span>
+        </button>
+      </li>
+    {{/each}}
+  </ul>
+{{/if}}
 {{#if hasResults}}
+  {{#if hasTags}}<p class="search__group">Заметки</p>{{/if}}
   <ul class="search__list">
     {{#each results}}
       <li>
         <a class="search__item" href="{{href}}" data-link>
           <span class="search__title">{{title}}</span>
+          {{#if tags.length}}
+            <span class="search__tags">
+              {{#each tags}}<span class="tag tag_small" style="--tag-color: {{color}}"><span class="tag__name">{{name}}</span></span>{{/each}}
+            </span>
+          {{/if}}
         </a>
       </li>
     {{/each}}
   </ul>
 {{else}}
-  <p class="search__empty">Ничего не найдено</p>
+  {{#unless hasTags}}
+    <p class="search__empty">{{#if isSearching}}Ищем…{{else}}Ничего не найдено{{/if}}</p>
+  {{/unless}}
 {{/if}}

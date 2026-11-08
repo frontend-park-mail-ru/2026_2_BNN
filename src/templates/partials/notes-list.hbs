@@ -7,9 +7,18 @@
 {{else if isError}}
     <p class="sidebar__message sidebar__message_error">Не удалось загрузить список</p>
 {{else}}
+    {{> tag-filter}}
+    {{#if isFilterEmpty}}
+        <p class="sidebar__message">{{#if isFilterLoading}}Ищем заметки с этими тегами…{{else}}Нет заметок с выбранными тегами{{/if}}</p>
+    {{/if}}
     <ul class="sidebar__list">
         {{#each notes}}
             <li>{{> notecard}}</li>
         {{/each}}
     </ul>
+    {{#if isFilterLoading}}
+        {{#unless isFilterEmpty}}
+            <p class="sidebar__message">Проверяем остальные заметки…</p>
+        {{/unless}}
+    {{/if}}
 {{/if}}

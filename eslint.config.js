@@ -10,6 +10,7 @@ module.exports = [
       "build/**",
       "coverage/**",
       "public/templates.compiled.js",
+      "public/vendor/**",
     ],
   },
 
