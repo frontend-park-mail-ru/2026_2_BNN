@@ -784,7 +784,7 @@
   }
 
   &__body > &__block:only-child &__text:empty::before {
-    content: "Начните писать...";
+    content: "Для выбора типа блока введите /, или начните писать...";
     color: var(--light-text);
     pointer-events: none;
   }
