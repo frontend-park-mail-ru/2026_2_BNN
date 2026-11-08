@@ -1313,8 +1313,6 @@ export class NotesPage {
       window.clearTimeout(instance.saveTimer);
       instance.hasPendingChanges = false;
 
-      void fetchAllNotes().catch(() => null);
-
       const index = store.notes.findIndex((note) => note.id === id);
       let next: Note | undefined;
       if (index !== -1) {
