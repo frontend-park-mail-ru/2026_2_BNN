@@ -8,6 +8,8 @@ $tag-palette:
   "#A98BF0FF", "#9AA8BAFF";
 
 @each $color in $tag-palette {
+  // Вместе с .tag специфичность выше, чем у серого цвета по умолчанию в .tag.
+  .tag[data-tag-color="#{$color}"],
   [data-tag-color="#{$color}"] {
     --tag-color: #{$color};
   }

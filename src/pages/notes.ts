@@ -574,6 +574,14 @@ function getEditorBlocks(note: Note): BlockView[] {
     }
   }
 
+  while (blocks.length > 0) {
+    const tail = blocks[blocks.length - 1];
+    if (tail.isAttachment || tail.isChecklist || tail.text !== "") {
+      break;
+    }
+    blocks.pop();
+  }
+
   const last = blocks[blocks.length - 1];
   if (!last || last.isAttachment) {
     blocks.push(toBlockView({ id: "", content: { type: "text", text: "" } }));
@@ -1549,8 +1557,16 @@ export class NotesPage {
         blocks.push(id ? { id, content } : { content });
       }
 
-      const last = blocks[blocks.length - 1];
-      if (last && !last.id && last.content.text === "" && last.content.checked === undefined) {
+      while (blocks.length > 0) {
+        const tail = blocks[blocks.length - 1];
+        const isBlankLine =
+          tail.content.text === "" &&
+          tail.content.checked === undefined &&
+          tail.content.type !== "file" &&
+          tail.content.type !== "image";
+        if (!isBlankLine) {
+          break;
+        }
         blocks.pop();
         elements.pop();
       }
