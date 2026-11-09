@@ -10,7 +10,7 @@
     </div>
     <div class="tag-form__palette" role="radiogroup" aria-label="Цвет тега">
         {{#each palette}}
-            <label class="tag-form__swatch" style="--tag-color: {{color}}" title="{{label}}">
+            <label class="tag-form__swatch" data-tag-color="{{color}}" title="{{label}}">
                 <input class="tag-form__radio" type="radio" name="color" value="{{color}}" aria-label="{{label}}"{{#if isSelected}} checked{{/if}}>
             </label>
         {{/each}}

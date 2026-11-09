@@ -1,6 +1,6 @@
 {{#each tags}}
     <button class="tag-picker__item" type="button" role="menuitemcheckbox" aria-checked="{{#if isSelected}}true{{else}}false{{/if}}" data-tag-picker-toggle="{{id}}">
-        <span class="tag-picker__dot" style="--tag-color: {{color}}"></span>
+        <span class="tag-picker__dot" data-tag-color="{{color}}"></span>
         <span class="tag-picker__name">{{name}}</span>
         {{#if isSelected}}{{> icon name="check" size="s"}}{{/if}}
     </button>

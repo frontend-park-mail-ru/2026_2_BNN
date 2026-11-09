@@ -1,7 +1,10 @@
 <div class="notebook__block notebook__block_{{type}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
     {{#if isAttachment}}
         {{#if isUploading}}
-            <span class="notebook__attachment-status">Загрузка: {{text}}…</span>
+            <span class="notebook__attachment-status">
+                <span class="notebook__attachment-spinner" aria-hidden="true"></span>
+                Загрузка: {{text}}…
+            </span>
         {{else if url}}
             {{#if isImage}}
                 <img class="notebook__image" src="{{url}}" alt="{{text}}" loading="lazy">

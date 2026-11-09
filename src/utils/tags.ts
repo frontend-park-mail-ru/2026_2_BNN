@@ -21,7 +21,6 @@ export const TAG_PALETTE: TagColor[] = [
 
 export const TAG_NAME_MAX_LENGTH = 30;
 
-const TAG_COLOR_PATTERN = /^#[0-9a-f]{8}$/i;
 const FALLBACK_COLOR = TAG_PALETTE[TAG_PALETTE.length - 1].color;
 
 /** Данные тега для шаблонов. */
@@ -32,13 +31,17 @@ export interface TagView {
 }
 
 /**
- * Возвращает цвет, который можно безопасно подставить в `style`.
+ * Возвращает цвет палитры для атрибута `data-tag-color`.
  *
  * @param color Цвет из API.
- * @returns Исходный цвет или серый, если формат неожиданный.
+ * @returns Цвет палитры в верхнем регистре или серый, если цвета нет в палитре.
  */
 export function safeTagColor(color: string): string {
-  return TAG_COLOR_PATTERN.test(color) ? color : FALLBACK_COLOR;
+  const normalized = color.toUpperCase();
+  if (TAG_PALETTE.some((item) => item.color === normalized)) {
+    return normalized;
+  }
+  return FALLBACK_COLOR;
 }
 
 /**

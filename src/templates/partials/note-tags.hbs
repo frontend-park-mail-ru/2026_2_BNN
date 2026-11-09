@@ -1,5 +1,5 @@
 {{#each noteTags}}
-    <span class="tag" style="--tag-color: {{color}}" title="{{name}}" data-note-tag="{{id}}">
+    <span class="tag" data-tag-color="{{color}}" title="{{name}}" data-note-tag="{{id}}">
         <span class="tag__name">{{name}}</span>
         <button class="tag__remove" type="button" aria-label="Убрать тег {{name}}" data-note-tag-remove="{{id}}">
             {{> icon name="close" size="s"}}
