@@ -748,11 +748,25 @@
   }
 
   &__attachment-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
     color: var(--light-text);
 
     &_error {
       color: $error;
     }
+  }
+
+  &__attachment-spinner {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: conic-gradient(from -18deg, transparent 0deg 52deg, var(--accent) 52deg 360deg);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+    animation: modal-spinner 0.8s linear infinite;
   }
 
   &__attachment-remove {
@@ -784,7 +798,7 @@
   }
 
   &__body > &__block:only-child &__text:empty::before {
-    content: "Начните писать...";
+    content: "Для выбора типа блока введите /, или начните писать...";
     color: var(--light-text);
     pointer-events: none;
   }

@@ -6,7 +6,7 @@
                 {{#if form}}
                     {{#with form}}{{> tag-form}}{{/with}}
                 {{else}}
-                    <span class="tag" style="--tag-color: {{color}}" title="{{name}}"><span class="tag__name">{{name}}</span></span>
+                    <span class="tag" data-tag-color="{{color}}" title="{{name}}"><span class="tag__name">{{name}}</span></span>
                     <div class="tags-list__actions">
                         <button class="tags-list__button" type="button" aria-label="Изменить тег {{name}}" data-tag-edit="{{id}}">
                             {{> icon name="pencil" size="s"}}

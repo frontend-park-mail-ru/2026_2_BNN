@@ -1,6 +1,20 @@
 @use "mixins" as *;
 @use "variables" as *;
 
+// Цвет задаётся классом, а не style="": на проде заголовок CSP без style-src
+// блокирует инлайн-стили, и --tag-color из атрибута style не применяется.
+$tag-palette:
+  "#73B0FFFF", "#5CC9A7FF", "#8BCF6AFF", "#F5C451FF", "#FF9F5AFF", "#F47C7CFF", "#F28FC5FF",
+  "#A98BF0FF", "#9AA8BAFF";
+
+@each $color in $tag-palette {
+  // Вместе с .tag специфичность выше, чем у серого цвета по умолчанию в .tag.
+  .tag[data-tag-color="#{$color}"],
+  [data-tag-color="#{$color}"] {
+    --tag-color: #{$color};
+  }
+}
+
 .tag {
   --tag-color: #9aa8ba;
   display: inline-flex;

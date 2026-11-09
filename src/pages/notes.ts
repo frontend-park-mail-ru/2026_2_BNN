@@ -557,7 +557,29 @@ function getEditorBlocks(note: Note): BlockView[] {
   const blocks: BlockView[] = [];
 
   for (const block of note.blocks) {
-    blocks.push(toBlockView(block));
+    const isAttachment = block.content.type === "file" || block.content.type === "image";
+    if (isAttachment || !block.content.text.includes("\n")) {
+      blocks.push(toBlockView(block));
+      continue;
+    }
+
+    const lines = block.content.text.replaceAll("\r\n", "\n").replace(/\n$/, "").split("\n");
+    for (let index = 0; index < lines.length; index++) {
+      blocks.push(
+        toBlockView({
+          id: index === 0 ? block.id : "",
+          content: { ...block.content, text: lines[index] },
+        })
+      );
+    }
+  }
+
+  while (blocks.length > 0) {
+    const tail = blocks[blocks.length - 1];
+    if (tail.isAttachment || tail.isChecklist || tail.text !== "") {
+      break;
+    }
+    blocks.pop();
   }
 
   const last = blocks[blocks.length - 1];
@@ -1456,6 +1478,41 @@ export class NotesPage {
       return (title?.textContent ?? "").trim().slice(0, TITLE_MAX_LENGTH);
     }
 
+    /** Текст блока без хвостового переноса, который contenteditable добавляет сам. */
+    function blockText(element: HTMLElement): string {
+      const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
+      return text.replaceAll("\r\n", "\n").replace(/\n$/, "");
+    }
+
+    /**
+     * Раскладывает переносы внутри одного блока на отдельные блоки.
+     * Иначе при следующем открытии contenteditable склеивает строки.
+     */
+    function expandNewlines(block: HTMLElement): void {
+      const textElement = block.querySelector<HTMLElement>("[data-block-text]");
+      if (!textElement) {
+        return;
+      }
+
+      const text = blockText(block);
+      if (!text.includes("\n")) {
+        return;
+      }
+
+      const lines = text.split("\n");
+      textElement.textContent = lines[0];
+      const type = (block.dataset.blockType as BlockType) || "text";
+      let previous = block;
+      for (const line of lines.slice(1)) {
+        const created = insertBlockAfter(previous, type);
+        if (!created) {
+          return;
+        }
+        created.textContent = line;
+        previous = created.closest<HTMLElement>("[data-block]") ?? previous;
+      }
+    }
+
     function readBlock(element: HTMLElement): BlockContent | null {
       if (element.dataset.content) {
         try {
@@ -1465,12 +1522,8 @@ export class NotesPage {
         }
       }
 
-      const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
+      const text = blockText(element);
       const check = element.querySelector<HTMLInputElement>("[data-block-check]");
-      if (text.trim() === "" && !check) {
-        return null;
-      }
-
       const content: BlockContent = { type: element.dataset.blockType as BlockType, text };
       if (check) {
         content.checked = check.checked;
@@ -1486,6 +1539,11 @@ export class NotesPage {
       const elements: HTMLElement[] = [];
       const blocks: BlockInput[] = [];
       const skipped: HTMLElement[] = [];
+      const current = Array.from(mainRegion.querySelectorAll<HTMLElement>("[data-block]"));
+
+      for (const element of current) {
+        expandNewlines(element);
+      }
 
       for (const element of mainRegion.querySelectorAll<HTMLElement>("[data-block]")) {
         const content = readBlock(element);
@@ -1497,6 +1555,23 @@ export class NotesPage {
         const id = element.dataset.blockId;
         elements.push(element);
         blocks.push(id ? { id, content } : { content });
+      }
+
+      while (blocks.length > 0) {
+        const tail = blocks[blocks.length - 1];
+        const isBlankLine =
+          tail.content.text === "" &&
+          tail.content.checked === undefined &&
+          tail.content.type !== "file" &&
+          tail.content.type !== "image";
+        if (!isBlankLine) {
+          break;
+        }
+        blocks.pop();
+        const dropped = elements.pop();
+        if (dropped) {
+          skipped.push(dropped);
+        }
       }
 
       return { elements, blocks, skipped };
