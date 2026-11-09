@@ -1568,7 +1568,10 @@ export class NotesPage {
           break;
         }
         blocks.pop();
-        elements.pop();
+        const dropped = elements.pop();
+        if (dropped) {
+          skipped.push(dropped);
+        }
       }
 
       return { elements, blocks, skipped };
