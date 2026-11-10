@@ -3,7 +3,7 @@ import { LoginPage } from "./pages/login";
 import { LoginTwoFactorPage } from "./pages/login-2fa";
 import { SignupPage } from "./pages/signup";
 import { NotFoundPage } from "./pages/notfound";
-import { api } from "./api";
+import { ApiError, api } from "./api";
 import { getState, setState, type User } from "./store/app-store";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
@@ -142,6 +142,7 @@ async function cachedProfile(): Promise<User | null> {
  */
 async function ensureAuth(): Promise<boolean> {
   const auth = getState().auth;
+  const knownUser = auth.user;
 
   if (auth.status === "authenticated" && auth.isLoggedIn) {
     return true;
@@ -162,7 +163,20 @@ async function ensureAuth(): Promise<boolean> {
   try {
     await api.getProfile();
   } catch (error) {
-    if (error instanceof TypeError) {
+    const offlineLike =
+      error instanceof TypeError || (error instanceof ApiError && error.status >= 500);
+    if (offlineLike) {
+      if (knownUser) {
+        setState({
+          auth: {
+            status: "authenticated",
+            isLoggedIn: true,
+            user: knownUser,
+          },
+        });
+        return true;
+      }
+
       const profile = await cachedProfile();
       if (profile) {
         setState({

@@ -21,6 +21,26 @@ const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars
 const BYPASS_PATHS = ["/api/", "/swagger/"];
 const NOTE_PATH = /^\/api\/notes\/[^/]+$/;
 
+function offlineResponse(request) {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/api/")) {
+    return new Response(JSON.stringify({ message: "Нет сети" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
+  if (request.mode === "navigate") {
+    return new Response(
+      '<!doctype html><meta charset="utf-8"><title>Offline</title><p>Нет сети. Откройте приложение онлайн хотя бы один раз.</p>',
+      {
+        status: 503,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      }
+    );
+  }
+  return new Response("", { status: 503, statusText: "Offline" });
+}
+
 function rememberAsset(path, found, queue) {
   if (!path.startsWith("/assets/") || found.has(path) || !/\.(?:js|css)$/.test(path)) {
     return;
@@ -104,7 +124,13 @@ async function fromCache(request, cacheName, cacheKey = request) {
     if (fresh) {
       return fresh;
     }
-    throw error;
+    if (request.mode === "navigate") {
+      const shell = await cache.match("/", { ignoreVary: true });
+      if (shell) {
+        return shell;
+      }
+    }
+    return offlineResponse(request);
   }
 }
 
@@ -122,7 +148,7 @@ async function networkFirst(request, cacheName, cacheKey = request) {
     if (cached) {
       return cached;
     }
-    throw error;
+    return offlineResponse(request);
   }
 }
 
