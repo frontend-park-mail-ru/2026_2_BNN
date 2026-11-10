@@ -116,9 +116,6 @@ async function networkFirst(request, cacheName, cacheKey = request) {
     if (response.status === 200) {
       await cache.put(cacheKey, response.clone());
     }
-    if (response.status === 401) {
-      await caches.delete(API_CACHE);
-    }
     return response;
   } catch (error) {
     const cached = await cache.match(cacheKey, { ignoreVary: true });

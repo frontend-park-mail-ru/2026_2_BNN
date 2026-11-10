@@ -4,7 +4,7 @@ import { LoginTwoFactorPage } from "./pages/login-2fa";
 import { SignupPage } from "./pages/signup";
 import { NotFoundPage } from "./pages/notfound";
 import { api } from "./api";
-import { getState, setState } from "./store/app-store";
+import { getState, setState, type User } from "./store/app-store";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
@@ -42,6 +42,7 @@ const loginPage = new LoginPage();
 const loginTwoFactorPage = new LoginTwoFactorPage();
 const signupPage = new SignupPage();
 const API_CACHE = "bnn-api";
+const PROFILE_CACHE_PATH = "/api/auth/me";
 
 const routes: RouteRecord[] = [
   { path: "/", page: notesPage, auth: true },
@@ -90,6 +91,50 @@ function matchRoute(pattern: string, path: string): Record<string, string> | nul
 let currentPage: Page | null = null;
 let renderId = 0;
 
+function isCachedUser(value: unknown): value is User {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const data = value as Record<string, unknown>;
+  const avatarOk = typeof data.avatar === "string" || data.avatar === null;
+  const providerOk = data.oauth_provider === null || data.oauth_provider === "github";
+
+  return (
+    typeof data.id === "string" &&
+    typeof data.login === "string" &&
+    avatarOk &&
+    typeof data.created_at === "string" &&
+    typeof data.updated_at === "string" &&
+    typeof data.is_2fa_enabled === "boolean" &&
+    providerOk
+  );
+}
+
+async function cachedProfile(): Promise<User | null> {
+  if (!("caches" in window)) {
+    return null;
+  }
+
+  const cache = await caches.open(API_CACHE);
+  const response =
+    (await cache.match(PROFILE_CACHE_PATH, { ignoreVary: true })) ??
+    (await cache.match(new Request(PROFILE_CACHE_PATH), { ignoreVary: true }));
+  if (!response?.ok) {
+    return null;
+  }
+
+  try {
+    const data: unknown = await response.json();
+    if (!isCachedUser(data)) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Проверяет авторизацию по кэшу store и при необходимости запрашивает профиль.
  *
@@ -116,7 +161,25 @@ async function ensureAuth(): Promise<boolean> {
 
   try {
     await api.getProfile();
-  } catch {
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const profile = await cachedProfile();
+      if (profile) {
+        setState({
+          auth: {
+            status: "authenticated",
+            isLoggedIn: true,
+            user: profile,
+          },
+        });
+        return true;
+      }
+
+      if (!navigator.onLine) {
+        return true;
+      }
+    }
+
     setState({
       auth: {
         status: "unauthenticated",
