@@ -1,6 +1,7 @@
 import {
   api,
   ApiError,
+  isOfflineError,
   type NoteBlock,
   type BlockType,
   type Note as ApiNote,
@@ -479,7 +480,7 @@ async function fetchMissingDetails(): Promise<void> {
       try {
         loaded = normalizeNote(await api.getNote(id));
       } catch (error) {
-        if (error instanceof TypeError || (error instanceof ApiError && error.status === 401)) {
+        if (isOfflineError(error) || (error instanceof ApiError && error.status === 401)) {
           detailsFailed = true;
           queue.length = 0;
           return;
@@ -811,7 +812,7 @@ async function loadNotes(): Promise<void> {
       return;
     }
 
-    connectionLost = error instanceof TypeError;
+    connectionLost = isOfflineError(error);
     store.status = store.notes.length > 0 ? "ready" : "error";
   }
 }
@@ -977,7 +978,7 @@ export class NotesPage {
           return;
         }
 
-        if (error instanceof TypeError) {
+        if (isOfflineError(error)) {
           connectionLost = true;
           update();
           return;

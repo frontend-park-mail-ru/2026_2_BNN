@@ -116,15 +116,12 @@ async function cachedProfile(): Promise<User | null> {
     return null;
   }
 
-  const cache = await caches.open(API_CACHE);
-  const response =
-    (await cache.match(PROFILE_CACHE_PATH, { ignoreVary: true })) ??
-    (await cache.match(new Request(PROFILE_CACHE_PATH), { ignoreVary: true }));
-  if (!response?.ok) {
-    return null;
-  }
-
   try {
+    const cache = await caches.open(API_CACHE);
+    const response = await cache.match(PROFILE_CACHE_PATH, { ignoreVary: true });
+    if (!response?.ok) {
+      return null;
+    }
     const data: unknown = await response.json();
     if (!isCachedUser(data)) {
       return null;
@@ -163,35 +160,16 @@ async function ensureAuth(): Promise<boolean> {
   try {
     await api.getProfile();
   } catch (error) {
-    const offlineLike =
-      error instanceof TypeError || (error instanceof ApiError && error.status >= 500);
-    if (offlineLike) {
-      if (knownUser) {
-        setState({
-          auth: {
-            status: "authenticated",
-            isLoggedIn: true,
-            user: knownUser,
-          },
-        });
-        return true;
-      }
-
-      const profile = await cachedProfile();
-      if (profile) {
-        setState({
-          auth: {
-            status: "authenticated",
-            isLoggedIn: true,
-            user: profile,
-          },
-        });
-        return true;
-      }
-
-      if (!navigator.onLine) {
-        return true;
-      }
+    if (!(error instanceof ApiError && error.status === 401)) {
+      // Без сети сервер не может сказать «вы не вошли»: navigator.onLine
+      // не видит галочку «Офлайн» у service worker, поэтому на него не опираемся.
+      const profile = knownUser ?? (await cachedProfile());
+      setState({
+        auth: profile
+          ? { status: "authenticated", isLoggedIn: true, user: profile }
+          : { status: "unknown", isLoggedIn: false, user: null },
+      });
+      return true;
     }
 
     setState({

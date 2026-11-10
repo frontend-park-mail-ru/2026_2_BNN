@@ -119,7 +119,7 @@ async function fromCache(request, cacheName, cacheKey = request) {
       await cache.put(cacheKey, response.clone());
     }
     return response;
-  } catch (error) {
+  } catch {
     const fresh = await cache.match(cacheKey, { ignoreVary: true });
     if (fresh) {
       return fresh;
@@ -143,7 +143,7 @@ async function networkFirst(request, cacheName, cacheKey = request) {
       await cache.put(cacheKey, response.clone());
     }
     return response;
-  } catch (error) {
+  } catch {
     const cached = await cache.match(cacheKey, { ignoreVary: true });
     if (cached) {
       return cached;
