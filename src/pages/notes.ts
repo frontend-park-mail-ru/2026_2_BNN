@@ -18,6 +18,16 @@ import {
   toTagView,
   type TagView,
 } from "../utils/tags";
+import { classifyAttachment } from "../utils/attachment";
+import {
+  applyInlineFormat,
+  fragmentFromClipboard,
+  inlineFormatState,
+  renderInlineHtml,
+  serializeInline,
+  useFormatTags,
+  type InlineFormat,
+} from "../utils/inline-format";
 import { safeResourceUrl } from "../utils/url";
 import { mountProfile } from "./profile";
 import { mountTagsDialog } from "./tags-dialog";
@@ -158,6 +168,13 @@ interface NotesInstance {
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent) => void;
   onDragLeave: (event: DragEvent) => void;
+  onSelectionChange: () => void;
+  onFormatMouseDown: (event: MouseEvent) => void;
+  onEditorPointerDown: (event: PointerEvent) => void;
+  onEditorPointerMove: (event: PointerEvent) => void;
+  onEditorPointerUp: () => void;
+  onEditorCopy: (event: ClipboardEvent) => void;
+  formatBar: HTMLElement | null;
   onDetailsLoaded: () => void;
   listFrame: number;
   destroyProfile: () => void;
@@ -825,6 +842,8 @@ export class NotesPage {
       deleteDialog,
       toast,
     } = elements;
+    const formatBar = page.querySelector<HTMLElement>("[data-format-bar]");
+    useFormatTags();
 
     const destroyProfile = mountProfile(page, {
       notesCount: () => store.notes.length,
@@ -866,6 +885,13 @@ export class NotesPage {
       onDragOver: onDragOver,
       onDrop: onDrop,
       onDragLeave: onDragLeave,
+      onSelectionChange: onSelectionChange,
+      onFormatMouseDown: onFormatMouseDown,
+      onEditorPointerDown: onEditorPointerDown,
+      onEditorPointerMove: onEditorPointerMove,
+      onEditorPointerUp: onEditorPointerUp,
+      onEditorCopy: onEditorCopy,
+      formatBar: formatBar,
       onDetailsLoaded: onDetailsLoaded,
       listFrame: 0,
       destroyProfile: destroyProfile,
@@ -1351,11 +1377,12 @@ export class NotesPage {
       await router();
     }
 
-    function showToast(text: string): void {
+    function showToast(text: string, isError = false): void {
       const label = toast.querySelector<HTMLElement>("[data-toast-text]");
       if (label) {
         label.textContent = text;
       }
+      toast.classList.toggle("toast_error", isError);
       toast.hidden = false;
       window.clearTimeout(instance.toastTimer);
       instance.toastTimer = window.setTimeout(hideToast, TOAST_DELAY);
@@ -1363,6 +1390,7 @@ export class NotesPage {
 
     function hideToast(): void {
       toast.hidden = true;
+      toast.classList.remove("toast_error");
     }
 
     function timerSave(): void {
@@ -1480,8 +1508,11 @@ export class NotesPage {
 
     /** Текст блока без хвостового переноса, который contenteditable добавляет сам. */
     function blockText(element: HTMLElement): string {
-      const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
-      return text.replaceAll("\r\n", "\n").replace(/\n$/, "");
+      const text = element.querySelector<HTMLElement>("[data-block-text]");
+      if (!text) {
+        return "";
+      }
+      return serializeInline(text).replaceAll("\r\n", "\n");
     }
 
     /**
@@ -1500,7 +1531,7 @@ export class NotesPage {
       }
 
       const lines = text.split("\n");
-      textElement.textContent = lines[0];
+      textElement.innerHTML = renderInlineHtml(lines[0]);
       const type = (block.dataset.blockType as BlockType) || "text";
       let previous = block;
       for (const line of lines.slice(1)) {
@@ -1508,7 +1539,7 @@ export class NotesPage {
         if (!created) {
           return;
         }
-        created.textContent = line;
+        created.innerHTML = renderInlineHtml(line);
         previous = created.closest<HTMLElement>("[data-block]") ?? previous;
       }
     }
@@ -1617,9 +1648,40 @@ export class NotesPage {
       timerSave();
     }
 
-    async function attachFile(block: HTMLElement, type: BlockType, given?: File): Promise<void> {
-      const file = given ?? (await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
+    async function acceptedAttachment(
+      file: File,
+      requested: "image" | "file" | "auto"
+    ): Promise<BlockType | null> {
+      const kind = await classifyAttachment(file);
+      const image = kind === "png" || kind === "jpeg" || kind === "gif" || kind === "webp";
+      if (requested === "image") {
+        if (!image) {
+          showToast("Это не изображение. Подойдут PNG, JPEG, WebP или GIF.", true);
+          return null;
+        }
+        return "image";
+      }
+      if (!image && kind !== "pdf") {
+        showToast("Можно прикрепить только PNG, JPEG, WebP, GIF или PDF.", true);
+        return null;
+      }
+      if (requested === "auto" && image) {
+        return "image";
+      }
+      return "file";
+    }
+
+    async function attachFile(
+      block: HTMLElement,
+      requested: "image" | "file" | "auto",
+      given?: File
+    ): Promise<void> {
+      const file = given ?? (await pickFile(requested === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
       if (!file || !block.isConnected) {
+        return;
+      }
+      const type = await acceptedAttachment(file, requested);
+      if (!type || !block.isConnected) {
         return;
       }
 
@@ -1674,10 +1736,19 @@ export class NotesPage {
 
     async function attachFiles(block: HTMLElement, files: File[]): Promise<void> {
       closeBlockMenu();
+      const accepted: File[] = [];
+      for (const file of files) {
+        if (await acceptedAttachment(file, "auto")) {
+          accepted.push(file);
+        }
+      }
+      if (!block.isConnected || accepted.length === 0) {
+        return;
+      }
 
       const slots: HTMLElement[] = [];
       let slot = block;
-      for (let i = 0; i < files.length; i++) {
+      for (let i = 0; i < accepted.length; i++) {
         if (i > 0 || readBlock(slot)) {
           insertBlockAfter(slot, "text");
           slot = slot.nextElementSibling as HTMLElement;
@@ -1694,14 +1765,16 @@ export class NotesPage {
         placeCaret(nextText, false);
       }
 
-      for (let i = 0; i < files.length; i++) {
-        const type = files[i].type.startsWith("image/") ? "image" : "file";
-        await attachFile(slots[i], type, files[i]);
+      for (let i = 0; i < accepted.length; i++) {
+        await attachFile(slots[i], "auto", accepted[i]);
       }
     }
 
     async function removeAttachment(block: HTMLElement): Promise<void> {
       const content = readBlock(block);
+      if (formatBar && block.contains(formatBar)) {
+        parkFormatBar();
+      }
       block.remove();
       timerSave();
 
@@ -1745,6 +1818,558 @@ export class NotesPage {
       }
     }
 
+    let markAnchor: HTMLElement | null = null;
+    let markFocus: HTMLElement | null = null;
+    let dragAnchor: HTMLElement | null = null;
+
+    /** Текстовые блоки в порядке документа. Картинки и файлы пропускаются. */
+    function textBlocks(): HTMLElement[] {
+      return [...mainRegion.querySelectorAll<HTMLElement>("[data-block]")].filter((block) =>
+        block.querySelector("[data-block-text]")
+      );
+    }
+
+    function markedBlocks(): HTMLElement[] {
+      return [...mainRegion.querySelectorAll<HTMLElement>(".notebook__block_marked")];
+    }
+
+    function clearMarked(): void {
+      mainRegion.querySelectorAll(".notebook__block_marked").forEach((node) => {
+        node.classList.remove("notebook__block_marked");
+      });
+      markAnchor = null;
+      markFocus = null;
+    }
+
+    /**
+     * Подсвечивает непрерывный кусок строк.
+     * Одно выделение браузера не может лежать сразу в нескольких contenteditable.
+     *
+     * @param anchor Блок, с которого начали.
+     * @param focus Блок, на котором выделение заканчивается.
+     * @param lock Ставит каретку в конечный блок. Пока тянут мышью, этого не делаем.
+     * @returns `false`, если между блоками вложение или это одна и та же строка.
+     */
+    function markRange(anchor: HTMLElement, focus: HTMLElement, lock: boolean): boolean {
+      mainRegion.querySelectorAll(".notebook__block_marked").forEach((node) => {
+        node.classList.remove("notebook__block_marked");
+      });
+      const all = [...mainRegion.querySelectorAll<HTMLElement>("[data-block]")];
+      const from = all.indexOf(anchor);
+      const to = all.indexOf(focus);
+      if (from < 0 || to < 0 || from === to) {
+        markAnchor = null;
+        markFocus = null;
+        return false;
+      }
+
+      const start = Math.min(from, to);
+      const end = Math.max(from, to);
+      const slice = all.slice(start, end + 1);
+      if (slice.some((block) => !block.querySelector("[data-block-text]"))) {
+        markAnchor = null;
+        markFocus = null;
+        return false;
+      }
+
+      markAnchor = anchor;
+      markFocus = focus;
+      slice.forEach((block) => {
+        block.classList.add("notebook__block_marked");
+      });
+      if (!lock) {
+        return true;
+      }
+
+      const host = focus.querySelector<HTMLElement>("[data-block-text]");
+      if (!host) {
+        return true;
+      }
+      const range = document.createRange();
+      range.selectNodeContents(host);
+      host.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return true;
+    }
+
+    function neighborTextBlock(block: HTMLElement, direction: 1 | -1): HTMLElement | null {
+      let cursor: Element | null =
+        direction === 1 ? block.nextElementSibling : block.previousElementSibling;
+      while (cursor instanceof HTMLElement) {
+        if (cursor.matches("[data-block]") && cursor.querySelector("[data-block-text]")) {
+          return cursor;
+        }
+        cursor = direction === 1 ? cursor.nextElementSibling : cursor.previousElementSibling;
+      }
+      return null;
+    }
+
+    /** Сосед только если он сразу рядом: через картинку строки не склеиваем. */
+    function touchingTextBlock(block: HTMLElement, direction: 1 | -1): HTMLElement | null {
+      const sibling = direction === 1 ? block.nextElementSibling : block.previousElementSibling;
+      if (!(sibling instanceof HTMLElement) || !sibling.matches("[data-block]")) {
+        return null;
+      }
+      return sibling.querySelector("[data-block-text]") ? sibling : null;
+    }
+
+    function visibleText(text: HTMLElement): string {
+      return text.innerText.replaceAll("\u00a0", " ").trim();
+    }
+
+    function reachesEdge(text: HTMLElement, atStart: boolean): boolean {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        return false;
+      }
+      const range = selection.getRangeAt(0);
+      if (!text.contains(range.startContainer) || !text.contains(range.endContainer)) {
+        return false;
+      }
+      const probe = document.createRange();
+      probe.selectNodeContents(text);
+      try {
+        if (atStart) {
+          probe.setEnd(range.startContainer, range.startOffset);
+        } else {
+          probe.setStart(range.endContainer, range.endOffset);
+        }
+      } catch {
+        return false;
+      }
+      return probe.toString() === "";
+    }
+
+    function collapsedIn(text: HTMLElement): boolean {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+        return false;
+      }
+      return text.contains(selection.getRangeAt(0).startContainer);
+    }
+
+    function rangeRect(range: Range): DOMRect | null {
+      const rects = range.getClientRects();
+      for (let i = rects.length - 1; i >= 0; i -= 1) {
+        if (rects[i].height > 0) {
+          return rects[i];
+        }
+      }
+      return null;
+    }
+
+    function rectAtEnd(node: Node): DOMRect | null {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const value = node.textContent ?? "";
+        if (value.length === 0) {
+          return null;
+        }
+        const range = document.createRange();
+        range.setStart(node, value.length - 1);
+        range.setEnd(node, value.length);
+        return rangeRect(range);
+      }
+      if (node instanceof HTMLElement && node.lastChild) {
+        return rectAtEnd(node.lastChild);
+      }
+      return null;
+    }
+
+    function focusRect(text: HTMLElement): DOMRect | null {
+      const selection = window.getSelection();
+      const node = selection?.focusNode;
+      if (!selection || !node || !text.contains(node)) {
+        return null;
+      }
+      const range = document.createRange();
+      try {
+        range.setStart(node, selection.focusOffset);
+        range.collapse(true);
+      } catch {
+        return null;
+      }
+      const direct = rangeRect(range);
+      if (direct) {
+        return direct;
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        const value = node.textContent ?? "";
+        const offset = selection.focusOffset;
+        if (offset < value.length) {
+          range.setEnd(node, offset + 1);
+          const next = rangeRect(range);
+          if (next) {
+            return next;
+          }
+        }
+        if (offset > 0) {
+          range.setStart(node, offset - 1);
+          range.collapse(false);
+          const previous = rangeRect(range);
+          if (previous) {
+            return previous;
+          }
+        }
+      }
+      if (node instanceof HTMLElement) {
+        const before = node.childNodes[selection.focusOffset - 1];
+        if (before) {
+          const previous = rectAtEnd(before);
+          if (previous) {
+            return previous;
+          }
+        }
+      }
+      const box = text.getBoundingClientRect();
+      return box.height > 0 ? box : null;
+    }
+
+    function onEdgeLine(text: HTMLElement, edge: "first" | "last"): boolean {
+      const rect = focusRect(text);
+      if (!rect) {
+        return true;
+      }
+      const box = text.getBoundingClientRect();
+      const slack = Math.max(rect.height, 8) * 0.65;
+      if (edge === "first") {
+        return rect.top - box.top <= slack;
+      }
+      return box.bottom - rect.bottom <= slack;
+    }
+
+    function caretX(text: HTMLElement): number {
+      const rect = focusRect(text);
+      if (!rect) {
+        return text.getBoundingClientRect().left;
+      }
+      const line = text.getBoundingClientRect().width;
+      if (rect.width < 2 || rect.width > line * 0.8) {
+        return rect.left;
+      }
+      return rect.right - 1;
+    }
+
+    function placeCaretAtClient(text: HTMLElement, x: number, y: number): boolean {
+      let range: Range | null = null;
+      if (typeof document.caretRangeFromPoint === "function") {
+        range = document.caretRangeFromPoint(x, y);
+      }
+      if ((!range || !text.contains(range.startContainer)) && document.caretPositionFromPoint) {
+        const position = document.caretPositionFromPoint(x, y);
+        if (position && text.contains(position.offsetNode)) {
+          range = document.createRange();
+          range.setStart(position.offsetNode, position.offset);
+          range.collapse(true);
+        }
+      }
+      if (!range || !text.contains(range.startContainer)) {
+        return false;
+      }
+      text.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return true;
+    }
+
+    function placeAtChar(text: HTMLElement, index: number): void {
+      const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+      let remaining = index;
+      let node = walker.nextNode();
+      while (node) {
+        const length = node.textContent?.length ?? 0;
+        if (remaining <= length) {
+          const range = document.createRange();
+          range.setStart(node, remaining);
+          range.collapse(true);
+          text.focus();
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          return;
+        }
+        remaining -= length;
+        node = walker.nextNode();
+      }
+      placeCaret(text, true);
+    }
+
+    function moveCaretToBlock(block: HTMLElement, x: number, edge: "start" | "end"): void {
+      const text = block.querySelector<HTMLElement>("[data-block-text]");
+      if (!text) {
+        return;
+      }
+      const box = text.getBoundingClientRect();
+      const y = edge === "start" ? box.top + 4 : Math.max(box.top + 1, box.bottom - 4);
+      if (!placeCaretAtClient(text, x, y)) {
+        placeCaret(text, edge === "end");
+      }
+    }
+
+    function deleteMarked(): HTMLElement | null {
+      const blocks = markedBlocks();
+      const first = blocks[0];
+      const text = first?.querySelector<HTMLElement>("[data-block-text]");
+      if (!first || !text) {
+        return null;
+      }
+      if (formatBar && blocks.some((block) => block.contains(formatBar))) {
+        parkFormatBar();
+      }
+      blocks.slice(1).forEach((block) => {
+        block.remove();
+      });
+      text.replaceChildren();
+      clearMarked();
+      placeCaret(text, false);
+      return text;
+    }
+
+    /** Переносит текст source в конец target и убирает source. Каретка остаётся на стыке. */
+    function mergeBlocks(target: HTMLElement, source: HTMLElement): void {
+      const targetText = target.querySelector<HTMLElement>("[data-block-text]");
+      const sourceText = source.querySelector<HTMLElement>("[data-block-text]");
+      if (!targetText || !sourceText) {
+        return;
+      }
+      clearMarked();
+      if (formatBar && (target.contains(formatBar) || source.contains(formatBar))) {
+        parkFormatBar();
+      }
+      while (sourceText.lastChild instanceof HTMLBRElement) {
+        sourceText.lastChild.remove();
+      }
+      const joinAt = targetText.textContent?.length ?? 0;
+      if (visibleText(sourceText) === "") {
+        source.remove();
+        placeCaret(targetText, true);
+        return;
+      }
+
+      while (sourceText.firstChild) {
+        targetText.append(sourceText.firstChild);
+      }
+      source.remove();
+      placeAtChar(targetText, joinAt);
+    }
+
+    /**
+     * Стрелки и Backspace между отдельными contenteditable.
+     * Пока каретка внутри строки, клавишу забирает браузер.
+     *
+     * @returns `true`, если событие обработано здесь.
+     */
+    function handleBlockMotion(
+      event: KeyboardEvent,
+      block: HTMLElement,
+      text: HTMLElement
+    ): boolean {
+      const key = event.key;
+      const marked = markedBlocks();
+
+      if (marked.length > 1 && !event.shiftKey) {
+        if (key === "Backspace" || key === "Delete") {
+          event.preventDefault();
+          deleteMarked();
+          timerSave();
+          return true;
+        }
+        if (key.startsWith("Arrow")) {
+          event.preventDefault();
+          const toStart = key === "ArrowLeft" || key === "ArrowUp";
+          const targetBlock = toStart ? marked[0] : marked[marked.length - 1];
+          clearMarked();
+          const host = targetBlock.querySelector<HTMLElement>("[data-block-text]");
+          if (host) {
+            placeCaret(host, !toStart);
+          }
+          return true;
+        }
+      }
+
+      if (!event.shiftKey && key === "Backspace" && collapsedIn(text) && reachesEdge(text, true)) {
+        const previous = touchingTextBlock(block, -1);
+        if (previous) {
+          event.preventDefault();
+          mergeBlocks(previous, block);
+          timerSave();
+          return true;
+        }
+      }
+
+      if (!event.shiftKey && key === "Delete" && collapsedIn(text) && reachesEdge(text, false)) {
+        const next = touchingTextBlock(block, 1);
+        if (next) {
+          event.preventDefault();
+          mergeBlocks(block, next);
+          timerSave();
+          return true;
+        }
+      }
+
+      if (!key.startsWith("Arrow")) {
+        return false;
+      }
+      if (!event.shiftKey && !collapsedIn(text)) {
+        return false;
+      }
+
+      const upward = key === "ArrowUp" || key === "ArrowLeft";
+      const direction: 1 | -1 = upward ? -1 : 1;
+      let cross = false;
+      if (key === "ArrowLeft") {
+        cross = reachesEdge(text, true);
+      } else if (key === "ArrowRight") {
+        cross = reachesEdge(text, false);
+      } else if (key === "ArrowUp") {
+        cross = onEdgeLine(text, "first");
+      } else if (key === "ArrowDown") {
+        cross = onEdgeLine(text, "last");
+      }
+      if (!cross) {
+        return false;
+      }
+
+      if (event.shiftKey) {
+        const anchor = markAnchor ?? block;
+        const from = markFocus ?? block;
+        const next = neighborTextBlock(from, direction);
+        if (!next) {
+          return false;
+        }
+        if (next === anchor) {
+          event.preventDefault();
+          clearMarked();
+          const host = anchor.querySelector<HTMLElement>("[data-block-text]");
+          if (host) {
+            placeCaret(host, direction === 1);
+          }
+          return true;
+        }
+        if (!markRange(anchor, next, true)) {
+          return false;
+        }
+        event.preventDefault();
+        return true;
+      }
+
+      const next = neighborTextBlock(block, direction);
+      if (!next) {
+        return false;
+      }
+      event.preventDefault();
+      clearMarked();
+      const host = next.querySelector<HTMLElement>("[data-block-text]");
+      if (!host) {
+        return true;
+      }
+      if (key === "ArrowLeft") {
+        placeCaret(host, true);
+      } else if (key === "ArrowRight") {
+        placeCaret(host, false);
+      } else {
+        moveCaretToBlock(next, caretX(text), key === "ArrowUp" ? "end" : "start");
+      }
+      return true;
+    }
+
+    function blockAtPoint(x: number, y: number): HTMLElement | null {
+      const node = document.elementFromPoint(x, y);
+      if (node instanceof Element) {
+        const direct = node.closest<HTMLElement>("[data-block]");
+        if (direct && mainRegion.contains(direct) && direct.querySelector("[data-block-text]")) {
+          return direct;
+        }
+      }
+      let closest: HTMLElement | null = null;
+      let best = 28;
+      for (const block of textBlocks()) {
+        const box = block.getBoundingClientRect();
+        if (x < box.left - 48 || x > box.right + 48) {
+          continue;
+        }
+        const distance = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0;
+        if (distance < best) {
+          best = distance;
+          closest = block;
+        }
+      }
+      return closest;
+    }
+
+    function onEditorPointerDown(event: PointerEvent): void {
+      if (event.button !== 0) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        clearMarked();
+        dragAnchor = null;
+        return;
+      }
+      if (target.closest("[data-format-bar]")) {
+        return;
+      }
+      if (!mainRegion.contains(target)) {
+        clearMarked();
+        dragAnchor = null;
+        return;
+      }
+      if (target.closest("button, input, a")) {
+        return;
+      }
+      const block = target.closest<HTMLElement>("[data-block]");
+      if (!block?.querySelector("[data-block-text]")) {
+        clearMarked();
+        dragAnchor = null;
+        return;
+      }
+      clearMarked();
+      dragAnchor = block;
+    }
+
+    function onEditorPointerMove(event: PointerEvent): void {
+      if (!dragAnchor || (event.buttons & 1) === 0) {
+        return;
+      }
+      const block = blockAtPoint(event.clientX, event.clientY);
+      if (!block || block === dragAnchor) {
+        if (markedBlocks().length > 0) {
+          clearMarked();
+        }
+        return;
+      }
+      markRange(dragAnchor, block, false);
+    }
+
+    function onEditorPointerUp(): void {
+      if (dragAnchor && markAnchor && markFocus) {
+        markRange(markAnchor, markFocus, true);
+      }
+      dragAnchor = null;
+    }
+
+    function onEditorCopy(event: ClipboardEvent): void {
+      const blocks = markedBlocks();
+      if (blocks.length < 2 || !event.clipboardData) {
+        return;
+      }
+      event.preventDefault();
+      const payload = blocks
+        .map((block) => {
+          const text = block.querySelector<HTMLElement>("[data-block-text]");
+          return text ? text.innerText.replace(/\n$/, "") : "";
+        })
+        .join("\n");
+      event.clipboardData.setData("text/plain", payload);
+      if (event.type === "cut") {
+        deleteMarked();
+        timerSave();
+      }
+    }
+
     function placeCaret(element: HTMLElement, atEnd: boolean): void {
       element.focus();
       const range = document.createRange();
@@ -1779,7 +2404,56 @@ export class NotesPage {
       return block.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]") ?? null;
     }
 
+    function parkFormatBar(): void {
+      if (!formatBar) {
+        return;
+      }
+      formatBar.hidden = true;
+      page.append(formatBar);
+    }
+
+    function placeFormatBar(): void {
+      if (!formatBar) {
+        return;
+      }
+      const selection = window.getSelection();
+      const anchor = selection?.anchorNode;
+      const host = anchor instanceof Element ? anchor : anchor?.parentElement;
+      const text = host?.closest<HTMLElement>("[data-block-text]");
+      const block = text?.closest<HTMLElement>("[data-block]");
+      if (
+        !selection ||
+        selection.isCollapsed ||
+        selection.rangeCount === 0 ||
+        !text ||
+        !block ||
+        !mainRegion.contains(text) ||
+        markedBlocks().length > 1
+      ) {
+        parkFormatBar();
+        return;
+      }
+
+      block.append(formatBar);
+      formatBar.hidden = false;
+      for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-format]")) {
+        const format = button.dataset.format as InlineFormat;
+        button.setAttribute("aria-pressed", inlineFormatState(format) ? "true" : "false");
+      }
+    }
+
+    function onSelectionChange(): void {
+      placeFormatBar();
+    }
+
+    function onFormatMouseDown(event: MouseEvent): void {
+      event.preventDefault();
+    }
+
     function replaceBlock(block: HTMLElement, view: BlockView): HTMLElement {
+      if (formatBar && block.contains(formatBar)) {
+        parkFormatBar();
+      }
       block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
       const next = block.nextElementSibling as HTMLElement;
       block.remove();
@@ -1811,6 +2485,62 @@ export class NotesPage {
         if (active && block) {
           chooseBlockType(block, active.dataset.blockOption as BlockType);
         }
+        return;
+      }
+
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        target.closest("[data-block-text]") &&
+        !event.altKey
+      ) {
+        const shortcuts: Record<string, InlineFormat> = {
+          KeyB: "bold",
+          KeyI: "italic",
+          KeyU: "underline",
+        };
+        const format = event.shiftKey
+          ? event.code === "KeyX"
+            ? "strike"
+            : undefined
+          : shortcuts[event.code];
+        if (format) {
+          event.preventDefault();
+          applyInlineFormat(format);
+          placeFormatBar();
+          timerSave();
+          return;
+        }
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && markedBlocks().length > 1) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          deleteMarked();
+          timerSave();
+          return;
+        }
+        if (event.key.length === 1) {
+          event.preventDefault();
+          const host = deleteMarked();
+          if (host) {
+            host.textContent = event.key;
+            placeCaret(host, true);
+          }
+          timerSave();
+          return;
+        }
+      }
+
+      const motionBlock = target.closest<HTMLElement>("[data-block]");
+      const motionText = target.closest<HTMLElement>("[data-block-text]");
+      if (
+        motionBlock &&
+        motionText &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        handleBlockMotion(event, motionBlock, motionText)
+      ) {
         return;
       }
 
@@ -1855,6 +2585,9 @@ export class NotesPage {
         }
 
         event.preventDefault();
+        if (formatBar && block.contains(formatBar)) {
+          parkFormatBar();
+        }
         block.remove();
         placeCaret(previous, true);
         timerSave();
@@ -1865,6 +2598,14 @@ export class NotesPage {
       const target = event.target;
 
       if (!(target instanceof Element)) {
+        return;
+      }
+
+      const formatButton = target.closest<HTMLButtonElement>("[data-format]");
+      if (formatButton?.dataset.format) {
+        applyInlineFormat(formatButton.dataset.format as InlineFormat);
+        placeFormatBar();
+        timerSave();
         return;
       }
 
@@ -2028,6 +2769,7 @@ export class NotesPage {
         return;
       }
 
+      clearMarked();
       searchResults.hidden = true;
       closeLogoutDialog();
       setNoteMenu(false);
@@ -2054,6 +2796,16 @@ export class NotesPage {
 
       if (target.matches("[data-block-text]")) {
         const block = target.closest<HTMLElement>("[data-block]");
+        const extra = markedBlocks().filter((item) => item !== block);
+        if (extra.length > 0) {
+          extra.forEach((item) => {
+            if (formatBar && item.contains(formatBar)) {
+              parkFormatBar();
+            }
+            item.remove();
+          });
+          clearMarked();
+        }
         if (block && target.innerText.trim() === "/") {
           openBlockMenu(block);
         } else {
@@ -2077,9 +2829,8 @@ export class NotesPage {
     }
 
     function onOffline(): void {
-      showToast("Потеря соединения");
+      showToast("Потеря соединения", true);
       window.clearTimeout(instance.toastTimer);
-      toast.classList.add("toast_error");
     }
 
     function onOnline(): void {
@@ -2107,6 +2858,33 @@ export class NotesPage {
 
     function onPaste(event: ClipboardEvent): void {
       const data = event.clipboardData;
+      const target = event.target;
+      if (
+        data &&
+        target instanceof HTMLElement &&
+        target.closest("[data-block-text]") &&
+        data.getData("text/plain") !== ""
+      ) {
+        event.preventDefault();
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+          return;
+        }
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const fragment = fragmentFromClipboard(data);
+        const marker = document.createTextNode("");
+        fragment.append(marker);
+        range.insertNode(fragment);
+        range.setStartAfter(marker);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        marker.remove();
+        timerSave();
+        return;
+      }
+
       if (
         !data ||
         data.files.length === 0 ||
@@ -2176,6 +2954,15 @@ export class NotesPage {
     mainRegion.addEventListener("input", onNoteInput);
     mainRegion.addEventListener("change", onNoteChange);
     mainRegion.addEventListener("keydown", onNoteKeyDown);
+    mainRegion.addEventListener("scroll", onSelectionChange, true);
+    document.addEventListener("selectionchange", onSelectionChange);
+    document.addEventListener("pointerdown", onEditorPointerDown);
+    document.addEventListener("pointermove", onEditorPointerMove);
+    document.addEventListener("pointerup", onEditorPointerUp);
+    document.addEventListener("pointercancel", onEditorPointerUp);
+    mainRegion.addEventListener("copy", onEditorCopy);
+    mainRegion.addEventListener("cut", onEditorCopy);
+    formatBar?.addEventListener("mousedown", onFormatMouseDown);
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -2226,6 +3013,15 @@ export class NotesPage {
     leaving.mainRegion.removeEventListener("input", leaving.onNoteInput);
     leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
     leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
+    leaving.mainRegion.removeEventListener("scroll", leaving.onSelectionChange, true);
+    document.removeEventListener("selectionchange", leaving.onSelectionChange);
+    document.removeEventListener("pointerdown", leaving.onEditorPointerDown);
+    document.removeEventListener("pointermove", leaving.onEditorPointerMove);
+    document.removeEventListener("pointerup", leaving.onEditorPointerUp);
+    document.removeEventListener("pointercancel", leaving.onEditorPointerUp);
+    leaving.mainRegion.removeEventListener("copy", leaving.onEditorCopy);
+    leaving.mainRegion.removeEventListener("cut", leaving.onEditorCopy);
+    leaving.formatBar?.removeEventListener("mousedown", leaving.onFormatMouseDown);
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
     window.removeEventListener("online", leaving.onOnline);
     window.removeEventListener("offline", leaving.onOffline);

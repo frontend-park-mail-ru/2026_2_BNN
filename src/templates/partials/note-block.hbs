@@ -24,6 +24,6 @@
         {{/unless}}
     {{else}}
         {{#if isChecklist}}<input class="notebook__check" type="checkbox" data-block-check {{#if checked}}checked{{/if}}>{{/if}}
-        <div class="notebook__text" contenteditable="plaintext-only" data-block-text>{{text}}</div>
+        <div class="notebook__text" contenteditable="true" data-block-text>{{inline text}}</div>
     {{/if}}
 </div>

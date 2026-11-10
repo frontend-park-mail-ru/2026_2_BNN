@@ -1,6 +1,7 @@
 import { api, ApiError } from "../api";
 import { navigate, resetAuthState } from "../router";
 import type { User } from "../store/app-store";
+import { AvatarCrop } from "../utils/avatar-crop";
 import { getNewPasswordError, getRepeatPasswordError } from "../utils/auth-form";
 import { formatJoined } from "../utils/date";
 import { handlePasswordToggleClick, resetPasswordToggles } from "../utils/password-toggle";
@@ -12,13 +13,12 @@ import {
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;
-const AVATAR_SPINNER_MIN = 600;
 
 const PROFILE_OPEN_FAILED = "Не удалось открыть профиль, попробуйте позже";
 const PASSWORD_SAVE_FAILED = "Не удалось сохранить пароль, попробуйте позже";
 const AVATAR_UPDATE_FAILED = "Не удалось обновить аватар, попробуйте позже";
 
-type ProfileView = "loading" | "menu" | "password" | "twoFactor" | "twoFactorDisable";
+type ProfileView = "loading" | "menu" | "password" | "twoFactor" | "twoFactorDisable" | "avatar";
 
 /** Колбэки и данные, которые страница заметок передаёт в модалку профиля. */
 export interface ProfileOptions {
@@ -100,24 +100,8 @@ function showProfileView(dialog: HTMLElement, view: ProfileView): void {
 
   const identity = dialog.querySelector<HTMLElement>("[data-profile-identity]");
   if (identity) {
-    identity.hidden = view === "loading";
+    identity.hidden = view === "loading" || view === "avatar";
   }
-}
-
-/**
- * Ждёт не меньше `min` мс с момента `started` (для минимальной длительности спиннера).
- *
- * @param started Время начала операции (`Date.now()`).
- * @param min Минимальная длительность в миллисекундах.
- */
-function waitAtLeast(started: number, min: number): Promise<void> {
-  const rest = min - (Date.now() - started);
-  if (rest <= 0) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, rest);
-  });
 }
 
 /**
@@ -201,6 +185,90 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   let profileRequest = 0;
   let openFrame = 0;
   let qrUrl = "";
+  let crop: AvatarCrop | null = null;
+  let cropToken = 0;
+
+  function setCropButtons(saving: boolean): void {
+    const save = dialog.querySelector<HTMLButtonElement>("[data-avatar-save]");
+    const cancel = dialog.querySelector<HTMLButtonElement>("[data-avatar-cancel]");
+    if (save) {
+      save.disabled = saving;
+      save.textContent = saving ? "Сохраняем…" : "Сохранить";
+    }
+    if (cancel) {
+      cancel.disabled = saving;
+    }
+  }
+
+  function closeCrop(): void {
+    cropToken += 1;
+    crop?.destroy();
+    crop = null;
+    setCropButtons(false);
+  }
+
+  async function startCrop(file: File): Promise<void> {
+    const canvas = dialog.querySelector("canvas[data-avatar-crop]");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return;
+    }
+    closeCrop();
+    const token = cropToken;
+    const next = await AvatarCrop.open(canvas, file);
+    if (token !== cropToken) {
+      next?.destroy();
+      return;
+    }
+    if (!next) {
+      showToast("Не удалось открыть изображение", false);
+      return;
+    }
+    crop = next;
+    showProfileView(dialog, "avatar");
+  }
+
+  async function saveCrop(): Promise<void> {
+    const current = crop;
+    if (!current) {
+      return;
+    }
+    const token = cropToken;
+    current.lock();
+    setCropButtons(true);
+    try {
+      const file = await current.toFile();
+      if (!file || token !== cropToken) {
+        return;
+      }
+      if (file.size > AVATAR_LIMIT) {
+        showToast("После обрезки файл больше 5 МБ", false);
+        return;
+      }
+      const profile = await api.updateAvatar(file);
+      fillProfile(page, dialog, profile, options.notesCount());
+      showToast("Аватар обновлён");
+      if (token === cropToken) {
+        closeCrop();
+        showProfileView(dialog, "menu");
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        resetAuthState("unauthenticated");
+        await navigate("/login");
+        return;
+      }
+      const message =
+        error instanceof ApiError && (error.status === 413 || error.status === 415)
+          ? error.message
+          : AVATAR_UPDATE_FAILED;
+      showToast(message, false);
+    } finally {
+      if (token === cropToken) {
+        current.unlock();
+        setCropButtons(false);
+      }
+    }
+  }
 
   function clearQr(): void {
     if (qrUrl) {
@@ -283,6 +351,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   }
 
   function closeProfile(): void {
+    closeCrop();
     profileRequest += 1;
     window.cancelAnimationFrame(openFrame);
     const wasOpen = dialog.classList.contains("modal_open");
@@ -308,6 +377,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   }
 
   async function openProfile(): Promise<void> {
+    closeCrop();
     const request = ++profileRequest;
     showDialog();
     showProfileView(dialog, "loading");
@@ -360,6 +430,17 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
     if (target.closest("[data-profile-close]") || target === dialog) {
       closeProfile();
+      return;
+    }
+
+    if (target.closest("[data-avatar-cancel]")) {
+      closeCrop();
+      showProfileView(dialog, "menu");
+      return;
+    }
+
+    if (target.closest("[data-avatar-save]")) {
+      void saveCrop();
       return;
     }
 
@@ -586,33 +667,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
 
-    const avatar = input.closest(".profile__avatar");
-    const started = Date.now();
-    avatar?.classList.add("login-form__submit_loading");
-    input.disabled = true;
-
-    void api
-      .updateAvatar(file)
-      .then(
-        (profile) => {
-          avatar?.classList.remove("login-form__submit_loading");
-          fillProfile(page, dialog, profile, options.notesCount());
-          showToast("Аватар обновлён");
-        },
-        async (error: unknown) => {
-          if (error instanceof ApiError && error.status === 401) {
-            resetAuthState("unauthenticated");
-            await navigate("/login");
-            return;
-          }
-          await waitAtLeast(started, AVATAR_SPINNER_MIN);
-          showToast(AVATAR_UPDATE_FAILED, false);
-        }
-      )
-      .finally(() => {
-        avatar?.classList.remove("login-form__submit_loading");
-        input.disabled = false;
-      });
+    void startCrop(file);
   }
 
   page.addEventListener("click", onClick);
@@ -624,6 +679,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   return () => {
     window.clearTimeout(toastTimer);
     window.clearTimeout(closeTimer);
+    closeCrop();
     clearQr();
     page.removeEventListener("click", onClick);
     page.removeEventListener("keydown", onKeyDown);

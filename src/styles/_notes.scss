@@ -638,6 +638,11 @@
     line-height: 1.5;
     position: relative;
 
+    &_marked .notebook__text {
+      border-radius: 4px;
+      background: color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+
     &_heading {
       margin-top: var(--space-s);
     }
@@ -700,6 +705,26 @@
     outline: none;
     white-space: pre-wrap;
     cursor: text;
+
+    strong,
+    b {
+      font-weight: 700;
+    }
+
+    em,
+    i {
+      font-style: italic;
+    }
+
+    u {
+      text-decoration: underline;
+    }
+
+    s,
+    strike,
+    del {
+      text-decoration: line-through;
+    }
   }
 
   &__check {
@@ -760,13 +785,16 @@
   }
 
   &__attachment-spinner {
+    display: block;
+    position: relative;
     flex-shrink: 0;
     width: 16px;
     height: 16px;
     border-radius: 50%;
     background: conic-gradient(from -18deg, transparent 0deg 52deg, var(--accent) 52deg 360deg);
     mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
-    animation: modal-spinner 0.8s linear infinite;
+    transform-origin: center;
+    animation: attachment-spinner 0.8s linear infinite;
   }
 
   &__attachment-remove {
@@ -1037,5 +1065,66 @@
 @keyframes modal-spinner {
   to {
     transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes attachment-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.format-bar {
+  position: absolute;
+  z-index: 6;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  width: max-content;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(15, 33, 64, 0.16);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &__button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible,
+    &[aria-pressed="true"] {
+      background: var(--dark-bg);
+    }
+  }
+}
+
+@supports (anchor-name: --format-line) {
+  .notebook__block:has(> .format-bar:not([hidden])) {
+    anchor-name: --format-line;
+  }
+
+  .format-bar:not([hidden]) {
+    position: fixed;
+    position-anchor: --format-line;
+    position-try-fallbacks: flip-block;
+    top: auto;
+    right: auto;
+    bottom: anchor(top);
+    left: anchor(left);
+    margin-bottom: 6px;
   }
 }
