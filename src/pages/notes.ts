@@ -642,6 +642,33 @@ function pickFile(accept: string): Promise<File | null> {
   });
 }
 
+const WELCOME_TITLE = "добро пожаловать";
+
+/** Заметка, которую показываем сразу после входа, если маршрут без id. */
+function welcomeNote(): Note | undefined {
+  return (
+    store.notes.find((note) => note.title.trim().toLowerCase() === WELCOME_TITLE) ?? store.notes[0]
+  );
+}
+
+function isNotesHome(path: string): boolean {
+  return path === "/" || path === "/notes" || path === "/profile";
+}
+
+/**
+ * На `/notes` без id открывает приветственную заметку.
+ * Пока список не загружен, id не подставляем: сначала виден скелет.
+ */
+function noteIdFor(context: PageContext): string | undefined {
+  if (context.params.id) {
+    return context.params.id;
+  }
+  if (!isNotesHome(context.path) || store.status !== "ready" || activeTagIds.length > 0) {
+    return undefined;
+  }
+  return welcomeNote()?.id;
+}
+
 /**
  * Формирует view-model для Handlebars-шаблонов страницы заметок.
  *
@@ -814,7 +841,7 @@ export class NotesPage {
   async render(context: PageContext): Promise<string> {
     connectionLost = false;
     const template = Handlebars.templates["notes"];
-    const view = buildView(context, context.params.id, "idle");
+    const view = buildView(context, noteIdFor(context), "idle");
     return template(view);
   }
 
@@ -856,13 +883,18 @@ export class NotesPage {
       history.replaceState(null, "", "/notes");
     }
 
+    const openedNoteId = noteIdFor(context);
+    if (openedNoteId && !context.params.id) {
+      history.replaceState(null, "", "/notes/" + openedNoteId);
+    }
+
     const instance: NotesInstance = {
       page: page,
       search: search,
       searchBox: searchBox,
       searchTimer: undefined,
       mainRegion: mainRegion,
-      noteId: context.params.id,
+      noteId: openedNoteId,
       saveStatus: "idle",
       saveTimer: undefined,
       saving: null,
@@ -1202,6 +1234,12 @@ export class NotesPage {
       if (store.status === "unauthorized") {
         await goToLogin();
         return;
+      }
+
+      const openedId = noteIdFor(context);
+      if (openedId && !instance.noteId) {
+        instance.noteId = openedId;
+        history.replaceState(null, "", "/notes/" + openedId);
       }
 
       update();

@@ -21,16 +21,63 @@ const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars
 const BYPASS_PATHS = ["/api/", "/swagger/"];
 const NOTE_PATH = /^\/api\/notes\/[^/]+$/;
 
+function rememberAsset(path, found, queue) {
+  if (!path.startsWith("/assets/") || found.has(path) || !/\.(?:js|css)$/.test(path)) {
+    return;
+  }
+  found.add(path);
+  if (path.endsWith(".js")) {
+    queue.push(path);
+  }
+}
+
+/** Собирает скрипты из HTML и из их import, включая проверки современного браузера. */
+async function collectAssets(html) {
+  const found = new Set();
+  const queue = [];
+  for (const match of html.matchAll(/\/assets\/[^"'\\\s>]+\.(?:js|css)/g)) {
+    rememberAsset(match[0], found, queue);
+  }
+
+  while (queue.length > 0) {
+    const path = queue.shift();
+    try {
+      const response = await fetch(path, { cache: "reload" });
+      if (!response.ok) {
+        continue;
+      }
+      const source = await response.text();
+      for (const match of source.matchAll(/\/assets\/[^"'\\\s>]+\.js/g)) {
+        rememberAsset(match[0], found, queue);
+      }
+    } catch {
+      // Нет сети на установке: файл попадёт в кэш при следующем открытии онлайн.
+    }
+  }
+
+  return [...found];
+}
+
+async function putPaths(cache, paths) {
+  await Promise.all(
+    paths.map(async (path) => {
+      try {
+        await cache.add(path);
+      } catch {
+        // Один битый файл не должен срывать установку всего кэша.
+      }
+    })
+  );
+}
+
 async function precache() {
   const cache = await caches.open(STATIC_CACHE);
   const page = await fetch("/", { cache: "reload" });
   const html = await page.clone().text();
-  const assets = [...html.matchAll(/\/assets\/[^"']+\.(?:js|css)/g)]
-    .map((match) => match[0])
-    .filter((path) => !path.includes("-legacy"));
+  const assets = await collectAssets(html);
 
   await cache.put("/", page);
-  await cache.addAll([...SHELL_FILES, ...assets]);
+  await putPaths(cache, [...SHELL_FILES, ...assets]);
 }
 
 async function removeOldCaches() {
@@ -46,11 +93,19 @@ async function fromCache(request, cacheName, cacheKey = request) {
     return cached;
   }
 
-  const response = await fetch(request);
-  if (response.status === 200) {
-    await cache.put(cacheKey, response.clone());
+  try {
+    const response = await fetch(request);
+    if (response.status === 200) {
+      await cache.put(cacheKey, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const fresh = await cache.match(cacheKey, { ignoreVary: true });
+    if (fresh) {
+      return fresh;
+    }
+    throw error;
   }
-  return response;
 }
 
 async function networkFirst(request, cacheName, cacheKey = request) {
