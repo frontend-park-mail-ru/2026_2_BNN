@@ -21,6 +21,13 @@ const API_PATHS = ["/api/auth/me", "/api/notes/", "/api/attachments/", "/avatars
 const BYPASS_PATHS = ["/api/", "/swagger/"];
 const NOTE_PATH = /^\/api\/notes\/[^/]+$/;
 
+/**
+ * Ответ, когда сети нет и в кэше ничего не нашлось.
+ * Для API это JSON 503, для перехода — короткая HTML-страница.
+ *
+ * @param request Перехваченный запрос.
+ * @returns Ответ со статусом 503.
+ */
 function offlineResponse(request) {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) {
@@ -41,6 +48,14 @@ function offlineResponse(request) {
   return new Response("", { status: 503, statusText: "Offline" });
 }
 
+/**
+ * Добавляет путь `/assets/*.js` или `.css` в набор прекэша.
+ * Скрипт ещё и ставится в очередь, чтобы вытащить из него `import`.
+ *
+ * @param path Путь файла из HTML или из другого скрипта.
+ * @param found Уже собранные пути.
+ * @param queue Скрипты, которые ещё надо прочитать.
+ */
 function rememberAsset(path, found, queue) {
   if (!path.startsWith("/assets/") || found.has(path) || !/\.(?:js|css)$/.test(path)) {
     return;
@@ -78,6 +93,13 @@ async function collectAssets(html) {
   return [...found];
 }
 
+/**
+ * Кладёт файлы в кэш по одному.
+ * Ошибка одного пути не отменяет установку остальных.
+ *
+ * @param cache Открытый статический кэш.
+ * @param paths Пути оболочки и собранных ассетов.
+ */
 async function putPaths(cache, paths) {
   await Promise.all(
     paths.map(async (path) => {
@@ -90,6 +112,9 @@ async function putPaths(cache, paths) {
   );
 }
 
+/**
+ * При установке worker скачивает `/`, шрифты и скрипты, на которые ссылается страница.
+ */
 async function precache() {
   const cache = await caches.open(STATIC_CACHE);
   const page = await fetch("/", { cache: "reload" });
@@ -100,12 +125,24 @@ async function precache() {
   await putPaths(cache, [...SHELL_FILES, ...assets]);
 }
 
+/**
+ * Удаляет кэши прошлых сборок. Текущий статический кэш и `bnn-api` оставляет.
+ */
 async function removeOldCaches() {
   const names = await caches.keys();
   const old = names.filter((name) => name !== STATIC_CACHE && name !== API_CACHE);
   await Promise.all(old.map((name) => caches.delete(name)));
 }
 
+/**
+ * Отдаёт ответ из кэша. Если его нет, идёт в сеть и сохраняет ответ 200.
+ * Для перехода без сети пробует сохранённую страницу `/`.
+ *
+ * @param request Исходный запрос.
+ * @param cacheName Имя кэша.
+ * @param cacheKey Ключ. У переходов это всегда `/`.
+ * @returns Ответ из кэша, сети или заглушка 503.
+ */
 async function fromCache(request, cacheName, cacheKey = request) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(cacheKey, { ignoreVary: true });
@@ -134,6 +171,14 @@ async function fromCache(request, cacheName, cacheKey = request) {
   }
 }
 
+/**
+ * Сначала спрашивает сеть и кэширует ответ 200. При обрыве отдаёт кэш.
+ *
+ * @param request Исходный запрос.
+ * @param cacheName Имя кэша API.
+ * @param cacheKey Ключ записи. По умолчанию сам запрос.
+ * @returns Свежий ответ, кэш или JSON 503.
+ */
 async function networkFirst(request, cacheName, cacheKey = request) {
   const cache = await caches.open(cacheName);
 
@@ -152,6 +197,12 @@ async function networkFirst(request, cacheName, cacheKey = request) {
   }
 }
 
+/**
+ * После успешного PUT кладёт заметку в кэш API, после DELETE убирает её оттуда.
+ *
+ * @param request PUT или DELETE `/api/notes/:id`.
+ * @returns Ответ сервера.
+ */
 async function syncNote(request) {
   const response = await fetch(request);
 

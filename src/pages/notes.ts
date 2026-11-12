@@ -472,6 +472,9 @@ async function fetchMissingDetails(): Promise<void> {
   const queue = store.notes.filter((note) => !note.tagsLoaded).map((note) => note.id);
   detailsFailed = false;
 
+  /**
+   * Забирает id из очереди и догружает заметку, пока загрузка списка не устарела.
+   */
   async function worker(): Promise<void> {
     while (queue.length > 0 && version === loadVersion) {
       const id = queue.shift() as string;
@@ -652,6 +655,12 @@ function welcomeNote(): Note | undefined {
   );
 }
 
+/**
+ * Маршруты без id заметки: с них открываем приветственную.
+ *
+ * @param path Текущий путь.
+ * @returns `true` для `/`, `/notes` и `/profile`.
+ */
 function isNotesHome(path: string): boolean {
   return path === "/" || path === "/notes" || path === "/profile";
 }
@@ -689,6 +698,12 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
   const hasNotes = store.notes.length > 0;
   const hasNote = currentNote !== null && currentNote.isLoaded;
 
+  /**
+   * Совпадает ли пункт сайдбара с открытым разделом.
+   *
+   * @param section Пункт из `SECTIONS`.
+   * @returns `true`, если это текущий раздел.
+   */
   function isActive(section: Section): boolean {
     return section === currentSection;
   }
@@ -952,6 +967,11 @@ export class NotesPage {
       instance.destroyTags = tagsDialog.destroy;
     }
 
+    /**
+     * Загружает тело заметки. 404 возвращает к списку, обрыв сети оставляет уже открытое.
+     *
+     * @param id Идентификатор заметки.
+     */
     async function loadNote(id: string): Promise<void> {
       try {
         const loaded = normalizeNote(await api.getNote(id));
@@ -989,6 +1009,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Перерисовывает список слева и открытую заметку.
+     */
     function update(): void {
       const view = buildView(context, instance.noteId, instance.saveStatus);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
@@ -1001,6 +1024,9 @@ export class NotesPage {
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
     }
 
+    /**
+     * На следующем кадре обновляет список и поиск, когда догрузились теги.
+     */
     function onDetailsLoaded(): void {
       if (instance.listFrame || mounted !== instance) {
         return;
@@ -1012,24 +1038,42 @@ export class NotesPage {
       });
     }
 
+    /**
+     * Фильтр или поиск по тегам упирается в заметки, у которых теги ещё не загружены.
+     *
+     * @returns `true`, если догрузку стоит запустить.
+     */
     function needsTagDetails(): boolean {
       const query = search.value.trim();
       const tagSearch = query !== "" && (query.startsWith("#") || filterTags(query).length > 0);
       return (activeTagIds.length > 0 || tagSearch) && hasMissingDetails();
     }
 
+    /**
+     * Запускает догрузку тегов, если она ещё не провалилась.
+     */
     function ensureTagDetails(): void {
       if (store.status === "ready" && !detailsFailed && needsTagDetails()) {
         void loadMissingDetails();
       }
     }
 
+    /**
+     * Оставляет в списке заметки, у которых есть все выбранные теги.
+     *
+     * @param ids Выбранные теги. Пустой массив снимает фильтр.
+     */
     function applyTagFilter(ids: string[]): void {
       activeTagIds = ids;
       renderList();
       ensureTagDetails();
     }
 
+    /**
+     * Добавляет тег в фильтр или убирает его.
+     *
+     * @param id Идентификатор тега.
+     */
     function toggleTagFilter(id: string): void {
       const ids = activeTagIds.includes(id)
         ? activeTagIds.filter((item) => item !== id)
@@ -1037,6 +1081,9 @@ export class NotesPage {
       applyTagFilter(ids);
     }
 
+    /**
+     * Обновляет список, чипы заметки и открытый пикер после изменения справочника тегов.
+     */
     function refreshTags(): void {
       renderList();
       if (mainRegion.querySelector("[data-note-tags]")) {
@@ -1045,6 +1092,11 @@ export class NotesPage {
       renderPickerList();
     }
 
+    /**
+     * Собирает id тегов с чипов открытой заметки.
+     *
+     * @returns Идентификаторы в порядке чипов.
+     */
     function getNoteTagIds(): string[] {
       const ids: string[] = [];
       for (const chip of mainRegion.querySelectorAll<HTMLElement>("[data-note-tag]")) {
@@ -1055,6 +1107,11 @@ export class NotesPage {
       return ids;
     }
 
+    /**
+     * Перерисовывает чипы тегов у открытой заметки.
+     *
+     * @param ids Теги, которые должны остаться на заметке.
+     */
     function renderNoteTags(ids: string[]): void {
       const list = mainRegion.querySelector<HTMLElement>("[data-note-tags]");
       if (!list) {
@@ -1067,12 +1124,23 @@ export class NotesPage {
       setTagPickerExpanded(mainRegion.querySelector("[data-tag-picker]") !== null);
     }
 
+    /**
+     * Синхронизирует `aria-expanded` кнопки пикера тегов.
+     *
+     * @param open Пикер открыт.
+     */
     function setTagPickerExpanded(open: boolean): void {
       mainRegion
         .querySelector("[data-tag-picker-open]")
         ?.setAttribute("aria-expanded", String(open));
     }
 
+    /**
+     * Данные шаблона пикера: подходящие теги и имя, которого ещё нет.
+     *
+     * @param query Строка поиска в пикере.
+     * @returns Поля для `tag-picker` и `tag-picker-list`.
+     */
     function tagPickerView(query: string) {
       const selected = getNoteTagIds();
       const key = query.trim().toLowerCase();
@@ -1087,6 +1155,9 @@ export class NotesPage {
       };
     }
 
+    /**
+     * Вставляет пикер тегов под чипами и фокусирует поле.
+     */
     function openTagPicker(): void {
       const root = mainRegion.querySelector<HTMLElement>("[data-note-tags-root]");
       if (!root) {
@@ -1098,11 +1169,17 @@ export class NotesPage {
       root.querySelector<HTMLInputElement>("[data-tag-picker-input]")?.focus();
     }
 
+    /**
+     * Убирает пикер тегов из заметки.
+     */
     function closeTagPicker(): void {
       mainRegion.querySelector("[data-tag-picker]")?.remove();
       setTagPickerExpanded(false);
     }
 
+    /**
+     * Обновляет только список внутри уже открытого пикера.
+     */
     function renderPickerList(): void {
       const picker = mainRegion.querySelector<HTMLElement>("[data-tag-picker]");
       const input = picker?.querySelector<HTMLInputElement>("[data-tag-picker-input]");
@@ -1113,6 +1190,11 @@ export class NotesPage {
       list.innerHTML = Handlebars.partials["tag-picker-list"](tagPickerView(input.value));
     }
 
+    /**
+     * Показывает или прячет ошибку под полем нового тега.
+     *
+     * @param message Текст. Пустая строка скрывает ошибку.
+     */
     function showTagPickerError(message: string): void {
       const error = mainRegion.querySelector<HTMLElement>("[data-tag-picker-error]");
       if (error) {
@@ -1121,6 +1203,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Вешает тег на заметку или снимает его и ставит сохранение в очередь.
+     *
+     * @param id Идентификатор тега.
+     */
     function toggleNoteTag(id: string): void {
       const ids = getNoteTagIds();
       renderNoteTags(ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
@@ -1131,6 +1218,11 @@ export class NotesPage {
 
     let creatingTag = false;
 
+    /**
+     * Создаёт тег из пикера и сразу добавляет его к заметке.
+     *
+     * @param name Название без лишних пробелов.
+     */
     async function createTagFromPicker(name: string): Promise<void> {
       if (creatingTag) {
         return;
@@ -1166,6 +1258,12 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Escape закрывает пикер, Enter выбирает существующий тег или создаёт новый.
+     *
+     * @param event Клавиша в поле пикера.
+     * @param input Поле названия.
+     */
     function onTagPickerKeyDown(event: KeyboardEvent, input: HTMLInputElement): void {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -1191,18 +1289,27 @@ export class NotesPage {
       void createTagFromPicker(name.slice(0, TAG_NAME_MAX_LENGTH));
     }
 
+    /**
+     * Закрывает пикер и открывает модалку всех тегов.
+     */
     function openTagsDialog(): void {
       closeTagPicker();
       searchResults.hidden = true;
       tagsDialog?.open();
     }
 
+    /**
+     * Сбрасывает сессию и открывает `/login` без новой записи в истории.
+     */
     async function goToLogin(): Promise<void> {
       resetAuthState("unauthenticated");
       history.replaceState(null, "", "/login");
       await router();
     }
 
+    /**
+     * Догружает открытую заметку, если в списке у неё ещё нет блоков.
+     */
     function checkLoadedNote(): void {
       const id = instance.noteId;
       if (!id || id === "new") {
@@ -1214,10 +1321,16 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Ставит фокус в заголовок заметки.
+     */
     function focusTitle(): void {
       mainRegion.querySelector<HTMLElement>("[data-note-title]")?.focus();
     }
 
+    /**
+     * Фокусирует заголовок, если новую заметку только что создали.
+     */
     function focusPendingTitle(): void {
       if (pendingFocusNoteId !== null && pendingFocusNoteId === instance.noteId) {
         pendingFocusNoteId = null;
@@ -1225,6 +1338,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Ждёт список, при необходимости открывает приветственную заметку и догружает её.
+     */
     async function loadAndShow(): Promise<void> {
       await waitForNotes();
 
@@ -1290,6 +1406,9 @@ export class NotesPage {
         : "";
     }
 
+    /**
+     * Обновляет результаты поиска с задержкой после ввода.
+     */
     function onSearchInput(): void {
       window.clearTimeout(instance.searchTimer);
       instance.searchTimer = window.setTimeout(renderSearchResults, SEARCH_DELAY);
@@ -1320,6 +1439,11 @@ export class NotesPage {
       await navigate("/login");
     }
 
+    /**
+     * Открывает или закрывает меню действий заметки.
+     *
+     * @param open Меню должно быть видно.
+     */
     function setNoteMenu(open: boolean): void {
       const button = mainRegion.querySelector<HTMLElement>("[data-note-menu-toggle]");
       const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
@@ -1331,6 +1455,9 @@ export class NotesPage {
       button.setAttribute("aria-expanded", String(open));
     }
 
+    /**
+     * Показывает подтверждение удаления заметки.
+     */
     function openDeleteDialog(): void {
       setNoteMenu(false);
       const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
@@ -1341,12 +1468,20 @@ export class NotesPage {
       deleteDialog.querySelector<HTMLElement>("[data-delete-cancel]")?.focus();
     }
 
+    /**
+     * Прячет подтверждение удаления.
+     */
     function closeDeleteDialog(): void {
       if (!instance.deleting) {
         deleteDialog.hidden = true;
       }
     }
 
+    /**
+     * Блокирует кнопки удаления, пока запрос не завершился.
+     *
+     * @param deleting Удаление идёт.
+     */
     function setDeleting(deleting: boolean): void {
       instance.deleting = deleting;
       for (const button of deleteDialog.querySelectorAll<HTMLButtonElement>("button")) {
@@ -1357,6 +1492,11 @@ export class NotesPage {
         ?.classList.toggle("modal__button_loading", deleting);
     }
 
+    /**
+     * Пишет ошибку удаления в диалог.
+     *
+     * @param message Текст для пользователя.
+     */
     function showDeleteError(message: string): void {
       const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
       if (error) {
@@ -1365,6 +1505,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Удаляет открытую заметку и возвращает к списку.
+     */
     async function deleteNote(): Promise<void> {
       if (instance.deleting) {
         return;
@@ -1416,6 +1559,12 @@ export class NotesPage {
       await router();
     }
 
+    /**
+     * Показывает тост страницы заметок.
+     *
+     * @param text Текст.
+     * @param isError Красить тост как ошибку.
+     */
     function showToast(text: string, isError = false): void {
       const label = toast.querySelector<HTMLElement>("[data-toast-text]");
       if (label) {
@@ -1427,11 +1576,17 @@ export class NotesPage {
       instance.toastTimer = window.setTimeout(hideToast, TOAST_DELAY);
     }
 
+    /**
+     * Сразу прячет тост страницы заметок.
+     */
     function hideToast(): void {
       toast.hidden = true;
       toast.classList.remove("toast_error");
     }
 
+    /**
+     * Откладывает сохранение, пока ввод продолжается.
+     */
     function timerSave(): void {
       instance.hasPendingChanges = true;
       setSaveStatus("idle");
@@ -1439,6 +1594,9 @@ export class NotesPage {
       instance.saveTimer = window.setTimeout(() => void runSave(), SAVE_DELAY);
     }
 
+    /**
+     * Собирает блоки и отправляет заметку. Черновик `new` сначала создаётся.
+     */
     async function saveNote(): Promise<void> {
       if (!instance.hasPendingChanges) {
         return;
@@ -1512,6 +1670,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Запускает сохранение, если предыдущий запрос уже закончился.
+     *
+     * @returns Обещание текущего или нового сохранения.
+     */
     function runSave(): Promise<void> {
       if (!instance.saving) {
         instance.saving = saveNote().finally(() => {
@@ -1521,6 +1684,9 @@ export class NotesPage {
       return instance.saving;
     }
 
+    /**
+     * Дожидается текущего сохранения и досылает правки, которые пришли во время запроса.
+     */
     async function finishSaving(): Promise<void> {
       if (instance.saving) {
         await instance.saving;
@@ -1531,6 +1697,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Открывает пустую заметку с локальным id `new`.
+     */
     function openDraft(): void {
       if (instance.noteId === "new") {
         focusTitle();
@@ -1540,6 +1709,11 @@ export class NotesPage {
       void navigate("/notes/" + "new");
     }
 
+    /**
+     * Читает заголовок из contenteditable.
+     *
+     * @returns Текст заголовка. Пустой заголовок остаётся пустой строкой.
+     */
     function readTitle(): string {
       const title = mainRegion.querySelector<HTMLElement>("[data-note-title]");
       return (title?.textContent ?? "").trim().slice(0, TITLE_MAX_LENGTH);
@@ -1583,6 +1757,12 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Собирает содержимое одного блока для API.
+     *
+     * @param element Узел `[data-block]`.
+     * @returns Содержимое или `null`, если блок разобрать нельзя.
+     */
     function readBlock(element: HTMLElement): BlockContent | null {
       if (element.dataset.content) {
         try {
@@ -1601,6 +1781,11 @@ export class NotesPage {
       return content;
     }
 
+    /**
+     * Собирает блоки заметки. Пустые строки после последнего текста в сохранение не попадают.
+     *
+     * @returns Элементы, тела блоков и элементы, которым не нужно писать id.
+     */
     function collectBlocks(): {
       elements: HTMLElement[];
       blocks: BlockInput[];
@@ -1647,6 +1832,11 @@ export class NotesPage {
       return { elements, blocks, skipped };
     }
 
+    /**
+     * Показывает меню типа блока.
+     *
+     * @param block Блок, в котором ввели `/`.
+     */
     function openBlockMenu(block: HTMLElement): void {
       closeBlockMenu();
       block.insertAdjacentHTML(
@@ -1655,10 +1845,19 @@ export class NotesPage {
       );
     }
 
+    /**
+     * Убирает меню типа блока.
+     */
     function closeBlockMenu(): void {
       mainRegion.querySelector("[data-block-menu]")?.remove();
     }
 
+    /**
+     * Сдвигает подсветку пункта меню блока.
+     *
+     * @param menu Открытое меню.
+     * @param step `1` вниз, `-1` вверх.
+     */
     function moveBlockMenu(menu: HTMLElement, step: number): void {
       const items = Array.from(menu.querySelectorAll<HTMLElement>("[data-block-option]"));
       const current = items.findIndex((item) => item.classList.contains("block-menu__item_active"));
@@ -1668,6 +1867,12 @@ export class NotesPage {
       next.scrollIntoView({ block: "nearest" });
     }
 
+    /**
+     * Меняет тип блока и закрывает меню.
+     *
+     * @param block Текущий блок.
+     * @param type Новый тип.
+     */
     function chooseBlockType(block: HTMLElement, type: BlockType): void {
       closeBlockMenu();
 
@@ -1687,6 +1892,13 @@ export class NotesPage {
       timerSave();
     }
 
+    /**
+     * Проверяет сигнатуру файла и решает, картинка это или вложение.
+     *
+     * @param file Выбранный файл.
+     * @param requested Что просил пользователь: картинку, файл или любой подходящий тип.
+     * @returns Тип блока или `null`, если формат не подходит.
+     */
     async function acceptedAttachment(
       file: File,
       requested: "image" | "file" | "auto"
@@ -1710,6 +1922,13 @@ export class NotesPage {
       return "file";
     }
 
+    /**
+     * Загружает файл в блок и показывает спиннер, пока запрос не закончился.
+     *
+     * @param block Блок, который станет картинкой или файлом.
+     * @param requested Ожидаемый вид вложения.
+     * @param given Файл из вставки или сброса. Без него откроется выбор файла.
+     */
     async function attachFile(
       block: HTMLElement,
       requested: "image" | "file" | "auto",
@@ -1773,6 +1992,12 @@ export class NotesPage {
       timerSave();
     }
 
+    /**
+     * Ставит несколько файлов в заметку, каждый в свой блок.
+     *
+     * @param block Блок, с которого начинается вставка.
+     * @param files Файлы из буфера или drop.
+     */
     async function attachFiles(block: HTMLElement, files: File[]): Promise<void> {
       closeBlockMenu();
       const accepted: File[] = [];
@@ -1809,6 +2034,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Удаляет вложение и превращает блок в пустой текст.
+     *
+     * @param block Блок картинки или файла.
+     */
     async function removeAttachment(block: HTMLElement): Promise<void> {
       const content = readBlock(block);
       if (formatBar && block.contains(formatBar)) {
@@ -1822,12 +2052,23 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Записывает в DOM id, которые сервер выдал новым блокам. Пропущенные элементы id теряют.
+     *
+     * @param elements Блоки, ушедшие в запрос, в том же порядке.
+     * @param saved Блоки из ответа сервера.
+     */
     function applyBlockIds(elements: HTMLElement[], saved: NoteBlock[]): void {
       for (let i = 0; i < elements.length && i < saved.length; i++) {
         elements[i].dataset.blockId = saved[i].id;
       }
     }
 
+    /**
+     * Меняет подпись состояния сохранения в шапке заметки.
+     *
+     * @param status Новое состояние.
+     */
     function setSaveStatus(status: SaveStatus): void {
       instance.saveStatus = status;
       const label = mainRegion.querySelector<HTMLElement>("[data-save-status]");
@@ -1837,6 +2078,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Обновляет заголовок карточки в списке, не перерисовывая редактор.
+     *
+     * @param title Новый заголовок. Пустой показывается как «Без названия».
+     */
     function showTitleInList(title: string): void {
       const text = title || "Без названия";
       const card = listRegion.querySelector<HTMLElement>(".card_active .card__title");
@@ -1850,6 +2096,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Подменяет адрес черновика на id созданной заметки.
+     *
+     * @param id Идентификатор с сервера.
+     */
     function replaceDraftCard(id: string): void {
       const card = listRegion.querySelector<HTMLAnchorElement>(`a[href="/notes/${"new"}"]`);
       if (card) {
@@ -1868,10 +2119,18 @@ export class NotesPage {
       );
     }
 
+    /**
+     * Блоки, выделенные протяжкой через несколько строк.
+     *
+     * @returns Узлы с классом `notebook__block_marked`.
+     */
     function markedBlocks(): HTMLElement[] {
       return [...mainRegion.querySelectorAll<HTMLElement>(".notebook__block_marked")];
     }
 
+    /**
+     * Снимает выделение нескольких блоков.
+     */
     function clearMarked(): void {
       mainRegion.querySelectorAll(".notebook__block_marked").forEach((node) => {
         node.classList.remove("notebook__block_marked");
@@ -1933,6 +2192,13 @@ export class NotesPage {
       return true;
     }
 
+    /**
+     * Ищет ближайший текстовый блок сверху или снизу. Картинки и файлы пропускает.
+     *
+     * @param block Текущий блок.
+     * @param direction `1` вниз, `-1` вверх.
+     * @returns Соседний текстовый блок или `null`.
+     */
     function neighborTextBlock(block: HTMLElement, direction: 1 | -1): HTMLElement | null {
       let cursor: Element | null =
         direction === 1 ? block.nextElementSibling : block.previousElementSibling;
@@ -1954,10 +2220,23 @@ export class NotesPage {
       return sibling.querySelector("[data-block-text]") ? sibling : null;
     }
 
+    /**
+     * Текст строки без хвостового переноса, который добавляет contenteditable.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @returns Видимый текст.
+     */
     function visibleText(text: HTMLElement): string {
       return text.innerText.replaceAll("\u00a0", " ").trim();
     }
 
+    /**
+     * Каретка стоит в начале или в конце текста блока.
+     *
+     * @param text Текстовый узел блока.
+     * @param atStart Проверять начало, а не конец.
+     * @returns `true`, если в эту сторону текст уже кончился.
+     */
     function reachesEdge(text: HTMLElement, atStart: boolean): boolean {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) {
@@ -1981,6 +2260,12 @@ export class NotesPage {
       return probe.toString() === "";
     }
 
+    /**
+     * Выделение схлопнуто и находится внутри этой строки.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @returns `true`, если каретка в этой строке.
+     */
     function collapsedIn(text: HTMLElement): boolean {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
@@ -1989,6 +2274,12 @@ export class NotesPage {
       return text.contains(selection.getRangeAt(0).startContainer);
     }
 
+    /**
+     * Прямоугольник диапазона.
+     *
+     * @param range Диапазон каретки.
+     * @returns Прямоугольник или `null`, если его нет на экране.
+     */
     function rangeRect(range: Range): DOMRect | null {
       const rects = range.getClientRects();
       for (let i = rects.length - 1; i >= 0; i -= 1) {
@@ -1999,6 +2290,12 @@ export class NotesPage {
       return null;
     }
 
+    /**
+     * Прямоугольник конца узла. Нужен, когда у пустой каретки нет своей ширины.
+     *
+     * @param node Текстовый узел или элемент строки.
+     * @returns Прямоугольник или `null`.
+     */
     function rectAtEnd(node: Node): DOMRect | null {
       if (node.nodeType === Node.TEXT_NODE) {
         const value = node.textContent ?? "";
@@ -2016,6 +2313,12 @@ export class NotesPage {
       return null;
     }
 
+    /**
+     * Прямоугольник каретки в строке.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @returns Прямоугольник каретки или конца предыдущего символа.
+     */
     function focusRect(text: HTMLElement): DOMRect | null {
       const selection = window.getSelection();
       const node = selection?.focusNode;
@@ -2065,6 +2368,13 @@ export class NotesPage {
       return box.height > 0 ? box : null;
     }
 
+    /**
+     * Каретка на первой или последней визуальной строке блока.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @param edge `"first"` или `"last"`.
+     * @returns `true`, если стрелка должна перейти в соседний блок.
+     */
     function onEdgeLine(text: HTMLElement, edge: "first" | "last"): boolean {
       const rect = focusRect(text);
       if (!rect) {
@@ -2078,6 +2388,12 @@ export class NotesPage {
       return box.bottom - rect.bottom <= slack;
     }
 
+    /**
+     * Горизонталь каретки, чтобы попасть в тот же столбец соседней строки.
+     *
+     * @param text Текущая строка.
+     * @returns Координата `clientX`.
+     */
     function caretX(text: HTMLElement): number {
       const rect = focusRect(text);
       if (!rect) {
@@ -2090,6 +2406,14 @@ export class NotesPage {
       return rect.right - 1;
     }
 
+    /**
+     * Ставит каретку в точку экрана внутри строки.
+     *
+     * @param text Целевая строка.
+     * @param x Горизонталь.
+     * @param y Вертикаль.
+     * @returns `false`, если браузер не умеет ставить каретку по точке.
+     */
     function placeCaretAtClient(text: HTMLElement, x: number, y: number): boolean {
       let range: Range | null = null;
       if (typeof document.caretRangeFromPoint === "function") {
@@ -2113,6 +2437,12 @@ export class NotesPage {
       return true;
     }
 
+    /**
+     * Ставит каретку на символ с этим индексом в `textContent`.
+     *
+     * @param text Строка.
+     * @param index Индекс символа. Большой индекс ставит каретку в конец.
+     */
     function placeAtChar(text: HTMLElement, index: number): void {
       const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
       let remaining = index;
@@ -2135,6 +2465,13 @@ export class NotesPage {
       placeCaret(text, true);
     }
 
+    /**
+     * Переносит каретку в другой текстовый блок, сохраняя горизонталь.
+     *
+     * @param block Целевой блок.
+     * @param x Горизонталь с предыдущей строки.
+     * @param edge `"start"` или `"end"`, если точку поставить нельзя.
+     */
     function moveCaretToBlock(block: HTMLElement, x: number, edge: "start" | "end"): void {
       const text = block.querySelector<HTMLElement>("[data-block-text]");
       if (!text) {
@@ -2147,6 +2484,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Схлопывает выделенные блоки в первый и очищает его текст.
+     *
+     * @returns Оставшийся блок или `null`, если выделения не было.
+     */
     function deleteMarked(): HTMLElement | null {
       const blocks = markedBlocks();
       const first = blocks[0];
@@ -2314,6 +2656,13 @@ export class NotesPage {
       return true;
     }
 
+    /**
+     * Текстовый блок под указателем, с небольшим допуском по вертикали.
+     *
+     * @param x Координата указателя.
+     * @param y Координата указателя.
+     * @returns Блок или `null`.
+     */
     function blockAtPoint(x: number, y: number): HTMLElement | null {
       const node = document.elementFromPoint(x, y);
       if (node instanceof Element) {
@@ -2338,6 +2687,11 @@ export class NotesPage {
       return closest;
     }
 
+    /**
+     * Начинает выделение нескольких блоков, если нажатие пришлось на строку.
+     *
+     * @param event Нажатие указателя.
+     */
     function onEditorPointerDown(event: PointerEvent): void {
       if (event.button !== 0) {
         return;
@@ -2369,6 +2723,11 @@ export class NotesPage {
       dragAnchor = block;
     }
 
+    /**
+     * Расширяет выделение блоков, пока кнопка зажата.
+     *
+     * @param event Движение указателя.
+     */
     function onEditorPointerMove(event: PointerEvent): void {
       if (!dragAnchor || (event.buttons & 1) === 0) {
         return;
@@ -2383,6 +2742,9 @@ export class NotesPage {
       markRange(dragAnchor, block, false);
     }
 
+    /**
+     * Заканчивает протяжку выделения.
+     */
     function onEditorPointerUp(): void {
       if (dragAnchor && markAnchor && markFocus) {
         markRange(markAnchor, markFocus, true);
@@ -2390,6 +2752,11 @@ export class NotesPage {
       dragAnchor = null;
     }
 
+    /**
+     * Кладёт выделенные блоки в буфер одним текстом, строки разделяет переводом.
+     *
+     * @param event `copy` или `cut`.
+     */
     function onEditorCopy(event: ClipboardEvent): void {
       const blocks = markedBlocks();
       if (blocks.length < 2 || !event.clipboardData) {
@@ -2409,6 +2776,12 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Ставит каретку в начало или конец строки.
+     *
+     * @param element Узел `[data-block-text]`.
+     * @param atEnd Ставить в конец.
+     */
     function placeCaret(element: HTMLElement, atEnd: boolean): void {
       element.focus();
       const range = document.createRange();
@@ -2419,6 +2792,12 @@ export class NotesPage {
       selection?.addRange(range);
     }
 
+    /**
+     * Вырезает содержимое строки после каретки.
+     *
+     * @param text Текущая строка.
+     * @returns Фрагмент или `null`, если после каретки пусто.
+     */
     function cutAfterCaret(text: HTMLElement): DocumentFragment | null {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) {
@@ -2437,12 +2816,22 @@ export class NotesPage {
       return tail.extractContents();
     }
 
+    /**
+     * Вставляет новый блок следом за текущим.
+     *
+     * @param block Опорный блок.
+     * @param type Тип нового блока.
+     * @returns Новый блок или `null`, если разметку собрать нельзя.
+     */
     function insertBlockAfter(block: HTMLElement, type: BlockType): HTMLElement | null {
       const view = toBlockView({ id: "", content: { type, text: "" } });
       block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
       return block.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]") ?? null;
     }
 
+    /**
+     * Прячет панель форматирования вне строки, чтобы перерисовка её не уничтожила.
+     */
     function parkFormatBar(): void {
       if (!formatBar) {
         return;
@@ -2451,6 +2840,9 @@ export class NotesPage {
       page.append(formatBar);
     }
 
+    /**
+     * Показывает панель форматирования над строкой с кареткой.
+     */
     function placeFormatBar(): void {
       if (!formatBar) {
         return;
@@ -2481,14 +2873,29 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Обновляет панель форматирования, когда меняется выделение.
+     */
     function onSelectionChange(): void {
       placeFormatBar();
     }
 
+    /**
+     * Не даёт кнопке панели забрать фокус у строки.
+     *
+     * @param event Нажатие на кнопку «Ж», «К», «Ч» или «А».
+     */
     function onFormatMouseDown(event: MouseEvent): void {
       event.preventDefault();
     }
 
+    /**
+     * Подменяет разметку блока и возвращает новый узел.
+     *
+     * @param block Старый блок.
+     * @param view Данные для шаблона `note-block`.
+     * @returns Вставленный блок.
+     */
     function replaceBlock(block: HTMLElement, view: BlockView): HTMLElement {
       if (formatBar && block.contains(formatBar)) {
         parkFormatBar();
@@ -2499,6 +2906,11 @@ export class NotesPage {
       return next;
     }
 
+    /**
+     * Горячие клавиши формата, Enter и переход каретки между блоками.
+     *
+     * @param event Клавиша внутри заметки.
+     */
     function onNoteKeyDown(event: KeyboardEvent): void {
       const target = event.target;
       if (event.isComposing || !(target instanceof HTMLElement)) {
@@ -2633,6 +3045,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Клики по списку, тегам, меню заметки и кнопкам страницы.
+     *
+     * @param event Клик на странице заметок.
+     */
     function onPageClick(event: MouseEvent): void {
       const target = event.target;
 
@@ -2817,6 +3234,11 @@ export class NotesPage {
       closeTagPicker();
     }
 
+    /**
+     * Открывает меню по `/`, снимает лишнее выделение и ставит сохранение.
+     *
+     * @param event Ввод в заголовке или строке.
+     */
     function onNoteInput(event: Event): void {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
@@ -2860,6 +3282,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Сбрасывает ошибку сети и заново запрашивает список.
+     */
     function retryLoad(): void {
       connectionLost = false;
       store.status = "idle";
@@ -2867,11 +3292,17 @@ export class NotesPage {
       void loadAndShow();
     }
 
+    /**
+     * Показывает тост «Потеря соединения».
+     */
     function onOffline(): void {
       showToast("Потеря соединения", true);
       window.clearTimeout(instance.toastTimer);
     }
 
+    /**
+     * Прячет тост и досылает сохранение или догрузку, которые ждали сеть.
+     */
     function onOnline(): void {
       hideToast();
       toast.classList.remove("toast_error");
@@ -2889,12 +3320,23 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Блок, в который попадут файлы из буфера. Без цели берётся последний блок.
+     *
+     * @param target Цель события.
+     * @returns Блок или `null`, если в заметке блоков нет.
+     */
     function findFileTarget(target: EventTarget | null): HTMLElement | null {
       const block = target instanceof Element ? target.closest<HTMLElement>("[data-block]") : null;
       const blocks = mainRegion.querySelectorAll<HTMLElement>("[data-block]");
       return block ?? blocks[blocks.length - 1] ?? null;
     }
 
+    /**
+     * Вставляет текст без чужой разметки или файлы из буфера.
+     *
+     * @param event Вставка на странице.
+     */
     function onPaste(event: ClipboardEvent): void {
       const data = event.clipboardData;
       const target = event.target;
@@ -2940,11 +3382,22 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Блок под курсором при перетаскивании файла.
+     *
+     * @param event Событие drag.
+     * @returns Блок или `null`.
+     */
     function findDropTarget(event: DragEvent): HTMLElement | null {
       const inNote = event.target instanceof Node && mainRegion.contains(event.target);
       return inNote ? findFileTarget(event.target) : null;
     }
 
+    /**
+     * Разрешает сброс файла на блок.
+     *
+     * @param event Перетаскивание над страницей.
+     */
     function onDragOver(event: DragEvent): void {
       if (event.dataTransfer?.types.includes("Files")) {
         event.preventDefault();
@@ -2954,12 +3407,22 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Снимает подсветку, когда файл уводят с блока.
+     *
+     * @param event Уход указателя с цели.
+     */
     function onDragLeave(event: DragEvent): void {
       if (!event.relatedTarget) {
         mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", false);
       }
     }
 
+    /**
+     * Загружает файлы, сброшенные на блок.
+     *
+     * @param event Сброс файлов.
+     */
     function onDrop(event: DragEvent): void {
       if (!event.dataTransfer?.types.includes("Files")) {
         return;
@@ -2973,12 +3436,22 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Сохраняет заметку, когда переключают пункт чеклиста.
+     *
+     * @param event `change` внутри заметки.
+     */
     function onNoteChange(event: Event): void {
       if (event.target instanceof HTMLInputElement && event.target.matches("[data-block-check]")) {
         timerSave();
       }
     }
 
+    /**
+     * Предупреждает о несохранённых правках при закрытии вкладки.
+     *
+     * @param event Закрытие или обновление страницы.
+     */
     function onBeforeUnload(event: BeforeUnloadEvent): void {
       if (instance.hasPendingChanges || instance.saving) {
         event.preventDefault();

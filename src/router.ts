@@ -91,6 +91,12 @@ function matchRoute(pattern: string, path: string): Record<string, string> | nul
 let currentPage: Page | null = null;
 let renderId = 0;
 
+/**
+ * Проверяет, что JSON из кэша похож на профиль `/api/auth/me`.
+ *
+ * @param value Разобранное тело ответа.
+ * @returns `true`, если обязательные поля профиля на месте.
+ */
 function isCachedUser(value: unknown): value is User {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -111,6 +117,11 @@ function isCachedUser(value: unknown): value is User {
   );
 }
 
+/**
+ * Достаёт профиль из кэша `bnn-api`, если его уже получали онлайн.
+ *
+ * @returns Профиль или `null`, если кэша нет или он битый.
+ */
 async function cachedProfile(): Promise<User | null> {
   if (!("caches" in window)) {
     return null;

@@ -22,10 +22,24 @@ interface Drag {
   start: Square;
 }
 
+/**
+ * Ограничивает число отрезком.
+ *
+ * @param value Исходное значение.
+ * @param min Нижняя граница.
+ * @param max Верхняя граница.
+ * @returns Число внутри границ.
+ */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * Декодирует картинку по объектному URL.
+ *
+ * @param url Временный адрес файла.
+ * @returns Элемент с известными `naturalWidth` и `naturalHeight`.
+ */
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -58,6 +72,16 @@ export class AvatarCrop {
     this.pointerUp(event);
   };
 
+  /**
+   * Собирает кроппер вокруг уже декодированной картинки.
+   *
+   * @param canvas Холст кропа.
+   * @param ctx Контекст этого холста.
+   * @param image Декодированный файл.
+   * @param url Объектный адрес, который нужно освободить в `destroy`.
+   * @param fileName Имя исходного файла.
+   * @param mime MIME, с которым кадр уйдёт на сервер.
+   */
   private constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly ctx: CanvasRenderingContext2D,
@@ -157,6 +181,9 @@ export class AvatarCrop {
     return new File([blob], this.fileName, { type: this.mime });
   }
 
+  /**
+   * Вписывает картинку в холст и ставит начальный квадрат по меньшей стороне.
+   */
   private layout(): void {
     const pad = 12;
     const maxSide = VIEW - pad * 2;
@@ -172,6 +199,9 @@ export class AvatarCrop {
     };
   }
 
+  /**
+   * Подписывает холст на перетаскивание и изменение размера рамки.
+   */
   private bind(): void {
     this.canvas.addEventListener("pointerdown", this.onDown);
     this.canvas.addEventListener("pointermove", this.onMove);
@@ -179,6 +209,12 @@ export class AvatarCrop {
     this.canvas.addEventListener("pointercancel", this.onUp);
   }
 
+  /**
+   * Переводит координаты указателя в систему холста 360×360.
+   *
+   * @param event Событие указателя.
+   * @returns Точка или `null`, если холст ещё без размера.
+   */
   private point(event: PointerEvent): { x: number; y: number } | null {
     const box = this.canvas.getBoundingClientRect();
     if (box.width < 1 || box.height < 1) {
@@ -190,6 +226,13 @@ export class AvatarCrop {
     };
   }
 
+  /**
+   * Решает, попал указатель внутрь круга или на его край.
+   *
+   * @param x Координата на холсте.
+   * @param y Координата на холсте.
+   * @returns `"move"`, `"resize"` или `null`, если клик мимо рамки.
+   */
   private hit(x: number, y: number): "move" | "resize" | null {
     const centerX = this.crop.x + this.crop.size / 2;
     const centerY = this.crop.y + this.crop.size / 2;
@@ -204,6 +247,11 @@ export class AvatarCrop {
     return null;
   }
 
+  /**
+   * Начинает перетаскивание рамки. Захват указателя необязателен: его может уже не быть.
+   *
+   * @param event Нажатие основной кнопки.
+   */
   private pointerDown(event: PointerEvent): void {
     if (this.locked || event.button !== 0) {
       return;
@@ -231,6 +279,11 @@ export class AvatarCrop {
     }
   }
 
+  /**
+   * Двигает или масштабирует рамку. Без зажатой кнопки только меняет курсор.
+   *
+   * @param event Движение указателя.
+   */
   private pointerMove(event: PointerEvent): void {
     const point = this.point(event);
     if (!point) {
@@ -256,6 +309,11 @@ export class AvatarCrop {
     this.draw();
   }
 
+  /**
+   * Заканчивает жест и отпускает захват указателя.
+   *
+   * @param event Отпускание или отмена указателя.
+   */
   private pointerUp(event: PointerEvent): void {
     try {
       if (this.canvas.hasPointerCapture(event.pointerId)) {
@@ -267,6 +325,12 @@ export class AvatarCrop {
     this.drag = null;
   }
 
+  /**
+   * Сдвигает квадрат, не выпуская его за картинку.
+   *
+   * @param dx Сдвиг по горизонтали от начала жеста.
+   * @param dy Сдвиг по вертикали от начала жеста.
+   */
   private moveBy(dx: number, dy: number): void {
     const start = this.drag?.start;
     if (!start) {
@@ -281,6 +345,12 @@ export class AvatarCrop {
     };
   }
 
+  /**
+   * Меняет сторону квадрата по дальней координате указателя и держит его внутри картинки.
+   *
+   * @param x Текущая координата указателя.
+   * @param y Текущая координата указателя.
+   */
   private resizeTo(x: number, y: number): void {
     const start = this.drag?.start;
     if (!start) {
@@ -304,6 +374,9 @@ export class AvatarCrop {
     this.crop = { x: centerX - size / 2, y: centerY - size / 2, size };
   }
 
+  /**
+   * Рисует картинку, затемнение снаружи круга и ручку на его крае.
+   */
   private draw(): void {
     const dpr = window.devicePixelRatio || 1;
     const pixels = Math.round(VIEW * dpr);
