@@ -1,4 +1,4 @@
-<div class="notebook__block notebook__block_{{type}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
+<div class="notebook__block notebook__block_{{type}}{{#if isFileCard}} notebook__block_file-card{{/if}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
     {{#if isAttachment}}
         {{#if isUploading}}
             <span class="notebook__attachment-status">
@@ -10,8 +10,13 @@
                 <img class="notebook__image" src="{{url}}" alt="{{text}}" loading="lazy">
             {{else}}
                 <a class="notebook__file" href="{{url}}" target="_blank" rel="noopener" download="{{text}}">
-                    {{> icon name="file"}}
-                    <span class="notebook__file-name">{{text}}</span>
+                    <span class="notebook__file-icon">
+                        {{> icon name="file"}}
+                    </span>
+                    <span class="notebook__file-details">
+                        <span class="notebook__file-name">{{text}}</span>
+                        <span class="notebook__file-meta">{{fileMeta}}</span>
+                    </span>
                 </a>
             {{/if}}
         {{else}}
@@ -24,6 +29,6 @@
         {{/unless}}
     {{else}}
         {{#if isChecklist}}<input class="notebook__check" type="checkbox" data-block-check {{#if checked}}checked{{/if}}>{{/if}}
-        <div class="notebook__text" contenteditable="plaintext-only" data-block-text>{{text}}</div>
+        <div class="notebook__text" contenteditable="true" data-block-text>{{inline text}}</div>
     {{/if}}
 </div>
