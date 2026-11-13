@@ -127,12 +127,14 @@ button.tag {
   }
 
   &__action {
+    flex-shrink: 0;
     padding: 0;
     border: none;
     background: none;
     color: var(--light-text);
     font: inherit;
     font-size: 13px;
+    white-space: nowrap;
     cursor: pointer;
 
     &:hover,

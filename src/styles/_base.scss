@@ -29,10 +29,15 @@
 
 html {
   overflow-x: clip;
+  // Жирное начертание не подделываем: из-за этого страница мигала жирным.
+  // Наклон оставляем: у Comfortaa нет курсивного файла.
+  font-synthesis-weight: none;
+  font-synthesis-style: auto;
 }
 
 body {
   font-family: var(--font-main);
+  font-weight: 400;
   margin: 0;
   color: var(--text);
 }

@@ -82,6 +82,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Запрос не дошёл до сервера: fetch упал или service worker ответил офлайн-заглушкой 503.
+ *
+ * @param error Пойманная ошибка.
+ * @returns `true`, если это потеря соединения, а не ответ бэкенда.
+ */
+export function isOfflineError(error: unknown): boolean {
+  return error instanceof TypeError || (error instanceof ApiError && error.status === 503);
+}
+
 /** Тип содержимого блока заметки. */
 export type BlockType =
   | "text"
@@ -101,6 +111,7 @@ export interface BlockContent {
   checked?: boolean;
   attachmentId?: string;
   url?: string;
+  size?: number;
 }
 
 /** Блок заметки с идентификатором. */
