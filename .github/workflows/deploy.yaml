@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - notes-fix
 
 jobs:
   BNN-Deploy:

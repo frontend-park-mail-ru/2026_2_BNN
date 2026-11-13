@@ -3,7 +3,7 @@ import { LoginPage } from "./pages/login";
 import { LoginTwoFactorPage } from "./pages/login-2fa";
 import { SignupPage } from "./pages/signup";
 import { NotFoundPage } from "./pages/notfound";
-import { ApiError, api } from "./api";
+import { api, isOfflineError } from "./api";
 import { getState, setState, type User } from "./store/app-store";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
@@ -171,7 +171,7 @@ async function ensureAuth(): Promise<boolean> {
   try {
     await api.getProfile();
   } catch (error) {
-    if (!(error instanceof ApiError && error.status === 401)) {
+    if (isOfflineError(error)) {
       // Без сети сервер не может сказать «вы не вошли»: navigator.onLine
       // не видит галочку «Офлайн» у service worker, поэтому на него не опираемся.
       const profile = knownUser ?? (await cachedProfile());
