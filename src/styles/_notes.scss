@@ -6,7 +6,7 @@
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  background-color: var(--canvas);
+  background-color: var(--dark-bg);
   padding: var(--space-l);
   height: 100dvh;
   min-height: 600px;
@@ -56,7 +56,6 @@
   align-items: center;
   background-color: var(--bg);
   border-radius: var(--card-rad);
-  box-shadow: var(--panel-shadow);
   height: 70px;
   padding-left: 12px;
   padding-right: 12px;
@@ -387,7 +386,6 @@
   background-color: var(--bg);
   width: 400px;
   border-radius: var(--card-rad);
-  box-shadow: var(--panel-shadow);
   overflow: hidden;
 
   &__nav {
@@ -537,7 +535,6 @@
   flex-direction: column;
   background-color: var(--bg);
   border-radius: var(--card-rad);
-  box-shadow: var(--panel-shadow);
   overflow-y: auto;
   padding: var(--space-xl);
   padding-top: var(--space-m);
