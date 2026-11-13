@@ -3948,7 +3948,7 @@ export class NotesPage {
       const session: Dictation | null = startDictation({
         onFinal: insertDictatedText,
         onInterim: showInterim,
-        onError: showToast,
+        onError: (message) => showToast(message, true),
         onEnd: () => {
           if (dictation !== session) {
             return;
@@ -3960,7 +3960,7 @@ export class NotesPage {
 
       if (!session) {
         setDictationActive(false);
-        showToast("Не удалось включить микрофон");
+        showToast("Не удалось включить микрофон", true);
         return;
       }
 
