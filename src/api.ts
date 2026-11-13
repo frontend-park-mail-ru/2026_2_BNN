@@ -1,4 +1,5 @@
 import { getState, setState, type AuthStatus, type User } from "./store/app-store";
+import { themeAsset } from "./theme";
 import { safeResourceUrl } from "./utils/url";
 
 const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
@@ -22,7 +23,6 @@ const TECHNICAL_ERROR_MESSAGE = "Технические неполадки, по
 const CSRF_COOKIE = "bnn_csrf";
 const CSRF_HEADER = "X-CSRF-Token";
 const MUTATING_METHODS = new Set(["POST", "PUT", "DELETE"]);
-const DEFAULT_AVATAR = "/assets/images/avatar-default.svg";
 
 /**
  * Читает куку, которую бэкенд отдаёт не как HttpOnly, чтобы её можно было вернуть в заголовке.
@@ -82,6 +82,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Запрос не дошёл до сервера: fetch упал или service worker ответил офлайн-заглушкой 503.
+ *
+ * @param error Пойманная ошибка.
+ * @returns `true`, если это потеря соединения, а не ответ бэкенда.
+ */
+export function isOfflineError(error: unknown): boolean {
+  return error instanceof TypeError || (error instanceof ApiError && error.status === 503);
+}
+
 /** Тип содержимого блока заметки. */
 export type BlockType =
   | "text"
@@ -101,6 +111,7 @@ export interface BlockContent {
   checked?: boolean;
   attachmentId?: string;
   url?: string;
+  size?: number;
 }
 
 /** Блок заметки с идентификатором. */
@@ -708,10 +719,10 @@ class Api {
    */
   avatarUrl(avatar: string | null): string {
     if (!avatar) {
-      return DEFAULT_AVATAR;
+      return themeAsset("avatar");
     }
     const url = avatar.startsWith("http") ? avatar : `${this.baseUrl}${avatar}`;
-    return safeResourceUrl(url) || DEFAULT_AVATAR;
+    return safeResourceUrl(url) || themeAsset("avatar");
   }
 
   /**

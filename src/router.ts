@@ -3,8 +3,8 @@ import { LoginPage } from "./pages/login";
 import { LoginTwoFactorPage } from "./pages/login-2fa";
 import { SignupPage } from "./pages/signup";
 import { NotFoundPage } from "./pages/notfound";
-import { api } from "./api";
-import { getState, setState } from "./store/app-store";
+import { api, isOfflineError } from "./api";
+import { getState, setState, type User } from "./store/app-store";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
@@ -42,6 +42,7 @@ const loginPage = new LoginPage();
 const loginTwoFactorPage = new LoginTwoFactorPage();
 const signupPage = new SignupPage();
 const API_CACHE = "bnn-api";
+const PROFILE_CACHE_PATH = "/api/auth/me";
 
 const routes: RouteRecord[] = [
   { path: "/", page: notesPage, auth: true },
@@ -91,12 +92,65 @@ let currentPage: Page | null = null;
 let renderId = 0;
 
 /**
+ * Проверяет, что JSON из кэша похож на профиль `/api/auth/me`.
+ *
+ * @param value Разобранное тело ответа.
+ * @returns `true`, если обязательные поля профиля на месте.
+ */
+function isCachedUser(value: unknown): value is User {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const data = value as Record<string, unknown>;
+  const avatarOk = typeof data.avatar === "string" || data.avatar === null;
+  const providerOk = data.oauth_provider === null || data.oauth_provider === "github";
+
+  return (
+    typeof data.id === "string" &&
+    typeof data.login === "string" &&
+    avatarOk &&
+    typeof data.created_at === "string" &&
+    typeof data.updated_at === "string" &&
+    typeof data.is_2fa_enabled === "boolean" &&
+    providerOk
+  );
+}
+
+/**
+ * Достаёт профиль из кэша `bnn-api`, если его уже получали онлайн.
+ *
+ * @returns Профиль или `null`, если кэша нет или он битый.
+ */
+async function cachedProfile(): Promise<User | null> {
+  if (!("caches" in window)) {
+    return null;
+  }
+
+  try {
+    const cache = await caches.open(API_CACHE);
+    const response = await cache.match(PROFILE_CACHE_PATH, { ignoreVary: true });
+    if (!response?.ok) {
+      return null;
+    }
+    const data: unknown = await response.json();
+    if (!isCachedUser(data)) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Проверяет авторизацию по кэшу store и при необходимости запрашивает профиль.
  *
  * @returns `true`, если пользователь авторизован.
  */
 async function ensureAuth(): Promise<boolean> {
   const auth = getState().auth;
+  const knownUser = auth.user;
 
   if (auth.status === "authenticated" && auth.isLoggedIn) {
     return true;
@@ -116,7 +170,19 @@ async function ensureAuth(): Promise<boolean> {
 
   try {
     await api.getProfile();
-  } catch {
+  } catch (error) {
+    if (isOfflineError(error)) {
+      // Без сети сервер не может сказать «вы не вошли»: navigator.onLine
+      // не видит галочку «Офлайн» у service worker, поэтому на него не опираемся.
+      const profile = knownUser ?? (await cachedProfile());
+      setState({
+        auth: profile
+          ? { status: "authenticated", isLoggedIn: true, user: profile }
+          : { status: "unknown", isLoggedIn: false, user: null },
+      });
+      return profile !== null;
+    }
+
     setState({
       auth: {
         status: "unauthenticated",

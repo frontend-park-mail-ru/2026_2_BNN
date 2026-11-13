@@ -1,6 +1,7 @@
 import {
   api,
   ApiError,
+  isOfflineError,
   type NoteBlock,
   type BlockType,
   type Note as ApiNote,
@@ -18,7 +19,19 @@ import {
   toTagView,
   type TagView,
 } from "../utils/tags";
+import { classifyAttachment } from "../utils/attachment";
+import { getThemeIcon, themeAsset } from "../theme";
+import {
+  applyInlineFormat,
+  fragmentFromClipboard,
+  inlineFormatState,
+  renderInlineHtml,
+  serializeInline,
+  useFormatTags,
+  type InlineFormat,
+} from "../utils/inline-format";
 import { safeResourceUrl } from "../utils/url";
+import { isSpeechSupported, startDictation, type Dictation } from "../utils/speech";
 import { mountProfile } from "./profile";
 import { mountTagsDialog } from "./tags-dialog";
 
@@ -86,6 +99,8 @@ interface BlockView {
   isChecklist: boolean;
   isAttachment: boolean;
   isImage: boolean;
+  isFileCard: boolean;
+  fileMeta: string;
   url: string;
   contentJson: string;
   isUploading: boolean;
@@ -158,6 +173,15 @@ interface NotesInstance {
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent) => void;
   onDragLeave: (event: DragEvent) => void;
+  onMainMouseDown: (event: MouseEvent) => void;
+  abortDictation: () => void;
+  onSelectionChange: () => void;
+  onFormatMouseDown: (event: MouseEvent) => void;
+  onEditorPointerDown: (event: PointerEvent) => void;
+  onEditorPointerMove: (event: PointerEvent) => void;
+  onEditorPointerUp: () => void;
+  onEditorCopy: (event: ClipboardEvent) => void;
+  formatBar: HTMLElement | null;
   onDetailsLoaded: () => void;
   listFrame: number;
   destroyProfile: () => void;
@@ -454,6 +478,9 @@ async function fetchMissingDetails(): Promise<void> {
   const queue = store.notes.filter((note) => !note.tagsLoaded).map((note) => note.id);
   detailsFailed = false;
 
+  /**
+   * Забирает id из очереди и догружает заметку, пока загрузка списка не устарела.
+   */
   async function worker(): Promise<void> {
     while (queue.length > 0 && version === loadVersion) {
       const id = queue.shift() as string;
@@ -462,7 +489,7 @@ async function fetchMissingDetails(): Promise<void> {
       try {
         loaded = normalizeNote(await api.getNote(id));
       } catch (error) {
-        if (error instanceof TypeError || (error instanceof ApiError && error.status === 401)) {
+        if (isOfflineError(error) || (error instanceof ApiError && error.status === 401)) {
           detailsFailed = true;
           queue.length = 0;
           return;
@@ -523,6 +550,25 @@ function putNote(note: Note): void {
   }
 }
 
+function formatFileMeta(name: string, size?: number): string {
+  const extension = name.match(/\.([^.]+)$/)?.[1].toUpperCase() || "Файл";
+
+  if (typeof size !== "number" || !Number.isFinite(size) || size < 0) {
+    return extension;
+  }
+
+  const units = ["Б", "КБ", "МБ", "ГБ"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(Math.max(size, 1)) / Math.log(1024)),
+    units.length - 1
+  );
+  const value = new Intl.NumberFormat("ru-RU", {
+    maximumFractionDigits: 1,
+  }).format(size / 1024 ** unitIndex);
+
+  return `${extension} · ${value} ${units[unitIndex]}`;
+}
+
 /**
  * Готовит блок заметки к отрисовке в редакторе.
  *
@@ -540,6 +586,8 @@ function toBlockView(block: NoteBlock): BlockView {
     isChecklist: block.content.type === "checklist",
     isAttachment: isAttachment,
     isImage: block.content.type === "image",
+    isFileCard: block.content.type === "file" && url !== "",
+    fileMeta: isAttachment ? formatFileMeta(block.content.text, block.content.size) : "",
     url: url,
     contentJson: isAttachment ? JSON.stringify(block.content) : "",
     isUploading: false,
@@ -625,6 +673,39 @@ function pickFile(accept: string): Promise<File | null> {
   });
 }
 
+const WELCOME_TITLE = "добро пожаловать";
+
+/** Заметка, которую показываем сразу после входа, если маршрут без id. */
+function welcomeNote(): Note | undefined {
+  return (
+    store.notes.find((note) => note.title.trim().toLowerCase() === WELCOME_TITLE) ?? store.notes[0]
+  );
+}
+
+/**
+ * Маршруты без id заметки: с них открываем приветственную.
+ *
+ * @param path Текущий путь.
+ * @returns `true` для `/`, `/notes` и `/profile`.
+ */
+function isNotesHome(path: string): boolean {
+  return path === "/" || path === "/notes" || path === "/profile";
+}
+
+/**
+ * На `/notes` без id открывает приветственную заметку.
+ * Пока список не загружен, id не подставляем: сначала виден скелет.
+ */
+function noteIdFor(context: PageContext): string | undefined {
+  if (context.params.id) {
+    return context.params.id;
+  }
+  if (!isNotesHome(context.path) || store.status !== "ready" || activeTagIds.length > 0) {
+    return undefined;
+  }
+  return welcomeNote()?.id;
+}
+
 /**
  * Формирует view-model для Handlebars-шаблонов страницы заметок.
  *
@@ -644,6 +725,12 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
   const hasNotes = store.notes.length > 0;
   const hasNote = currentNote !== null && currentNote.isLoaded;
 
+  /**
+   * Совпадает ли пункт сайдбара с открытым разделом.
+   *
+   * @param section Пункт из `SECTIONS`.
+   * @returns `true`, если это текущий раздел.
+   */
   function isActive(section: Section): boolean {
     return section === currentSection;
   }
@@ -701,6 +788,8 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
   const profile = api.getCachedProfile();
 
   return {
+    themeIcon: getThemeIcon(),
+    logoSrc: themeAsset("logo"),
     userLogin: getProfileLogin(profile),
     avatarUrl: api.avatarUrl(profile?.avatar ?? null),
 
@@ -723,6 +812,7 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     isFilterEmpty: isFiltering && notes.length === 0,
     isFilterLoading: isFiltering && !detailsFailed && hasMissingDetails(),
     hasNote: hasNote,
+    canDictate: isSpeechSupported(),
     title: title,
     displayTitle: displayTitle,
     blocks: blocks,
@@ -767,7 +857,7 @@ async function loadNotes(): Promise<void> {
       return;
     }
 
-    connectionLost = error instanceof TypeError;
+    connectionLost = isOfflineError(error);
     store.status = store.notes.length > 0 ? "ready" : "error";
   }
 }
@@ -797,7 +887,7 @@ export class NotesPage {
   async render(context: PageContext): Promise<string> {
     connectionLost = false;
     const template = Handlebars.templates["notes"];
-    const view = buildView(context, context.params.id, "idle");
+    const view = buildView(context, noteIdFor(context), "idle");
     return template(view);
   }
 
@@ -825,6 +915,12 @@ export class NotesPage {
       deleteDialog,
       toast,
     } = elements;
+    const formatBar = page.querySelector<HTMLElement>("[data-format-bar]");
+    const selectionTypeMenu = formatBar?.querySelector<HTMLElement>("[data-selection-types]");
+    const selectionTypeToggle = formatBar?.querySelector<HTMLButtonElement>(
+      "[data-selection-type-toggle]"
+    );
+    useFormatTags();
 
     const destroyProfile = mountProfile(page, {
       notesCount: () => store.notes.length,
@@ -837,13 +933,19 @@ export class NotesPage {
       history.replaceState(null, "", "/notes");
     }
 
+    let dictation: Dictation | null = null;
+
+    const openedNoteId = noteIdFor(context);
+    if (openedNoteId && !context.params.id) {
+      history.replaceState(null, "", "/notes/" + openedNoteId);
+    }
     const instance: NotesInstance = {
       page: page,
       search: search,
       searchBox: searchBox,
       searchTimer: undefined,
       mainRegion: mainRegion,
-      noteId: context.params.id,
+      noteId: openedNoteId,
       saveStatus: "idle",
       saveTimer: undefined,
       saving: null,
@@ -866,6 +968,15 @@ export class NotesPage {
       onDragOver: onDragOver,
       onDrop: onDrop,
       onDragLeave: onDragLeave,
+      onMainMouseDown: onMainMouseDown,
+      abortDictation: abortDictation,
+      onSelectionChange: onSelectionChange,
+      onFormatMouseDown: onFormatMouseDown,
+      onEditorPointerDown: onEditorPointerDown,
+      onEditorPointerMove: onEditorPointerMove,
+      onEditorPointerUp: onEditorPointerUp,
+      onEditorCopy: onEditorCopy,
+      formatBar: formatBar,
       onDetailsLoaded: onDetailsLoaded,
       listFrame: 0,
       destroyProfile: destroyProfile,
@@ -893,6 +1004,11 @@ export class NotesPage {
       instance.destroyTags = tagsDialog.destroy;
     }
 
+    /**
+     * Загружает тело заметки. 404 возвращает к списку, обрыв сети оставляет уже открытое.
+     *
+     * @param id Идентификатор заметки.
+     */
     async function loadNote(id: string): Promise<void> {
       try {
         const loaded = normalizeNote(await api.getNote(id));
@@ -919,7 +1035,7 @@ export class NotesPage {
           return;
         }
 
-        if (error instanceof TypeError) {
+        if (isOfflineError(error)) {
           connectionLost = true;
           update();
           return;
@@ -930,7 +1046,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Перерисовывает список слева и открытую заметку.
+     */
     function update(): void {
+      abortDictation();
       const view = buildView(context, instance.noteId, instance.saveStatus);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
@@ -942,6 +1062,9 @@ export class NotesPage {
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
     }
 
+    /**
+     * На следующем кадре обновляет список и поиск, когда догрузились теги.
+     */
     function onDetailsLoaded(): void {
       if (instance.listFrame || mounted !== instance) {
         return;
@@ -953,24 +1076,42 @@ export class NotesPage {
       });
     }
 
+    /**
+     * Фильтр или поиск по тегам упирается в заметки, у которых теги ещё не загружены.
+     *
+     * @returns `true`, если догрузку стоит запустить.
+     */
     function needsTagDetails(): boolean {
       const query = search.value.trim();
       const tagSearch = query !== "" && (query.startsWith("#") || filterTags(query).length > 0);
       return (activeTagIds.length > 0 || tagSearch) && hasMissingDetails();
     }
 
+    /**
+     * Запускает догрузку тегов, если она ещё не провалилась.
+     */
     function ensureTagDetails(): void {
       if (store.status === "ready" && !detailsFailed && needsTagDetails()) {
         void loadMissingDetails();
       }
     }
 
+    /**
+     * Оставляет в списке заметки, у которых есть все выбранные теги.
+     *
+     * @param ids Выбранные теги. Пустой массив снимает фильтр.
+     */
     function applyTagFilter(ids: string[]): void {
       activeTagIds = ids;
       renderList();
       ensureTagDetails();
     }
 
+    /**
+     * Добавляет тег в фильтр или убирает его.
+     *
+     * @param id Идентификатор тега.
+     */
     function toggleTagFilter(id: string): void {
       const ids = activeTagIds.includes(id)
         ? activeTagIds.filter((item) => item !== id)
@@ -978,6 +1119,9 @@ export class NotesPage {
       applyTagFilter(ids);
     }
 
+    /**
+     * Обновляет список, чипы заметки и открытый пикер после изменения справочника тегов.
+     */
     function refreshTags(): void {
       renderList();
       if (mainRegion.querySelector("[data-note-tags]")) {
@@ -986,6 +1130,11 @@ export class NotesPage {
       renderPickerList();
     }
 
+    /**
+     * Собирает id тегов с чипов открытой заметки.
+     *
+     * @returns Идентификаторы в порядке чипов.
+     */
     function getNoteTagIds(): string[] {
       const ids: string[] = [];
       for (const chip of mainRegion.querySelectorAll<HTMLElement>("[data-note-tag]")) {
@@ -996,6 +1145,11 @@ export class NotesPage {
       return ids;
     }
 
+    /**
+     * Перерисовывает чипы тегов у открытой заметки.
+     *
+     * @param ids Теги, которые должны остаться на заметке.
+     */
     function renderNoteTags(ids: string[]): void {
       const list = mainRegion.querySelector<HTMLElement>("[data-note-tags]");
       if (!list) {
@@ -1008,12 +1162,23 @@ export class NotesPage {
       setTagPickerExpanded(mainRegion.querySelector("[data-tag-picker]") !== null);
     }
 
+    /**
+     * Синхронизирует `aria-expanded` кнопки пикера тегов.
+     *
+     * @param open Пикер открыт.
+     */
     function setTagPickerExpanded(open: boolean): void {
       mainRegion
         .querySelector("[data-tag-picker-open]")
         ?.setAttribute("aria-expanded", String(open));
     }
 
+    /**
+     * Данные шаблона пикера: подходящие теги и имя, которого ещё нет.
+     *
+     * @param query Строка поиска в пикере.
+     * @returns Поля для `tag-picker` и `tag-picker-list`.
+     */
     function tagPickerView(query: string) {
       const selected = getNoteTagIds();
       const key = query.trim().toLowerCase();
@@ -1028,6 +1193,9 @@ export class NotesPage {
       };
     }
 
+    /**
+     * Вставляет пикер тегов под чипами и фокусирует поле.
+     */
     function openTagPicker(): void {
       const root = mainRegion.querySelector<HTMLElement>("[data-note-tags-root]");
       if (!root) {
@@ -1039,11 +1207,17 @@ export class NotesPage {
       root.querySelector<HTMLInputElement>("[data-tag-picker-input]")?.focus();
     }
 
+    /**
+     * Убирает пикер тегов из заметки.
+     */
     function closeTagPicker(): void {
       mainRegion.querySelector("[data-tag-picker]")?.remove();
       setTagPickerExpanded(false);
     }
 
+    /**
+     * Обновляет только список внутри уже открытого пикера.
+     */
     function renderPickerList(): void {
       const picker = mainRegion.querySelector<HTMLElement>("[data-tag-picker]");
       const input = picker?.querySelector<HTMLInputElement>("[data-tag-picker-input]");
@@ -1054,6 +1228,11 @@ export class NotesPage {
       list.innerHTML = Handlebars.partials["tag-picker-list"](tagPickerView(input.value));
     }
 
+    /**
+     * Показывает или прячет ошибку под полем нового тега.
+     *
+     * @param message Текст. Пустая строка скрывает ошибку.
+     */
     function showTagPickerError(message: string): void {
       const error = mainRegion.querySelector<HTMLElement>("[data-tag-picker-error]");
       if (error) {
@@ -1062,6 +1241,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Вешает тег на заметку или снимает его и ставит сохранение в очередь.
+     *
+     * @param id Идентификатор тега.
+     */
     function toggleNoteTag(id: string): void {
       const ids = getNoteTagIds();
       renderNoteTags(ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
@@ -1072,6 +1256,11 @@ export class NotesPage {
 
     let creatingTag = false;
 
+    /**
+     * Создаёт тег из пикера и сразу добавляет его к заметке.
+     *
+     * @param name Название без лишних пробелов.
+     */
     async function createTagFromPicker(name: string): Promise<void> {
       if (creatingTag) {
         return;
@@ -1107,6 +1296,12 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Escape закрывает пикер, Enter выбирает существующий тег или создаёт новый.
+     *
+     * @param event Клавиша в поле пикера.
+     * @param input Поле названия.
+     */
     function onTagPickerKeyDown(event: KeyboardEvent, input: HTMLInputElement): void {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -1132,18 +1327,27 @@ export class NotesPage {
       void createTagFromPicker(name.slice(0, TAG_NAME_MAX_LENGTH));
     }
 
+    /**
+     * Закрывает пикер и открывает модалку всех тегов.
+     */
     function openTagsDialog(): void {
       closeTagPicker();
       searchResults.hidden = true;
       tagsDialog?.open();
     }
 
+    /**
+     * Сбрасывает сессию и открывает `/login` без новой записи в истории.
+     */
     async function goToLogin(): Promise<void> {
       resetAuthState("unauthenticated");
       history.replaceState(null, "", "/login");
       await router();
     }
 
+    /**
+     * Догружает открытую заметку, если в списке у неё ещё нет блоков.
+     */
     function checkLoadedNote(): void {
       const id = instance.noteId;
       if (!id || id === "new") {
@@ -1155,10 +1359,16 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Ставит фокус в заголовок заметки.
+     */
     function focusTitle(): void {
       mainRegion.querySelector<HTMLElement>("[data-note-title]")?.focus();
     }
 
+    /**
+     * Фокусирует заголовок, если новую заметку только что создали.
+     */
     function focusPendingTitle(): void {
       if (pendingFocusNoteId !== null && pendingFocusNoteId === instance.noteId) {
         pendingFocusNoteId = null;
@@ -1166,6 +1376,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Ждёт список, при необходимости открывает приветственную заметку и догружает её.
+     */
     async function loadAndShow(): Promise<void> {
       await waitForNotes();
 
@@ -1176,6 +1389,12 @@ export class NotesPage {
       if (store.status === "unauthorized") {
         await goToLogin();
         return;
+      }
+
+      const openedId = noteIdFor(context);
+      if (openedId && !instance.noteId) {
+        instance.noteId = openedId;
+        history.replaceState(null, "", "/notes/" + openedId);
       }
 
       update();
@@ -1225,6 +1444,9 @@ export class NotesPage {
         : "";
     }
 
+    /**
+     * Обновляет результаты поиска с задержкой после ввода.
+     */
     function onSearchInput(): void {
       window.clearTimeout(instance.searchTimer);
       instance.searchTimer = window.setTimeout(renderSearchResults, SEARCH_DELAY);
@@ -1255,6 +1477,11 @@ export class NotesPage {
       await navigate("/login");
     }
 
+    /**
+     * Открывает или закрывает меню действий заметки.
+     *
+     * @param open Меню должно быть видно.
+     */
     function setNoteMenu(open: boolean): void {
       const button = mainRegion.querySelector<HTMLElement>("[data-note-menu-toggle]");
       const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
@@ -1266,6 +1493,9 @@ export class NotesPage {
       button.setAttribute("aria-expanded", String(open));
     }
 
+    /**
+     * Показывает подтверждение удаления заметки.
+     */
     function openDeleteDialog(): void {
       setNoteMenu(false);
       const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
@@ -1276,12 +1506,20 @@ export class NotesPage {
       deleteDialog.querySelector<HTMLElement>("[data-delete-cancel]")?.focus();
     }
 
+    /**
+     * Прячет подтверждение удаления.
+     */
     function closeDeleteDialog(): void {
       if (!instance.deleting) {
         deleteDialog.hidden = true;
       }
     }
 
+    /**
+     * Блокирует кнопки удаления, пока запрос не завершился.
+     *
+     * @param deleting Удаление идёт.
+     */
     function setDeleting(deleting: boolean): void {
       instance.deleting = deleting;
       for (const button of deleteDialog.querySelectorAll<HTMLButtonElement>("button")) {
@@ -1292,6 +1530,11 @@ export class NotesPage {
         ?.classList.toggle("modal__button_loading", deleting);
     }
 
+    /**
+     * Пишет ошибку удаления в диалог.
+     *
+     * @param message Текст для пользователя.
+     */
     function showDeleteError(message: string): void {
       const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
       if (error) {
@@ -1300,6 +1543,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Удаляет открытую заметку и возвращает к списку.
+     */
     async function deleteNote(): Promise<void> {
       if (instance.deleting) {
         return;
@@ -1351,20 +1597,34 @@ export class NotesPage {
       await router();
     }
 
-    function showToast(text: string): void {
+    /**
+     * Показывает тост страницы заметок.
+     *
+     * @param text Текст.
+     * @param isError Красить тост как ошибку.
+     */
+    function showToast(text: string, isError = false): void {
       const label = toast.querySelector<HTMLElement>("[data-toast-text]");
       if (label) {
         label.textContent = text;
       }
+      toast.classList.toggle("toast_error", isError);
       toast.hidden = false;
       window.clearTimeout(instance.toastTimer);
       instance.toastTimer = window.setTimeout(hideToast, TOAST_DELAY);
     }
 
+    /**
+     * Сразу прячет тост страницы заметок.
+     */
     function hideToast(): void {
       toast.hidden = true;
+      toast.classList.remove("toast_error");
     }
 
+    /**
+     * Откладывает сохранение, пока ввод продолжается.
+     */
     function timerSave(): void {
       instance.hasPendingChanges = true;
       setSaveStatus("idle");
@@ -1372,6 +1632,9 @@ export class NotesPage {
       instance.saveTimer = window.setTimeout(() => void runSave(), SAVE_DELAY);
     }
 
+    /**
+     * Собирает блоки и отправляет заметку. Черновик `new` сначала создаётся.
+     */
     async function saveNote(): Promise<void> {
       if (!instance.hasPendingChanges) {
         return;
@@ -1445,6 +1708,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Запускает сохранение, если предыдущий запрос уже закончился.
+     *
+     * @returns Обещание текущего или нового сохранения.
+     */
     function runSave(): Promise<void> {
       if (!instance.saving) {
         instance.saving = saveNote().finally(() => {
@@ -1454,6 +1722,9 @@ export class NotesPage {
       return instance.saving;
     }
 
+    /**
+     * Дожидается текущего сохранения и досылает правки, которые пришли во время запроса.
+     */
     async function finishSaving(): Promise<void> {
       if (instance.saving) {
         await instance.saving;
@@ -1464,6 +1735,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Открывает пустую заметку с локальным id `new`.
+     */
     function openDraft(): void {
       if (instance.noteId === "new") {
         focusTitle();
@@ -1473,15 +1747,25 @@ export class NotesPage {
       void navigate("/notes/" + "new");
     }
 
+    /**
+     * Читает заголовок из contenteditable.
+     *
+     * @returns Текст заголовка. Пустой заголовок остаётся пустой строкой.
+     */
     function readTitle(): string {
       const title = mainRegion.querySelector<HTMLElement>("[data-note-title]");
-      return (title?.textContent ?? "").trim().slice(0, TITLE_MAX_LENGTH);
+      return Array.from((title?.textContent ?? "").trim())
+        .slice(0, TITLE_MAX_LENGTH)
+        .join("");
     }
 
     /** Текст блока без хвостового переноса, который contenteditable добавляет сам. */
     function blockText(element: HTMLElement): string {
-      const text = element.querySelector<HTMLElement>("[data-block-text]")?.innerText ?? "";
-      return text.replaceAll("\r\n", "\n").replace(/\n$/, "");
+      const text = element.querySelector<HTMLElement>("[data-block-text]");
+      if (!text) {
+        return "";
+      }
+      return serializeInline(text).replaceAll("\r\n", "\n");
     }
 
     /**
@@ -1500,7 +1784,7 @@ export class NotesPage {
       }
 
       const lines = text.split("\n");
-      textElement.textContent = lines[0];
+      textElement.innerHTML = renderInlineHtml(lines[0]);
       const type = (block.dataset.blockType as BlockType) || "text";
       let previous = block;
       for (const line of lines.slice(1)) {
@@ -1508,11 +1792,17 @@ export class NotesPage {
         if (!created) {
           return;
         }
-        created.textContent = line;
+        created.innerHTML = renderInlineHtml(line);
         previous = created.closest<HTMLElement>("[data-block]") ?? previous;
       }
     }
 
+    /**
+     * Собирает содержимое одного блока для API.
+     *
+     * @param element Узел `[data-block]`.
+     * @returns Содержимое или `null`, если блок разобрать нельзя.
+     */
     function readBlock(element: HTMLElement): BlockContent | null {
       if (element.dataset.content) {
         try {
@@ -1531,6 +1821,11 @@ export class NotesPage {
       return content;
     }
 
+    /**
+     * Собирает блоки заметки. Пустые строки после последнего текста в сохранение не попадают.
+     *
+     * @returns Элементы, тела блоков и элементы, которым не нужно писать id.
+     */
     function collectBlocks(): {
       elements: HTMLElement[];
       blocks: BlockInput[];
@@ -1577,20 +1872,67 @@ export class NotesPage {
       return { elements, blocks, skipped };
     }
 
+    /**
+     * Показывает меню типа блока.
+     *
+     * @param block Блок, в котором ввели `/`.
+     */
     function openBlockMenu(block: HTMLElement): void {
       closeBlockMenu();
       block.insertAdjacentHTML(
         "beforeend",
         Handlebars.partials["block-menu"]({ options: BLOCK_OPTIONS })
       );
+
+      const menu = block.querySelector<HTMLElement>("[data-block-menu]");
+      const notebook = block.closest<HTMLElement>(".notebook");
+      if (!menu || !notebook) {
+        return;
+      }
+
+      const gap = 6;
+      const edgePadding = 8;
+      const notebookRect = notebook.getBoundingClientRect();
+      const blockRect = block.getBoundingClientRect();
+      const menuHeight = menu.getBoundingClientRect().height;
+
+      const visibleTop = Math.max(0, notebookRect.top + notebook.clientTop) + edgePadding;
+      const visibleBottom =
+        Math.min(
+          window.innerHeight,
+          notebookRect.top + notebook.clientTop + notebook.clientHeight
+        ) - edgePadding;
+
+      const spaceBelow = Math.max(0, visibleBottom - blockRect.bottom - gap);
+      const spaceAbove = Math.max(0, blockRect.top - visibleTop - gap);
+      const openAbove = menuHeight > spaceBelow && spaceAbove > spaceBelow;
+      const availableHeight = openAbove ? spaceAbove : spaceBelow;
+
+      menu.style.maxHeight = `${Math.min(menuHeight, availableHeight)}px`;
+
+      if (openAbove) {
+        menu.style.top = "auto";
+        menu.style.bottom = `calc(100% + ${gap}px)`;
+      }
     }
 
+    /**
+     * Убирает меню типа блока.
+     */
     function closeBlockMenu(): void {
       mainRegion.querySelector("[data-block-menu]")?.remove();
     }
 
+    /**
+     * Сдвигает подсветку пункта меню блока.
+     *
+     * @param menu Открытое меню.
+     * @param step `1` вниз, `-1` вверх.
+     */
     function moveBlockMenu(menu: HTMLElement, step: number): void {
-      const items = Array.from(menu.querySelectorAll<HTMLElement>("[data-block-option]"));
+      const items = Array.from(
+        menu.querySelectorAll<HTMLElement>("[data-block-option], [data-selection-type]")
+      );
       const current = items.findIndex((item) => item.classList.contains("block-menu__item_active"));
       const next = items[(current + step + items.length) % items.length];
       items[current]?.classList.remove("block-menu__item_active");
@@ -1598,6 +1940,12 @@ export class NotesPage {
       next.scrollIntoView({ block: "nearest" });
     }
 
+    /**
+     * Меняет тип блока и закрывает меню.
+     *
+     * @param block Текущий блок.
+     * @param type Новый тип.
+     */
     function chooseBlockType(block: HTMLElement, type: BlockType): void {
       closeBlockMenu();
 
@@ -1617,13 +1965,58 @@ export class NotesPage {
       timerSave();
     }
 
-    async function attachFile(block: HTMLElement, type: BlockType, given?: File): Promise<void> {
-      const file = given ?? (await pickFile(type === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
+    /**
+     * Проверяет сигнатуру файла и решает, картинка это или вложение.
+     *
+     * @param file Выбранный файл.
+     * @param requested Что просил пользователь: картинку, файл или любой подходящий тип.
+     * @returns Тип блока или `null`, если формат не подходит.
+     */
+    async function acceptedAttachment(
+      file: File,
+      requested: "image" | "file" | "auto"
+    ): Promise<BlockType | null> {
+      const kind = await classifyAttachment(file);
+      const image = kind === "png" || kind === "jpeg" || kind === "gif" || kind === "webp";
+      if (requested === "image") {
+        if (!image) {
+          showToast("Это не изображение. Подойдут PNG, JPEG, WebP или GIF.", true);
+          return null;
+        }
+        return "image";
+      }
+      if (!image && kind !== "pdf") {
+        showToast("Можно прикрепить только PNG, JPEG, WebP, GIF или PDF.", true);
+        return null;
+      }
+      if (requested === "auto" && image) {
+        return "image";
+      }
+      return "file";
+    }
+
+    /**
+     * Загружает файл в блок и показывает спиннер, пока запрос не закончился.
+     *
+     * @param block Блок, который станет картинкой или файлом.
+     * @param requested Ожидаемый вид вложения.
+     * @param given Файл из вставки или сброса. Без него откроется выбор файла.
+     */
+    async function attachFile(
+      block: HTMLElement,
+      requested: "image" | "file" | "auto",
+      given?: File
+    ): Promise<void> {
+      const file = given ?? (await pickFile(requested === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
       if (!file || !block.isConnected) {
         return;
       }
+      const type = await acceptedAttachment(file, requested);
+      if (!type || !block.isConnected) {
+        return;
+      }
 
-      const content: BlockContent = { type, text: file.name };
+      const content: BlockContent = { type, text: file.name, size: file.size };
       const uploading = replaceBlock(block, {
         ...toBlockView({ id: block.dataset.blockId ?? "", content }),
         isUploading: true,
@@ -1672,12 +2065,27 @@ export class NotesPage {
       timerSave();
     }
 
+    /**
+     * Ставит несколько файлов в заметку, каждый в свой блок.
+     *
+     * @param block Блок, с которого начинается вставка.
+     * @param files Файлы из буфера или drop.
+     */
     async function attachFiles(block: HTMLElement, files: File[]): Promise<void> {
       closeBlockMenu();
+      const accepted: File[] = [];
+      for (const file of files) {
+        if (await acceptedAttachment(file, "auto")) {
+          accepted.push(file);
+        }
+      }
+      if (!block.isConnected || accepted.length === 0) {
+        return;
+      }
 
       const slots: HTMLElement[] = [];
       let slot = block;
-      for (let i = 0; i < files.length; i++) {
+      for (let i = 0; i < accepted.length; i++) {
         if (i > 0 || readBlock(slot)) {
           insertBlockAfter(slot, "text");
           slot = slot.nextElementSibling as HTMLElement;
@@ -1694,14 +2102,21 @@ export class NotesPage {
         placeCaret(nextText, false);
       }
 
-      for (let i = 0; i < files.length; i++) {
-        const type = files[i].type.startsWith("image/") ? "image" : "file";
-        await attachFile(slots[i], type, files[i]);
+      for (let i = 0; i < accepted.length; i++) {
+        await attachFile(slots[i], "auto", accepted[i]);
       }
     }
 
+    /**
+     * Удаляет вложение и превращает блок в пустой текст.
+     *
+     * @param block Блок картинки или файла.
+     */
     async function removeAttachment(block: HTMLElement): Promise<void> {
       const content = readBlock(block);
+      if (formatBar && block.contains(formatBar)) {
+        parkFormatBar();
+      }
       block.remove();
       timerSave();
 
@@ -1710,12 +2125,23 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Записывает в DOM id, которые сервер выдал новым блокам. Пропущенные элементы id теряют.
+     *
+     * @param elements Блоки, ушедшие в запрос, в том же порядке.
+     * @param saved Блоки из ответа сервера.
+     */
     function applyBlockIds(elements: HTMLElement[], saved: NoteBlock[]): void {
       for (let i = 0; i < elements.length && i < saved.length; i++) {
         elements[i].dataset.blockId = saved[i].id;
       }
     }
 
+    /**
+     * Меняет подпись состояния сохранения в шапке заметки.
+     *
+     * @param status Новое состояние.
+     */
     function setSaveStatus(status: SaveStatus): void {
       instance.saveStatus = status;
       const label = mainRegion.querySelector<HTMLElement>("[data-save-status]");
@@ -1725,6 +2151,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Обновляет заголовок карточки в списке, не перерисовывая редактор.
+     *
+     * @param title Новый заголовок. Пустой показывается как «Без названия».
+     */
     function showTitleInList(title: string): void {
       const text = title || "Без названия";
       const card = listRegion.querySelector<HTMLElement>(".card_active .card__title");
@@ -1738,6 +2169,11 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Подменяет адрес черновика на id созданной заметки.
+     *
+     * @param id Идентификатор с сервера.
+     */
     function replaceDraftCard(id: string): void {
       const card = listRegion.querySelector<HTMLAnchorElement>(`a[href="/notes/${"new"}"]`);
       if (card) {
@@ -1745,6 +2181,687 @@ export class NotesPage {
       }
     }
 
+    let markAnchor: HTMLElement | null = null;
+    let markFocus: HTMLElement | null = null;
+    let dragAnchor: HTMLElement | null = null;
+    let applyingInlineFormat = false;
+
+    /** Текстовые блоки в порядке документа. Картинки и файлы пропускаются. */
+    function textBlocks(): HTMLElement[] {
+      return [...mainRegion.querySelectorAll<HTMLElement>("[data-block]")].filter((block) =>
+        block.querySelector("[data-block-text]")
+      );
+    }
+
+    /**
+     * Блоки, выделенные протяжкой через несколько строк.
+     *
+     * @returns Узлы с классом `notebook__block_marked`.
+     */
+    function markedBlocks(): HTMLElement[] {
+      return [...mainRegion.querySelectorAll<HTMLElement>(".notebook__block_marked")];
+    }
+
+    /**
+     * Снимает выделение нескольких блоков.
+     */
+    function clearMarked(): void {
+      mainRegion.querySelectorAll(".notebook__block_marked").forEach((node) => {
+        node.classList.remove("notebook__block_marked");
+      });
+      markAnchor = null;
+      markFocus = null;
+    }
+
+    /**
+     * Подсвечивает непрерывный кусок строк.
+     * Одно выделение браузера не может лежать сразу в нескольких contenteditable.
+     *
+     * @param anchor Блок, с которого начали.
+     * @param focus Блок, на котором выделение заканчивается.
+     * @param lock Ставит каретку в конечный блок. Пока тянут мышью, этого не делаем.
+     * @returns `false`, если между блоками вложение или это одна и та же строка.
+     */
+    function markRange(anchor: HTMLElement, focus: HTMLElement, lock: boolean): boolean {
+      mainRegion.querySelectorAll(".notebook__block_marked").forEach((node) => {
+        node.classList.remove("notebook__block_marked");
+      });
+      const all = [...mainRegion.querySelectorAll<HTMLElement>("[data-block]")];
+      const from = all.indexOf(anchor);
+      const to = all.indexOf(focus);
+      if (from < 0 || to < 0 || from === to) {
+        markAnchor = null;
+        markFocus = null;
+        return false;
+      }
+
+      const start = Math.min(from, to);
+      const end = Math.max(from, to);
+      const slice = all.slice(start, end + 1);
+      if (slice.some((block) => !block.querySelector("[data-block-text]"))) {
+        markAnchor = null;
+        markFocus = null;
+        return false;
+      }
+
+      markAnchor = anchor;
+      markFocus = focus;
+      slice.forEach((block) => {
+        block.classList.add("notebook__block_marked");
+      });
+      if (!lock) {
+        return true;
+      }
+
+      const host = focus.querySelector<HTMLElement>("[data-block-text]");
+      if (!host) {
+        return true;
+      }
+      const range = document.createRange();
+      range.selectNodeContents(host);
+      host.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return true;
+    }
+
+    /**
+     * Ищет ближайший текстовый блок сверху или снизу. Картинки и файлы пропускает.
+     *
+     * @param block Текущий блок.
+     * @param direction `1` вниз, `-1` вверх.
+     * @returns Соседний текстовый блок или `null`.
+     */
+    function neighborTextBlock(block: HTMLElement, direction: 1 | -1): HTMLElement | null {
+      let cursor: Element | null =
+        direction === 1 ? block.nextElementSibling : block.previousElementSibling;
+      while (cursor instanceof HTMLElement) {
+        if (cursor.matches("[data-block]") && cursor.querySelector("[data-block-text]")) {
+          return cursor;
+        }
+        cursor = direction === 1 ? cursor.nextElementSibling : cursor.previousElementSibling;
+      }
+      return null;
+    }
+
+    /** Сосед только если он сразу рядом: через картинку строки не склеиваем. */
+    function touchingTextBlock(block: HTMLElement, direction: 1 | -1): HTMLElement | null {
+      const sibling = direction === 1 ? block.nextElementSibling : block.previousElementSibling;
+      if (!(sibling instanceof HTMLElement) || !sibling.matches("[data-block]")) {
+        return null;
+      }
+      return sibling.querySelector("[data-block-text]") ? sibling : null;
+    }
+
+    /**
+     * Текст строки без хвостового переноса, который добавляет contenteditable.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @returns Видимый текст.
+     */
+    function visibleText(text: HTMLElement): string {
+      return text.innerText.replaceAll("\u00a0", " ").trim();
+    }
+
+    /**
+     * Каретка стоит в начале или в конце текста блока.
+     *
+     * @param text Текстовый узел блока.
+     * @param atStart Проверять начало, а не конец.
+     * @returns `true`, если в эту сторону текст уже кончился.
+     */
+    function reachesEdge(text: HTMLElement, atStart: boolean): boolean {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        return false;
+      }
+      const range = selection.getRangeAt(0);
+      if (!text.contains(range.startContainer) || !text.contains(range.endContainer)) {
+        return false;
+      }
+      const probe = document.createRange();
+      probe.selectNodeContents(text);
+      try {
+        if (atStart) {
+          probe.setEnd(range.startContainer, range.startOffset);
+        } else {
+          probe.setStart(range.endContainer, range.endOffset);
+        }
+      } catch {
+        return false;
+      }
+      return probe.toString() === "";
+    }
+
+    /**
+     * Выделение схлопнуто и находится внутри этой строки.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @returns `true`, если каретка в этой строке.
+     */
+    function collapsedIn(text: HTMLElement): boolean {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) {
+        return false;
+      }
+      return text.contains(selection.getRangeAt(0).startContainer);
+    }
+
+    /**
+     * Прямоугольник диапазона.
+     *
+     * @param range Диапазон каретки.
+     * @returns Прямоугольник или `null`, если его нет на экране.
+     */
+    function rangeRect(range: Range): DOMRect | null {
+      const rects = range.getClientRects();
+      for (let i = rects.length - 1; i >= 0; i -= 1) {
+        if (rects[i].height > 0) {
+          return rects[i];
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Прямоугольник конца узла. Нужен, когда у пустой каретки нет своей ширины.
+     *
+     * @param node Текстовый узел или элемент строки.
+     * @returns Прямоугольник или `null`.
+     */
+    function rectAtEnd(node: Node): DOMRect | null {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const value = node.textContent ?? "";
+        if (value.length === 0) {
+          return null;
+        }
+        const range = document.createRange();
+        range.setStart(node, value.length - 1);
+        range.setEnd(node, value.length);
+        return rangeRect(range);
+      }
+      if (node instanceof HTMLElement && node.lastChild) {
+        return rectAtEnd(node.lastChild);
+      }
+      return null;
+    }
+
+    /**
+     * Прямоугольник каретки в строке.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @returns Прямоугольник каретки или конца предыдущего символа.
+     */
+    function focusRect(text: HTMLElement): DOMRect | null {
+      const selection = window.getSelection();
+      const node = selection?.focusNode;
+      if (!selection || !node || !text.contains(node)) {
+        return null;
+      }
+      const range = document.createRange();
+      try {
+        range.setStart(node, selection.focusOffset);
+        range.collapse(true);
+      } catch {
+        return null;
+      }
+      const direct = rangeRect(range);
+      if (direct) {
+        return direct;
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        const value = node.textContent ?? "";
+        const offset = selection.focusOffset;
+        if (offset < value.length) {
+          range.setEnd(node, offset + 1);
+          const next = rangeRect(range);
+          if (next) {
+            return next;
+          }
+        }
+        if (offset > 0) {
+          range.setStart(node, offset - 1);
+          range.collapse(false);
+          const previous = rangeRect(range);
+          if (previous) {
+            return previous;
+          }
+        }
+      }
+      if (node instanceof HTMLElement) {
+        const before = node.childNodes[selection.focusOffset - 1];
+        if (before) {
+          const previous = rectAtEnd(before);
+          if (previous) {
+            return previous;
+          }
+        }
+      }
+      const box = text.getBoundingClientRect();
+      return box.height > 0 ? box : null;
+    }
+
+    /**
+     * Каретка на первой или последней визуальной строке блока.
+     *
+     * @param text Узел `[data-block-text]`.
+     * @param edge `"first"` или `"last"`.
+     * @returns `true`, если стрелка должна перейти в соседний блок.
+     */
+    function onEdgeLine(text: HTMLElement, edge: "first" | "last"): boolean {
+      const rect = focusRect(text);
+      if (!rect) {
+        return true;
+      }
+      const box = text.getBoundingClientRect();
+      const slack = Math.max(rect.height, 8) * 0.65;
+      if (edge === "first") {
+        return rect.top - box.top <= slack;
+      }
+      return box.bottom - rect.bottom <= slack;
+    }
+
+    /**
+     * Горизонталь каретки, чтобы попасть в тот же столбец соседней строки.
+     *
+     * @param text Текущая строка.
+     * @returns Координата `clientX`.
+     */
+    function caretX(text: HTMLElement): number {
+      const rect = focusRect(text);
+      if (!rect) {
+        return text.getBoundingClientRect().left;
+      }
+      const line = text.getBoundingClientRect().width;
+      if (rect.width < 2 || rect.width > line * 0.8) {
+        return rect.left;
+      }
+      return rect.right - 1;
+    }
+
+    /**
+     * Ставит каретку в точку экрана внутри строки.
+     *
+     * @param text Целевая строка.
+     * @param x Горизонталь.
+     * @param y Вертикаль.
+     * @returns `false`, если браузер не умеет ставить каретку по точке.
+     */
+    function placeCaretAtClient(text: HTMLElement, x: number, y: number): boolean {
+      let range: Range | null = null;
+      if (typeof document.caretRangeFromPoint === "function") {
+        range = document.caretRangeFromPoint(x, y);
+      }
+      if ((!range || !text.contains(range.startContainer)) && document.caretPositionFromPoint) {
+        const position = document.caretPositionFromPoint(x, y);
+        if (position && text.contains(position.offsetNode)) {
+          range = document.createRange();
+          range.setStart(position.offsetNode, position.offset);
+          range.collapse(true);
+        }
+      }
+      if (!range || !text.contains(range.startContainer)) {
+        return false;
+      }
+      text.focus();
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return true;
+    }
+
+    /**
+     * Ставит каретку на символ с этим индексом в `textContent`.
+     *
+     * @param text Строка.
+     * @param index Индекс символа. Большой индекс ставит каретку в конец.
+     */
+    function placeAtChar(text: HTMLElement, index: number): void {
+      const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+      let remaining = index;
+      let node = walker.nextNode();
+      while (node) {
+        const length = node.textContent?.length ?? 0;
+        if (remaining <= length) {
+          const range = document.createRange();
+          range.setStart(node, remaining);
+          range.collapse(true);
+          text.focus();
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          return;
+        }
+        remaining -= length;
+        node = walker.nextNode();
+      }
+      placeCaret(text, true);
+    }
+
+    /**
+     * Переносит каретку в другой текстовый блок, сохраняя горизонталь.
+     *
+     * @param block Целевой блок.
+     * @param x Горизонталь с предыдущей строки.
+     * @param edge `"start"` или `"end"`, если точку поставить нельзя.
+     */
+    function moveCaretToBlock(block: HTMLElement, x: number, edge: "start" | "end"): void {
+      const text = block.querySelector<HTMLElement>("[data-block-text]");
+      if (!text) {
+        return;
+      }
+      const box = text.getBoundingClientRect();
+      const y = edge === "start" ? box.top + 4 : Math.max(box.top + 1, box.bottom - 4);
+      if (!placeCaretAtClient(text, x, y)) {
+        placeCaret(text, edge === "end");
+      }
+    }
+
+    /**
+     * Схлопывает выделенные блоки в первый и очищает его текст.
+     *
+     * @returns Оставшийся блок или `null`, если выделения не было.
+     */
+    function deleteMarked(): HTMLElement | null {
+      const blocks = markedBlocks();
+      const first = blocks[0];
+      const text = first?.querySelector<HTMLElement>("[data-block-text]");
+      if (!first || !text) {
+        return null;
+      }
+      if (formatBar && blocks.some((block) => block.contains(formatBar))) {
+        parkFormatBar();
+      }
+      blocks.slice(1).forEach((block) => {
+        block.remove();
+      });
+      text.replaceChildren();
+      clearMarked();
+      placeCaret(text, false);
+      return text;
+    }
+
+    /** Переносит текст source в конец target и убирает source. Каретка остаётся на стыке. */
+    function mergeBlocks(target: HTMLElement, source: HTMLElement): void {
+      const targetText = target.querySelector<HTMLElement>("[data-block-text]");
+      const sourceText = source.querySelector<HTMLElement>("[data-block-text]");
+      if (!targetText || !sourceText) {
+        return;
+      }
+      clearMarked();
+      if (formatBar && (target.contains(formatBar) || source.contains(formatBar))) {
+        parkFormatBar();
+      }
+      while (sourceText.lastChild instanceof HTMLBRElement) {
+        sourceText.lastChild.remove();
+      }
+      const joinAt = targetText.textContent?.length ?? 0;
+      if (visibleText(sourceText) === "") {
+        source.remove();
+        placeCaret(targetText, true);
+        return;
+      }
+
+      while (sourceText.firstChild) {
+        targetText.append(sourceText.firstChild);
+      }
+      source.remove();
+      placeAtChar(targetText, joinAt);
+    }
+
+    /**
+     * Стрелки и Backspace между отдельными contenteditable.
+     * Пока каретка внутри строки, клавишу забирает браузер.
+     *
+     * @returns `true`, если событие обработано здесь.
+     */
+    function handleBlockMotion(
+      event: KeyboardEvent,
+      block: HTMLElement,
+      text: HTMLElement
+    ): boolean {
+      const key = event.key;
+      const marked = markedBlocks();
+
+      if (marked.length > 1 && !event.shiftKey) {
+        if (key === "Backspace" || key === "Delete") {
+          event.preventDefault();
+          deleteMarked();
+          timerSave();
+          return true;
+        }
+        if (key.startsWith("Arrow")) {
+          event.preventDefault();
+          const toStart = key === "ArrowLeft" || key === "ArrowUp";
+          const targetBlock = toStart ? marked[0] : marked[marked.length - 1];
+          clearMarked();
+          const host = targetBlock.querySelector<HTMLElement>("[data-block-text]");
+          if (host) {
+            placeCaret(host, !toStart);
+          }
+          return true;
+        }
+      }
+
+      if (
+        !event.shiftKey &&
+        key === "Backspace" &&
+        block.dataset.blockType === "text" &&
+        collapsedIn(text) &&
+        reachesEdge(text, true)
+      ) {
+        const previous = touchingTextBlock(block, -1);
+        if (previous) {
+          event.preventDefault();
+          mergeBlocks(previous, block);
+          timerSave();
+          return true;
+        }
+      }
+
+      if (!event.shiftKey && key === "Delete" && collapsedIn(text) && reachesEdge(text, false)) {
+        const next = touchingTextBlock(block, 1);
+        if (next) {
+          event.preventDefault();
+          mergeBlocks(block, next);
+          timerSave();
+          return true;
+        }
+      }
+
+      if (!key.startsWith("Arrow")) {
+        return false;
+      }
+      if (!event.shiftKey && !collapsedIn(text)) {
+        return false;
+      }
+
+      const upward = key === "ArrowUp" || key === "ArrowLeft";
+      const direction: 1 | -1 = upward ? -1 : 1;
+      let cross = false;
+      if (key === "ArrowLeft") {
+        cross = reachesEdge(text, true);
+      } else if (key === "ArrowRight") {
+        cross = reachesEdge(text, false);
+      } else if (key === "ArrowUp") {
+        cross = onEdgeLine(text, "first");
+      } else if (key === "ArrowDown") {
+        cross = onEdgeLine(text, "last");
+      }
+      if (!cross) {
+        return false;
+      }
+
+      if (event.shiftKey) {
+        const anchor = markAnchor ?? block;
+        const from = markFocus ?? block;
+        const next = neighborTextBlock(from, direction);
+        if (!next) {
+          return false;
+        }
+        if (next === anchor) {
+          event.preventDefault();
+          clearMarked();
+          const host = anchor.querySelector<HTMLElement>("[data-block-text]");
+          if (host) {
+            placeCaret(host, direction === 1);
+          }
+          return true;
+        }
+        if (!markRange(anchor, next, true)) {
+          return false;
+        }
+        event.preventDefault();
+        return true;
+      }
+
+      const next = neighborTextBlock(block, direction);
+      if (!next) {
+        return false;
+      }
+      event.preventDefault();
+      clearMarked();
+      const host = next.querySelector<HTMLElement>("[data-block-text]");
+      if (!host) {
+        return true;
+      }
+      if (key === "ArrowLeft") {
+        placeCaret(host, true);
+      } else if (key === "ArrowRight") {
+        placeCaret(host, false);
+      } else {
+        moveCaretToBlock(next, caretX(text), key === "ArrowUp" ? "end" : "start");
+      }
+      return true;
+    }
+
+    /**
+     * Текстовый блок под указателем, с небольшим допуском по вертикали.
+     *
+     * @param x Координата указателя.
+     * @param y Координата указателя.
+     * @returns Блок или `null`.
+     */
+    function blockAtPoint(x: number, y: number): HTMLElement | null {
+      const node = document.elementFromPoint(x, y);
+      if (node instanceof Element) {
+        const direct = node.closest<HTMLElement>("[data-block]");
+        if (direct && mainRegion.contains(direct) && direct.querySelector("[data-block-text]")) {
+          return direct;
+        }
+      }
+      let closest: HTMLElement | null = null;
+      let best = 28;
+      for (const block of textBlocks()) {
+        const box = block.getBoundingClientRect();
+        if (x < box.left - 48 || x > box.right + 48) {
+          continue;
+        }
+        const distance = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0;
+        if (distance < best) {
+          best = distance;
+          closest = block;
+        }
+      }
+      return closest;
+    }
+
+    /**
+     * Начинает выделение нескольких блоков, если нажатие пришлось на строку.
+     *
+     * @param event Нажатие указателя.
+     */
+    function onEditorPointerDown(event: PointerEvent): void {
+      if (event.button !== 0) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        clearMarked();
+        dragAnchor = null;
+        return;
+      }
+      if (target.closest("[data-format-bar]")) {
+        return;
+      }
+      if (!mainRegion.contains(target)) {
+        clearMarked();
+        dragAnchor = null;
+        return;
+      }
+      if (target.closest("button, input, a")) {
+        return;
+      }
+      const block = target.closest<HTMLElement>("[data-block]");
+      if (!block?.querySelector("[data-block-text]")) {
+        clearMarked();
+        dragAnchor = null;
+        return;
+      }
+      clearMarked();
+      dragAnchor = block;
+    }
+
+    /**
+     * Расширяет выделение блоков, пока кнопка зажата.
+     *
+     * @param event Движение указателя.
+     */
+    function onEditorPointerMove(event: PointerEvent): void {
+      if (!dragAnchor || (event.buttons & 1) === 0) {
+        return;
+      }
+      const block = blockAtPoint(event.clientX, event.clientY);
+      if (!block || block === dragAnchor) {
+        if (markedBlocks().length > 0) {
+          clearMarked();
+        }
+        return;
+      }
+      markRange(dragAnchor, block, false);
+    }
+
+    /**
+     * Заканчивает протяжку выделения.
+     */
+    function onEditorPointerUp(): void {
+      if (dragAnchor && markAnchor && markFocus) {
+        markRange(markAnchor, markFocus, true);
+      }
+      dragAnchor = null;
+    }
+
+    /**
+     * Кладёт выделенные блоки в буфер одним текстом, строки разделяет переводом.
+     *
+     * @param event `copy` или `cut`.
+     */
+    function onEditorCopy(event: ClipboardEvent): void {
+      const blocks = markedBlocks();
+      if (blocks.length < 2 || !event.clipboardData) {
+        return;
+      }
+      event.preventDefault();
+      const payload = blocks
+        .map((block) => {
+          const text = block.querySelector<HTMLElement>("[data-block-text]");
+          return text ? text.innerText.replace(/\n$/, "") : "";
+        })
+        .join("\n");
+      event.clipboardData.setData("text/plain", payload);
+      if (event.type === "cut") {
+        deleteMarked();
+        timerSave();
+      }
+    }
+
+    /**
+     * Ставит каретку в начало или конец строки.
+     *
+     * @param element Узел `[data-block-text]`.
+     * @param atEnd Ставить в конец.
+     */
     function placeCaret(element: HTMLElement, atEnd: boolean): void {
       element.focus();
       const range = document.createRange();
@@ -1755,6 +2872,12 @@ export class NotesPage {
       selection?.addRange(range);
     }
 
+    /**
+     * Вырезает содержимое строки после каретки.
+     *
+     * @param text Текущая строка.
+     * @returns Фрагмент или `null`, если после каретки пусто.
+     */
     function cutAfterCaret(text: HTMLElement): DocumentFragment | null {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) {
@@ -1773,22 +2896,293 @@ export class NotesPage {
       return tail.extractContents();
     }
 
+    /**
+     * Вставляет новый блок следом за текущим.
+     *
+     * @param block Опорный блок.
+     * @param type Тип нового блока.
+     * @returns Новый блок или `null`, если разметку собрать нельзя.
+     */
     function insertBlockAfter(block: HTMLElement, type: BlockType): HTMLElement | null {
       const view = toBlockView({ id: "", content: { type, text: "" } });
       block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
       return block.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]") ?? null;
     }
 
+    /** Закрывает меню типа блока, сохраняя выделение текста. */
+    function closeSelectionTypeMenu(): void {
+      if (selectionTypeMenu) {
+        selectionTypeMenu.hidden = true;
+      }
+      selectionTypeToggle?.setAttribute("aria-expanded", "false");
+    }
+
+    /** Открывает меню с той стороны панели, где больше свободного места. */
+    function toggleSelectionTypeMenu(): void {
+      if (!selectionTypeMenu || !selectionTypeToggle || !formatBar) {
+        return;
+      }
+      if (!selectionTypeMenu.hidden) {
+        closeSelectionTypeMenu();
+        return;
+      }
+
+      const notebook = formatBar.closest<HTMLElement>(".notebook");
+      if (!notebook) {
+        return;
+      }
+      const gap = 6;
+      const edgePadding = 8;
+      const notebookRect = notebook.getBoundingClientRect();
+      const toggleRect = selectionTypeToggle.getBoundingClientRect();
+      const visibleTop = Math.max(0, notebookRect.top + notebook.clientTop) + edgePadding;
+      const visibleBottom =
+        Math.min(
+          window.innerHeight,
+          notebookRect.top + notebook.clientTop + notebook.clientHeight
+        ) - edgePadding;
+      const spaceAbove = Math.max(0, toggleRect.top - visibleTop - gap);
+      const spaceBelow = Math.max(0, visibleBottom - toggleRect.bottom - gap);
+      const openAbove = spaceBelow < 320 && spaceAbove > spaceBelow;
+
+      selectionTypeMenu.style.top = openAbove ? "auto" : `calc(100% + ${gap}px)`;
+      selectionTypeMenu.style.bottom = openAbove ? `calc(100% + ${gap}px)` : "auto";
+      selectionTypeMenu.style.maxHeight = `${Math.min(320, openAbove ? spaceAbove : spaceBelow)}px`;
+      selectionTypeMenu.hidden = false;
+      selectionTypeToggle.setAttribute("aria-expanded", "true");
+
+      for (const item of selectionTypeMenu.querySelectorAll<HTMLElement>("[data-selection-type]")) {
+        item.classList.toggle(
+          "block-menu__item_active",
+          item.getAttribute("aria-pressed") === "true"
+        );
+      }
+    }
+
+    /** Меняет тип выделенного абзаца без замены текста и его форматирования. */
+    function changeSelectedBlockType(type: BlockType): void {
+      closeSelectionTypeMenu();
+      if (
+        type === "file" ||
+        type === "image" ||
+        !BLOCK_OPTIONS.some((option) => option.type === type)
+      ) {
+        return;
+      }
+      const block = formatBar?.closest<HTMLElement>("[data-block]");
+      const text = block?.querySelector<HTMLElement>("[data-block-text]");
+      const selection = window.getSelection();
+      if (!block || !text || !selection || selection.isCollapsed || selection.rangeCount === 0) {
+        return;
+      }
+      const range = selection.getRangeAt(0).cloneRange();
+      if (!text.contains(range.startContainer) || !text.contains(range.endContainer)) {
+        return;
+      }
+      if (block.dataset.blockType === type) {
+        return;
+      }
+
+      closeBlockMenu();
+      block.classList.remove(`notebook__block_${block.dataset.blockType}`);
+      block.classList.add(`notebook__block_${type}`);
+      block.dataset.blockType = type;
+      block.querySelector("[data-block-check]")?.remove();
+      if (type === "checklist") {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "notebook__check";
+        checkbox.dataset.blockCheck = "";
+        text.before(checkbox);
+      }
+
+      text.focus();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      timerSave();
+      placeFormatBar();
+    }
+
+    /**
+     * Прячет панель форматирования вне строки, чтобы перерисовка её не уничтожила.
+     */
+    function parkFormatBar(): void {
+      if (!formatBar) {
+        return;
+      }
+      closeSelectionTypeMenu();
+      formatBar.hidden = true;
+      page.append(formatBar);
+    }
+
+    /** Применяет формат к выделенному тексту или ко всем выделенным блокам. */
+    function applySelectionFormat(format: InlineFormat): void {
+      const blocks = markedBlocks();
+      if (blocks.length < 2) {
+        applyInlineFormat(format);
+        return;
+      }
+
+      const selection = window.getSelection();
+      if (!selection) {
+        return;
+      }
+      const anchor = markAnchor ?? blocks[0];
+      const focus = markFocus ?? blocks[blocks.length - 1];
+      const selectBlock = (block: HTMLElement): void => {
+        const text = block.querySelector<HTMLElement>("[data-block-text]");
+        if (!text) {
+          return;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        text.focus({ preventScroll: true });
+        selection.removeAllRanges();
+        selection.addRange(range);
+      };
+
+      applyingInlineFormat = true;
+      try {
+        const states = blocks.map((block) => {
+          selectBlock(block);
+          return inlineFormatState(format);
+        });
+        const enable = !states.every(
+          (state, index) => state || !blocks[index].querySelector("[data-block-text]")?.textContent
+        );
+        blocks.forEach((block, index) => {
+          if (states[index] !== enable) {
+            selectBlock(block);
+            applyInlineFormat(format);
+          }
+        });
+      } finally {
+        applyingInlineFormat = false;
+        markRange(anchor, focus, true);
+      }
+    }
+
+    /**
+     * Показывает панель форматирования над строкой с кареткой.
+     */
+    function placeFormatBar(): void {
+      if (!formatBar) {
+        return;
+      }
+      const marked = markedBlocks();
+      const multiple = marked.length > 1;
+      const selection = window.getSelection();
+      const anchor = selection?.anchorNode;
+      const host = anchor instanceof Element ? anchor : anchor?.parentElement;
+      const text = multiple
+        ? marked[0].querySelector<HTMLElement>("[data-block-text]")
+        : host?.closest<HTMLElement>("[data-block-text]");
+      const block = text?.closest<HTMLElement>("[data-block]");
+      if (
+        !selection ||
+        selection.rangeCount === 0 ||
+        !text ||
+        !block ||
+        !mainRegion.contains(text) ||
+        (!multiple &&
+          (selection.isCollapsed ||
+            !text.contains(selection.getRangeAt(0).startContainer) ||
+            !text.contains(selection.getRangeAt(0).endContainer)))
+      ) {
+        parkFormatBar();
+        return;
+      }
+
+      if (multiple || formatBar.parentElement !== block) {
+        closeSelectionTypeMenu();
+      }
+      if (formatBar.parentElement !== block) {
+        block.append(formatBar);
+      }
+      const types = formatBar.querySelector<HTMLElement>(".format-bar__types");
+      if (types) {
+        types.hidden = multiple;
+      }
+      formatBar.hidden = false;
+      const type = block.dataset.blockType;
+      const label = formatBar.querySelector<HTMLElement>("[data-selection-type-label]");
+      if (label) {
+        label.textContent = BLOCK_OPTIONS.find((option) => option.type === type)?.label ?? "Текст";
+      }
+      for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-selection-type]")) {
+        button.setAttribute(
+          "aria-pressed",
+          button.dataset.selectionType === type ? "true" : "false"
+        );
+      }
+      for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-format]")) {
+        const format = button.dataset.format as InlineFormat;
+        button.setAttribute("aria-pressed", inlineFormatState(format) ? "true" : "false");
+      }
+    }
+
+    /**
+     * Обновляет панель форматирования, когда меняется выделение.
+     */
+    function onSelectionChange(): void {
+      placeFormatBar();
+    }
+
+    /**
+     * Не даёт кнопке панели забрать фокус у строки.
+     *
+     * @param event Нажатие на кнопку «Ж», «К», «Ч» или «А».
+     */
+    function onFormatMouseDown(event: MouseEvent): void {
+      event.preventDefault();
+    }
+
+    /**
+     * Подменяет разметку блока и возвращает новый узел.
+     *
+     * @param block Старый блок.
+     * @param view Данные для шаблона `note-block`.
+     * @returns Вставленный блок.
+     */
     function replaceBlock(block: HTMLElement, view: BlockView): HTMLElement {
+      if (formatBar && block.contains(formatBar)) {
+        parkFormatBar();
+      }
       block.insertAdjacentHTML("afterend", Handlebars.partials["note-block"](view));
       const next = block.nextElementSibling as HTMLElement;
       block.remove();
       return next;
     }
 
+    /**
+     * Горячие клавиши формата, Enter и переход каретки между блоками.
+     *
+     * @param event Клавиша внутри заметки.
+     */
     function onNoteKeyDown(event: KeyboardEvent): void {
       const target = event.target;
       if (event.isComposing || !(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (
+        selectionTypeMenu &&
+        !selectionTypeMenu.hidden &&
+        ["ArrowDown", "ArrowUp", "Enter"].includes(event.key)
+      ) {
+        event.preventDefault();
+
+        if (event.key !== "Enter") {
+          moveBlockMenu(selectionTypeMenu, event.key === "ArrowDown" ? 1 : -1);
+          return;
+        }
+
+        const active = selectionTypeMenu.querySelector<HTMLElement>(".block-menu__item_active");
+
+        if (active?.dataset.selectionType) {
+          changeSelectedBlockType(active.dataset.selectionType as BlockType);
+        }
+
         return;
       }
 
@@ -1811,6 +3205,62 @@ export class NotesPage {
         if (active && block) {
           chooseBlockType(block, active.dataset.blockOption as BlockType);
         }
+        return;
+      }
+
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        target.closest("[data-block-text]") &&
+        !event.altKey
+      ) {
+        const shortcuts: Record<string, InlineFormat> = {
+          KeyB: "bold",
+          KeyI: "italic",
+          KeyU: "underline",
+        };
+        const format = event.shiftKey
+          ? event.code === "KeyX"
+            ? "strike"
+            : undefined
+          : shortcuts[event.code];
+        if (format) {
+          event.preventDefault();
+          applySelectionFormat(format);
+          placeFormatBar();
+          timerSave();
+          return;
+        }
+      }
+
+      if (!event.ctrlKey && !event.metaKey && !event.altKey && markedBlocks().length > 1) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          deleteMarked();
+          timerSave();
+          return;
+        }
+        if (event.key.length === 1) {
+          event.preventDefault();
+          const host = deleteMarked();
+          if (host) {
+            host.textContent = event.key;
+            placeCaret(host, true);
+          }
+          timerSave();
+          return;
+        }
+      }
+
+      const motionBlock = target.closest<HTMLElement>("[data-block]");
+      const motionText = target.closest<HTMLElement>("[data-block-text]");
+      if (
+        motionBlock &&
+        motionText &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        handleBlockMotion(event, motionBlock, motionText)
+      ) {
         return;
       }
 
@@ -1847,24 +3297,84 @@ export class NotesPage {
       if (event.key === "Backspace") {
         const block = target.closest<HTMLElement>("[data-block]");
         const text = block?.querySelector<HTMLElement>("[data-block-text]");
-        const previous =
-          block?.previousElementSibling?.querySelector<HTMLElement>("[data-block-text]");
+        if (!block || !text) {
+          return;
+        }
 
-        if (!block || !text || !previous || text.innerText.trim() !== "") {
+        const selection = window.getSelection();
+        if (!selection || !selection.isCollapsed || selection.rangeCount === 0) {
+          return;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!text.contains(range.startContainer)) {
+          return;
+        }
+
+        const beforeCaret = document.createRange();
+        beforeCaret.selectNodeContents(text);
+        beforeCaret.setEnd(range.startContainer, range.startOffset);
+
+        if (beforeCaret.toString() !== "") {
+          return;
+        }
+
+        if (block.dataset.blockType !== "text") {
+          event.preventDefault();
+          closeBlockMenu();
+          block.classList.remove(`notebook__block_${block.dataset.blockType}`);
+          block.classList.add("notebook__block_text");
+          block.dataset.blockType = "text";
+          block.querySelector("[data-block-check]")?.remove();
+          placeCaret(text, false);
+          timerSave();
+          return;
+        }
+
+        const previous =
+          block.previousElementSibling?.querySelector<HTMLElement>("[data-block-text]");
+        if (!previous || text.innerText.trim() !== "") {
           return;
         }
 
         event.preventDefault();
+        if (formatBar && block.contains(formatBar)) {
+          parkFormatBar();
+        }
         block.remove();
         placeCaret(previous, true);
         timerSave();
       }
     }
 
+    /**
+     * Клики по списку, тегам, меню заметки и кнопкам страницы.
+     *
+     * @param event Клик на странице заметок.
+     */
     function onPageClick(event: MouseEvent): void {
       const target = event.target;
 
       if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest("[data-selection-type-toggle]")) {
+        toggleSelectionTypeMenu();
+        return;
+      }
+      const typeButton = target.closest<HTMLButtonElement>("[data-selection-type]");
+      if (typeButton?.dataset.selectionType) {
+        changeSelectedBlockType(typeButton.dataset.selectionType as BlockType);
+        return;
+      }
+      closeSelectionTypeMenu();
+
+      const formatButton = target.closest<HTMLButtonElement>("[data-format]");
+      if (formatButton?.dataset.format) {
+        applySelectionFormat(formatButton.dataset.format as InlineFormat);
+        placeFormatBar();
+        timerSave();
         return;
       }
 
@@ -1960,6 +3470,11 @@ export class NotesPage {
         return;
       }
 
+      if (target.closest("[data-dictation-toggle]")) {
+        toggleDictation();
+        return;
+      }
+
       if (target.closest("[data-note-menu-toggle]")) {
         const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
         setNoteMenu(panel?.hidden === true);
@@ -2022,12 +3537,18 @@ export class NotesPage {
       }
     }
 
-    /** По Escape закрывает поиск, меню заметки, меню блоков и тегов, диалоги выхода и удаления. */
+    /**
+     * По Escape закрывает поиск, меню заметки, меню блоков и тегов, диалоги выхода и удаления,
+     * останавливает голосовой ввод.
+     */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
       }
 
+      stopDictation();
+      clearMarked();
+      closeSelectionTypeMenu();
       searchResults.hidden = true;
       closeLogoutDialog();
       setNoteMenu(false);
@@ -2036,6 +3557,11 @@ export class NotesPage {
       closeTagPicker();
     }
 
+    /**
+     * Открывает меню по `/`, снимает лишнее выделение и ставит сохранение.
+     *
+     * @param event Ввод в заголовке или строке.
+     */
     function onNoteInput(event: Event): void {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
@@ -2049,11 +3575,34 @@ export class NotesPage {
       }
 
       if (target.matches("[data-note-title]")) {
+        if (event instanceof InputEvent && event.isComposing) {
+          return;
+        }
+
+        const characters = Array.from(target.textContent ?? "");
+        if (characters.length > TITLE_MAX_LENGTH) {
+          target.textContent = characters.slice(0, TITLE_MAX_LENGTH).join("");
+          placeCaret(target, true);
+        }
+
         showTitleInList(readTitle());
       }
 
       if (target.matches("[data-block-text]")) {
         const block = target.closest<HTMLElement>("[data-block]");
+        const extra = markedBlocks().filter((item) => item !== block);
+        const formatting =
+          applyingInlineFormat ||
+          (event instanceof InputEvent && event.inputType.startsWith("format"));
+        if (extra.length > 0 && !formatting) {
+          extra.forEach((item) => {
+            if (formatBar && item.contains(formatBar)) {
+              parkFormatBar();
+            }
+            item.remove();
+          });
+          clearMarked();
+        }
         if (block && target.innerText.trim() === "/") {
           openBlockMenu(block);
         } else {
@@ -2069,6 +3618,9 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Сбрасывает ошибку сети и заново запрашивает список.
+     */
     function retryLoad(): void {
       connectionLost = false;
       store.status = "idle";
@@ -2076,12 +3628,17 @@ export class NotesPage {
       void loadAndShow();
     }
 
+    /**
+     * Показывает тост «Потеря соединения».
+     */
     function onOffline(): void {
-      showToast("Потеря соединения");
+      showToast("Потеря соединения", true);
       window.clearTimeout(instance.toastTimer);
-      toast.classList.add("toast_error");
     }
 
+    /**
+     * Прячет тост и досылает сохранение или догрузку, которые ждали сеть.
+     */
     function onOnline(): void {
       hideToast();
       toast.classList.remove("toast_error");
@@ -2099,14 +3656,52 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Блок, в который попадут файлы из буфера. Без цели берётся последний блок.
+     *
+     * @param target Цель события.
+     * @returns Блок или `null`, если в заметке блоков нет.
+     */
     function findFileTarget(target: EventTarget | null): HTMLElement | null {
       const block = target instanceof Element ? target.closest<HTMLElement>("[data-block]") : null;
       const blocks = mainRegion.querySelectorAll<HTMLElement>("[data-block]");
       return block ?? blocks[blocks.length - 1] ?? null;
     }
 
+    /**
+     * Вставляет текст без чужой разметки или файлы из буфера.
+     *
+     * @param event Вставка на странице.
+     */
     function onPaste(event: ClipboardEvent): void {
       const data = event.clipboardData;
+      const target = event.target;
+      if (
+        data &&
+        target instanceof HTMLElement &&
+        target.closest("[data-block-text]") &&
+        data.getData("text/plain") !== ""
+      ) {
+        event.preventDefault();
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+          return;
+        }
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const fragment = fragmentFromClipboard(data);
+        const marker = document.createTextNode("");
+        fragment.append(marker);
+        range.insertNode(fragment);
+        range.setStartAfter(marker);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        marker.remove();
+        timerSave();
+        return;
+      }
+
       if (
         !data ||
         data.files.length === 0 ||
@@ -2123,11 +3718,22 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Блок под курсором при перетаскивании файла.
+     *
+     * @param event Событие drag.
+     * @returns Блок или `null`.
+     */
     function findDropTarget(event: DragEvent): HTMLElement | null {
       const inNote = event.target instanceof Node && mainRegion.contains(event.target);
       return inNote ? findFileTarget(event.target) : null;
     }
 
+    /**
+     * Разрешает сброс файла на блок.
+     *
+     * @param event Перетаскивание над страницей.
+     */
     function onDragOver(event: DragEvent): void {
       if (event.dataTransfer?.types.includes("Files")) {
         event.preventDefault();
@@ -2137,12 +3743,22 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Снимает подсветку, когда файл уводят с блока.
+     *
+     * @param event Уход указателя с цели.
+     */
     function onDragLeave(event: DragEvent): void {
       if (!event.relatedTarget) {
         mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", false);
       }
     }
 
+    /**
+     * Загружает файлы, сброшенные на блок.
+     *
+     * @param event Сброс файлов.
+     */
     function onDrop(event: DragEvent): void {
       if (!event.dataTransfer?.types.includes("Files")) {
         return;
@@ -2156,16 +3772,219 @@ export class NotesPage {
       }
     }
 
+    /**
+     * Сохраняет заметку, когда переключают пункт чеклиста.
+     *
+     * @param event `change` внутри заметки.
+     */
     function onNoteChange(event: Event): void {
       if (event.target instanceof HTMLInputElement && event.target.matches("[data-block-check]")) {
         timerSave();
       }
     }
 
+    /**
+     * Предупреждает о несохранённых правках при закрытии вкладки.
+     *
+     * @param event Закрытие или обновление страницы.
+     */
     function onBeforeUnload(event: BeforeUnloadEvent): void {
       if (instance.hasPendingChanges || instance.saving) {
         event.preventDefault();
       }
+    }
+
+    /** Не даёт кнопке голосового ввода забрать фокус и каретку из текста заметки. */
+    function onMainMouseDown(event: MouseEvent): void {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-dictation-toggle]")) {
+        event.preventDefault();
+      }
+    }
+
+    function findEditable(node: Node | null): HTMLElement | null {
+      const element = node instanceof Element ? node : (node?.parentElement ?? null);
+      const editable =
+        element?.closest<HTMLElement>("[data-note-title], [data-block-text]") ?? null;
+      return editable && mainRegion.contains(editable) ? editable : null;
+    }
+
+    /** Место вставки надиктованного текста: каретка в заметке или конец последнего блока. */
+    function getDictationRange(): Range | null {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const editable = findEditable(range.startContainer);
+        if (editable && editable === findEditable(range.endContainer)) {
+          return range;
+        }
+      }
+
+      const texts = mainRegion.querySelectorAll<HTMLElement>("[data-block-text]");
+      const blocks = mainRegion.querySelectorAll<HTMLElement>("[data-block]");
+      const lastBlock = blocks[blocks.length - 1];
+      const text =
+        texts[texts.length - 1] ?? (lastBlock ? insertBlockAfter(lastBlock, "text") : null);
+      if (!text) {
+        return null;
+      }
+
+      placeCaret(text, true);
+      return window.getSelection()?.getRangeAt(0) ?? null;
+    }
+
+    function needsSpaceBefore(editable: HTMLElement, range: Range): boolean {
+      const before = document.createRange();
+      before.selectNodeContents(editable);
+      before.setEnd(range.startContainer, range.startOffset);
+      const preceding = before.toString();
+      return preceding !== "" && !/\s$/.test(preceding);
+    }
+
+    function placeCaretAt(range: Range): void {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+
+    function findInterim(): HTMLElement | null {
+      return mainRegion.querySelector<HTMLElement>("[data-dictation-interim]");
+    }
+
+    function removeInterim(): void {
+      findInterim()?.remove();
+    }
+
+    /**
+     * Показывает недоговорённую фразу прямо в тексте заметки.
+     * Текст выводится через `::after`, поэтому не попадает в содержимое блока и в сохранение.
+     */
+    function showInterim(phrase: string): void {
+      const words = phrase.trim();
+      if (!words) {
+        removeInterim();
+        return;
+      }
+
+      let interim = findInterim();
+      if (!interim) {
+        const range = getDictationRange();
+        if (!range || !findEditable(range.startContainer)) {
+          return;
+        }
+        range.collapse(false);
+        interim = document.createElement("span");
+        interim.className = "notebook__dictation-interim";
+        interim.contentEditable = "false";
+        range.insertNode(interim);
+
+        const caret = document.createRange();
+        caret.setStartBefore(interim);
+        caret.collapse(true);
+        placeCaretAt(caret);
+      }
+
+      const editable = findEditable(interim);
+      const position = document.createRange();
+      position.setStartBefore(interim);
+      const space = editable && needsSpaceBefore(editable, position) ? " " : "";
+      interim.dataset.dictationInterim = space + words;
+    }
+
+    function insertDictatedText(phrase: string): void {
+      const words = phrase.trim();
+      const interim = findInterim();
+      let range: Range | null = null;
+
+      if (interim) {
+        range = document.createRange();
+        range.setStartBefore(interim);
+        range.collapse(true);
+        interim.remove();
+      } else if (words) {
+        range = getDictationRange();
+      }
+
+      const editable = range ? findEditable(range.startContainer) : null;
+      if (!words || !range || !editable) {
+        return;
+      }
+
+      range.deleteContents();
+      const space = needsSpaceBefore(editable, range) ? " " : "";
+      const node = document.createTextNode(space + words);
+      range.insertNode(node);
+
+      const caret = document.createRange();
+      caret.setStartAfter(node);
+      caret.collapse(true);
+      placeCaretAt(caret);
+
+      editable.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function setDictationActive(active: boolean): void {
+      const button = mainRegion.querySelector<HTMLElement>("[data-dictation-toggle]");
+      if (button) {
+        const label = active ? "Остановить голосовой ввод" : "Голосовой ввод";
+        button.classList.toggle("icon-button_recording", active);
+        button.setAttribute("aria-pressed", String(active));
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      }
+
+      const status = mainRegion.querySelector<HTMLElement>("[data-dictation-status]");
+      if (status) {
+        status.hidden = !active;
+        status.textContent = active ? "Говорите…" : "";
+      }
+
+      if (!active) {
+        removeInterim();
+      }
+    }
+
+    function beginDictation(): void {
+      const session: Dictation | null = startDictation({
+        onFinal: insertDictatedText,
+        onInterim: showInterim,
+        onError: (message) => showToast(message, true),
+        onEnd: () => {
+          if (dictation !== session) {
+            return;
+          }
+          dictation = null;
+          setDictationActive(false);
+        },
+      });
+
+      if (!session) {
+        setDictationActive(false);
+        showToast("Не удалось включить микрофон", true);
+        return;
+      }
+
+      dictation = session;
+      setDictationActive(true);
+    }
+
+    function stopDictation(): void {
+      dictation?.stop();
+    }
+
+    function abortDictation(): void {
+      const session = dictation;
+      dictation = null;
+      session?.abort();
+      setDictationActive(false);
+    }
+
+    function toggleDictation(): void {
+      if (dictation) {
+        stopDictation();
+        return;
+      }
+      beginDictation();
     }
 
     search.addEventListener("input", onSearchInput);
@@ -2176,6 +3995,16 @@ export class NotesPage {
     mainRegion.addEventListener("input", onNoteInput);
     mainRegion.addEventListener("change", onNoteChange);
     mainRegion.addEventListener("keydown", onNoteKeyDown);
+    mainRegion.addEventListener("mousedown", onMainMouseDown);
+    mainRegion.addEventListener("scroll", onSelectionChange, true);
+    document.addEventListener("selectionchange", onSelectionChange);
+    document.addEventListener("pointerdown", onEditorPointerDown);
+    document.addEventListener("pointermove", onEditorPointerMove);
+    document.addEventListener("pointerup", onEditorPointerUp);
+    document.addEventListener("pointercancel", onEditorPointerUp);
+    mainRegion.addEventListener("copy", onEditorCopy);
+    mainRegion.addEventListener("cut", onEditorCopy);
+    formatBar?.addEventListener("mousedown", onFormatMouseDown);
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -2226,6 +4055,16 @@ export class NotesPage {
     leaving.mainRegion.removeEventListener("input", leaving.onNoteInput);
     leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
     leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
+    leaving.mainRegion.removeEventListener("mousedown", leaving.onMainMouseDown);
+    leaving.mainRegion.removeEventListener("scroll", leaving.onSelectionChange, true);
+    document.removeEventListener("selectionchange", leaving.onSelectionChange);
+    document.removeEventListener("pointerdown", leaving.onEditorPointerDown);
+    document.removeEventListener("pointermove", leaving.onEditorPointerMove);
+    document.removeEventListener("pointerup", leaving.onEditorPointerUp);
+    document.removeEventListener("pointercancel", leaving.onEditorPointerUp);
+    leaving.mainRegion.removeEventListener("copy", leaving.onEditorCopy);
+    leaving.mainRegion.removeEventListener("cut", leaving.onEditorCopy);
+    leaving.formatBar?.removeEventListener("mousedown", leaving.onFormatMouseDown);
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
     window.removeEventListener("online", leaving.onOnline);
     window.removeEventListener("offline", leaving.onOffline);
@@ -2234,6 +4073,7 @@ export class NotesPage {
     window.removeEventListener("drop", leaving.onDrop);
     window.removeEventListener("dragleave", leaving.onDragLeave);
     window.cancelAnimationFrame(leaving.listFrame);
+    leaving.abortDictation();
     leaving.destroyProfile();
     leaving.destroyTags();
 

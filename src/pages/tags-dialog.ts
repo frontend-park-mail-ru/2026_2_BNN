@@ -89,6 +89,9 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
   let error = "";
   let busy = false;
 
+  /**
+   * Перерисовывает список тегов, форму создания и ошибку модалки.
+   */
   function render(): void {
     const tags = options.getTags();
     body.innerHTML = Handlebars.partials["tags-manager"]({
@@ -102,6 +105,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     });
   }
 
+  /**
+   * Фокусирует поле названия. Пустой id — форма создания.
+   *
+   * @param id Идентификатор тега или пустая строка.
+   */
   function focusForm(id: string): void {
     const input = body.querySelector<HTMLInputElement>(
       `[data-tag-form="${id}"] input[name="name"]`
@@ -110,6 +118,9 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     input?.select();
   }
 
+  /**
+   * Показывает модалку тегов в режиме списка.
+   */
   function open(): void {
     editingId = null;
     confirmingId = null;
@@ -119,6 +130,9 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     focusForm("");
   }
 
+  /**
+   * Прячет модалку. Пока запрос идёт, закрытие игнорируется.
+   */
   function close(): void {
     if (busy) {
       return;
@@ -127,10 +141,21 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     body.innerHTML = "";
   }
 
+  /**
+   * Текст ошибки для пользователя.
+   *
+   * @param caught Пойманное исключение.
+   * @returns Сообщение API или общая ошибка сети.
+   */
   function readError(caught: unknown): string {
     return caught instanceof ApiError ? caught.message : NETWORK_ERROR;
   }
 
+  /**
+   * Создаёт тег или сохраняет правку названия и цвета.
+   *
+   * @param form Форма `[data-tag-form]`.
+   */
   async function saveTag(form: HTMLFormElement): Promise<void> {
     const id = form.dataset.tagForm ?? "";
     const nameInput = form.elements.namedItem("name") as HTMLInputElement;
@@ -181,6 +206,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     }
   }
 
+  /**
+   * Удаляет тег. 404 тоже убирает его из списка: на сервере его уже нет.
+   *
+   * @param id Идентификатор тега.
+   */
   async function deleteTag(id: string): Promise<void> {
     busy = true;
     try {
@@ -208,6 +238,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     }
   }
 
+  /**
+   * Открытие правки, подтверждение удаления и закрытие модалки.
+   *
+   * @param event Клик внутри диалога.
+   */
   function onClick(event: MouseEvent): void {
     const target = event.target;
     if (!(target instanceof Element) || busy) {
@@ -256,6 +291,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     }
   }
 
+  /**
+   * Перехватывает сабмит формы тега.
+   *
+   * @param event Событие формы.
+   */
   function onSubmit(event: SubmitEvent): void {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.matches("[data-tag-form]")) {
@@ -267,6 +307,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     }
   }
 
+  /**
+   * Escape сначала сбрасывает правку и подтверждение, затем закрывает модалку.
+   *
+   * @param event Клавиша на странице.
+   */
   function onKeyDown(event: KeyboardEvent): void {
     if (event.key !== "Escape" || dialog.hidden) {
       return;
@@ -280,6 +325,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     close();
   }
 
+  /**
+   * Стирает ошибку названия, когда его меняют.
+   *
+   * @param event Ввод в форме тега.
+   */
   function onInput(event: Event): void {
     const input = event.target;
     if (input instanceof HTMLInputElement && input.name === "name") {

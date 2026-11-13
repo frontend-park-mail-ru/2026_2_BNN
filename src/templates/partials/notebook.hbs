@@ -10,8 +10,14 @@
                 {{#if hasNote}}<li class="notebook__crumb">{{displayTitle}}</li>{{/if}}
             </ol>
         </nav>
+        <span class="notebook__dictation-status" data-dictation-status aria-live="polite" hidden></span>
         <span class="notebook__save-status" data-save-status>{{saveStatus}}</span>
         <div class="notebook__actions">
+            {{#if canDictate}}
+                <button class="icon-button" type="button" aria-label="Голосовой ввод" aria-pressed="false" title="Голосовой ввод" data-dictation-toggle>
+                    {{> icon name="mic"}}
+                </button>
+            {{/if}}
             <button class="icon-button icon-button_disabled" type="button" aria-label="Избранное" disabled>
                 {{> icon name="heart"}}
             </button>
