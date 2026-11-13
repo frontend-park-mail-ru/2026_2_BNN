@@ -464,6 +464,13 @@
     background-color: transparent;
   }
 
+  &_recording,
+  &_recording:hover {
+    color: #ffffff;
+    background-color: var(--danger);
+    animation: dictation-pulse 1.6s ease-out infinite;
+  }
+
   &_disabled {
     opacity: 0.35;
     pointer-events: none;
@@ -471,6 +478,33 @@
 
     &:hover {
       background-color: transparent;
+    }
+  }
+}
+
+.dictation {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  &__language {
+    min-width: 36px;
+    height: 28px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 999px;
+    background-color: var(--button-bg);
+    color: var(--light-text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--accent-soft);
+      color: var(--text);
     }
   }
 }
@@ -561,6 +595,7 @@
     flex: 1;
     min-width: 0;
     margin-right: var(--space-l);
+    overflow: hidden;
   }
 
   &__crumbs {
@@ -601,6 +636,17 @@
   &__content {
     flex: 1;
     overflow-wrap: anywhere;
+  }
+
+  &__dictation-status {
+    max-width: 280px;
+    margin-right: var(--space-m);
+    color: var(--light-text);
+    font-size: 13px;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   &__save-status {
@@ -1037,5 +1083,21 @@
 @keyframes modal-spinner {
   to {
     transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes dictation-pulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(214, 69, 80, 0.45);
+  }
+
+  to {
+    box-shadow: 0 0 0 12px rgba(214, 69, 80, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button_recording {
+    animation: none;
   }
 }

@@ -19,6 +19,13 @@ import {
   type TagView,
 } from "../utils/tags";
 import { safeResourceUrl } from "../utils/url";
+import {
+  getDictationLanguage,
+  isSpeechSupported,
+  startDictation,
+  switchDictationLanguage,
+  type Dictation,
+} from "../utils/speech";
 import { mountProfile } from "./profile";
 import { mountTagsDialog } from "./tags-dialog";
 
@@ -158,6 +165,8 @@ interface NotesInstance {
   onDragOver: (event: DragEvent) => void;
   onDrop: (event: DragEvent) => void;
   onDragLeave: (event: DragEvent) => void;
+  onMainMouseDown: (event: MouseEvent) => void;
+  abortDictation: () => void;
   onDetailsLoaded: () => void;
   listFrame: number;
   destroyProfile: () => void;
@@ -723,6 +732,8 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
     isFilterEmpty: isFiltering && notes.length === 0,
     isFilterLoading: isFiltering && !detailsFailed && hasMissingDetails(),
     hasNote: hasNote,
+    canDictate: isSpeechSupported(),
+    dictationLanguage: getDictationLanguage().label,
     title: title,
     displayTitle: displayTitle,
     blocks: blocks,
@@ -837,6 +848,9 @@ export class NotesPage {
       history.replaceState(null, "", "/notes");
     }
 
+    let dictation: Dictation | null = null;
+    let restartDictation = false;
+
     const instance: NotesInstance = {
       page: page,
       search: search,
@@ -866,6 +880,8 @@ export class NotesPage {
       onDragOver: onDragOver,
       onDrop: onDrop,
       onDragLeave: onDragLeave,
+      onMainMouseDown: onMainMouseDown,
+      abortDictation: abortDictation,
       onDetailsLoaded: onDetailsLoaded,
       listFrame: 0,
       destroyProfile: destroyProfile,
@@ -931,6 +947,7 @@ export class NotesPage {
     }
 
     function update(): void {
+      abortDictation();
       const view = buildView(context, instance.noteId, instance.saveStatus);
       listRegion.innerHTML = Handlebars.partials["notes-list"](view);
       mainRegion.innerHTML = Handlebars.partials["notes-main"](view);
@@ -1960,6 +1977,16 @@ export class NotesPage {
         return;
       }
 
+      if (target.closest("[data-dictation-toggle]")) {
+        toggleDictation();
+        return;
+      }
+
+      if (target.closest("[data-dictation-language]")) {
+        changeDictationLanguage();
+        return;
+      }
+
       if (target.closest("[data-note-menu-toggle]")) {
         const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
         setNoteMenu(panel?.hidden === true);
@@ -2022,12 +2049,16 @@ export class NotesPage {
       }
     }
 
-    /** По Escape закрывает поиск, меню заметки, меню блоков и тегов, диалоги выхода и удаления. */
+    /**
+     * По Escape закрывает поиск, меню заметки, меню блоков и тегов, диалоги выхода и удаления,
+     * останавливает голосовой ввод.
+     */
     function onPageKeyDown(event: KeyboardEvent): void {
       if (event.key !== "Escape") {
         return;
       }
 
+      stopDictation();
       searchResults.hidden = true;
       closeLogoutDialog();
       setNoteMenu(false);
@@ -2168,6 +2199,167 @@ export class NotesPage {
       }
     }
 
+    /** Не даёт кнопкам голосового ввода забрать фокус и каретку из текста заметки. */
+    function onMainMouseDown(event: MouseEvent): void {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest("[data-dictation-toggle], [data-dictation-language]")
+      ) {
+        event.preventDefault();
+      }
+    }
+
+    function findEditable(node: Node | null): HTMLElement | null {
+      const element = node instanceof Element ? node : (node?.parentElement ?? null);
+      const editable =
+        element?.closest<HTMLElement>("[data-note-title], [data-block-text]") ?? null;
+      return editable && mainRegion.contains(editable) ? editable : null;
+    }
+
+    /** Место вставки надиктованного текста: каретка в заметке или конец последнего блока. */
+    function getDictationRange(): Range | null {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const editable = findEditable(range.startContainer);
+        if (editable && editable === findEditable(range.endContainer)) {
+          return range;
+        }
+      }
+
+      const texts = mainRegion.querySelectorAll<HTMLElement>("[data-block-text]");
+      const blocks = mainRegion.querySelectorAll<HTMLElement>("[data-block]");
+      const lastBlock = blocks[blocks.length - 1];
+      const text =
+        texts[texts.length - 1] ?? (lastBlock ? insertBlockAfter(lastBlock, "text") : null);
+      if (!text) {
+        return null;
+      }
+
+      placeCaret(text, true);
+      return window.getSelection()?.getRangeAt(0) ?? null;
+    }
+
+    function insertDictatedText(phrase: string): void {
+      const words = phrase.trim();
+      const range = words ? getDictationRange() : null;
+      const editable = range ? findEditable(range.startContainer) : null;
+      if (!range || !editable) {
+        return;
+      }
+
+      range.deleteContents();
+      const before = document.createRange();
+      before.selectNodeContents(editable);
+      before.setEnd(range.startContainer, range.startOffset);
+      const preceding = before.toString();
+      const needsSpace = preceding !== "" && !/\s$/.test(preceding);
+
+      const node = document.createTextNode((needsSpace ? " " : "") + words);
+      range.insertNode(node);
+
+      const caret = document.createRange();
+      caret.setStartAfter(node);
+      caret.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(caret);
+
+      editable.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function setDictationStatus(text: string): void {
+      const status = mainRegion.querySelector<HTMLElement>("[data-dictation-status]");
+      if (status) {
+        status.textContent = text;
+      }
+    }
+
+    function setDictationActive(active: boolean): void {
+      const button = mainRegion.querySelector<HTMLElement>("[data-dictation-toggle]");
+      if (button) {
+        const label = active ? "Остановить голосовой ввод" : "Голосовой ввод";
+        button.classList.toggle("icon-button_recording", active);
+        button.setAttribute("aria-pressed", String(active));
+        button.setAttribute("aria-label", label);
+        button.title = label;
+      }
+
+      const status = mainRegion.querySelector<HTMLElement>("[data-dictation-status]");
+      if (status) {
+        status.hidden = !active;
+        status.textContent = active ? "Говорите…" : "";
+      }
+    }
+
+    function beginDictation(): void {
+      const session: Dictation | null = startDictation(getDictationLanguage(), {
+        onFinal: insertDictatedText,
+        onInterim: (text) => setDictationStatus(text || "Говорите…"),
+        onError: (message) => {
+          restartDictation = false;
+          showToast(message);
+        },
+        onEnd: () => {
+          if (dictation !== session) {
+            return;
+          }
+          dictation = null;
+          if (restartDictation && mounted === instance) {
+            restartDictation = false;
+            beginDictation();
+            return;
+          }
+          setDictationActive(false);
+        },
+      });
+
+      if (!session) {
+        setDictationActive(false);
+        showToast("Не удалось включить микрофон");
+        return;
+      }
+
+      dictation = session;
+      setDictationActive(true);
+    }
+
+    function stopDictation(): void {
+      restartDictation = false;
+      dictation?.stop();
+    }
+
+    function abortDictation(): void {
+      const session = dictation;
+      dictation = null;
+      restartDictation = false;
+      session?.abort();
+      setDictationActive(false);
+    }
+
+    function toggleDictation(): void {
+      if (dictation) {
+        stopDictation();
+        return;
+      }
+      beginDictation();
+    }
+
+    function changeDictationLanguage(): void {
+      const language = switchDictationLanguage();
+      const button = mainRegion.querySelector<HTMLElement>("[data-dictation-language]");
+      if (button) {
+        button.textContent = language.label;
+        button.setAttribute("aria-label", "Язык голосового ввода: " + language.label);
+      }
+
+      if (dictation) {
+        restartDictation = true;
+        dictation.stop();
+      }
+    }
+
     search.addEventListener("input", onSearchInput);
     search.addEventListener("focus", renderSearchResults);
     searchBox.addEventListener("focusout", onSearchFocusOut);
@@ -2176,6 +2368,7 @@ export class NotesPage {
     mainRegion.addEventListener("input", onNoteInput);
     mainRegion.addEventListener("change", onNoteChange);
     mainRegion.addEventListener("keydown", onNoteKeyDown);
+    mainRegion.addEventListener("mousedown", onMainMouseDown);
     window.addEventListener("beforeunload", onBeforeUnload);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -2226,6 +2419,7 @@ export class NotesPage {
     leaving.mainRegion.removeEventListener("input", leaving.onNoteInput);
     leaving.mainRegion.removeEventListener("change", leaving.onNoteChange);
     leaving.mainRegion.removeEventListener("keydown", leaving.onNoteKeyDown);
+    leaving.mainRegion.removeEventListener("mousedown", leaving.onMainMouseDown);
     window.removeEventListener("beforeunload", leaving.onBeforeUnload);
     window.removeEventListener("online", leaving.onOnline);
     window.removeEventListener("offline", leaving.onOffline);
@@ -2234,6 +2428,7 @@ export class NotesPage {
     window.removeEventListener("drop", leaving.onDrop);
     window.removeEventListener("dragleave", leaving.onDragLeave);
     window.cancelAnimationFrame(leaving.listFrame);
+    leaving.abortDictation();
     leaving.destroyProfile();
     leaving.destroyTags();
 
