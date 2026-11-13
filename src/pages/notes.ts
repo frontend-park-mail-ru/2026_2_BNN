@@ -20,6 +20,7 @@ import {
   type TagView,
 } from "../utils/tags";
 import { classifyAttachment } from "../utils/attachment";
+import { getThemeIcon } from "../theme";
 import {
   applyInlineFormat,
   fragmentFromClipboard,
@@ -784,6 +785,7 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
   const profile = api.getCachedProfile();
 
   return {
+    themeIcon: getThemeIcon(),
     userLogin: getProfileLogin(profile),
     avatarUrl: api.avatarUrl(profile?.avatar ?? null),
 

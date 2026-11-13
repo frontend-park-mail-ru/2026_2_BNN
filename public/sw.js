@@ -9,6 +9,7 @@ const SHELL_FILES = [
   "/assets/icons/logo-shape.svg",
   "/assets/images/avatar-default.svg",
   "/assets/images/background_v1.svg",
+  "/assets/images/background-dark.webp",
   "/assets/fonts/Comfortaa/static/Comfortaa-Light.woff2",
   "/assets/fonts/Comfortaa/static/Comfortaa-Regular.woff2",
   "/assets/fonts/Comfortaa/static/Comfortaa-Medium.woff2",

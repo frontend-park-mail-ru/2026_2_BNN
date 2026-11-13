@@ -12,13 +12,25 @@
   min-height: 600px;
   gap: var(--space-l);
 
-  &::before {
+  &::before,
+  &::after {
     content: "";
     position: fixed;
     inset: 0;
     z-index: -1;
-    background: url("/assets/images/background_v1.svg") center / cover no-repeat;
+    pointer-events: none;
+    background: center / cover no-repeat;
+  }
+
+  &::before {
+    background-image: url("/assets/images/background_v1.svg");
     opacity: 0.1;
+  }
+
+  &::after {
+    background-color: #0b3243;
+    background-image: url("/assets/images/background-dark.webp");
+    opacity: 0;
   }
 
   &__layout {
@@ -1225,5 +1237,37 @@
     bottom: anchor(top);
     left: anchor(left);
     margin-bottom: 6px;
+  }
+}
+
+:root[data-theme-transition="circle"] {
+  view-transition-name: none;
+
+  .notes {
+    view-transition-name: theme-page;
+  }
+
+  &::view-transition-old(theme-page),
+  &::view-transition-new(theme-page) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  &::view-transition-old(theme-page) {
+    z-index: 2;
+  }
+
+  &::view-transition-new(theme-page) {
+    z-index: 1;
+  }
+}
+
+:root[data-theme="light"][data-theme-transition="circle"] {
+  &::view-transition-old(theme-page) {
+    z-index: 1;
+  }
+
+  &::view-transition-new(theme-page) {
+    z-index: 2;
   }
 }

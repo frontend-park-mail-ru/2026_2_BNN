@@ -1,0 +1,203 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b3243;
+  --dark-bg: #0f4e68;
+  --surface-bg: #0c4158;
+  --accent: #70acc6;
+  --accent-soft: #7da3b3;
+  --text: #d7e3e7;
+  --light-text: #97c4cc;
+  --disabled: #5d7073;
+  --success: #79c6a5;
+  --warning: #e2c27b;
+  --error: #e58f91;
+  --danger: var(--error);
+  --danger-bg: color-mix(in srgb, var(--error) 12%, var(--bg));
+  --danger-bg-hover: color-mix(in srgb, var(--error) 22%, var(--bg));
+  --button-bg: var(--surface-bg);
+  --ink: var(--text);
+  --muted: var(--light-text);
+  background-color: var(--bg);
+
+  .notes {
+    background-color: var(--bg);
+
+    &::after {
+      opacity: 1;
+    }
+  }
+
+  .sidebar__nav {
+    background-color: var(--surface-bg);
+  }
+
+  .icon-button:hover,
+  .icon-button_active,
+  .icon-button_active:hover {
+    color: var(--bg);
+  }
+
+  .icon-button_active,
+  .icon-button_active:hover {
+    background-color: var(--accent-soft);
+  }
+
+  .icon-button_theme:hover {
+    color: var(--text);
+  }
+
+  .icon-button_disabled {
+    color: var(--disabled);
+    opacity: 1;
+  }
+
+  .header__create,
+  .notebook__action,
+  .modal__button,
+  .profile__button_primary,
+  .tag-form__submit {
+    color: var(--bg);
+  }
+
+  .notebook__action_secondary {
+    color: var(--text);
+
+    &:hover {
+      background-color: var(--surface-bg);
+    }
+  }
+
+  .note-menu__item_danger {
+    color: var(--danger);
+    background-color: var(--danger-bg);
+
+    &:hover,
+    &:focus-visible {
+      background-color: var(--danger-bg-hover);
+    }
+  }
+
+  .toast__icon {
+    color: var(--success);
+  }
+
+  .skeleton {
+    background-image: linear-gradient(
+      90deg,
+      var(--bg) 25%,
+      var(--surface-bg) 50%,
+      var(--bg) 75%
+    );
+  }
+
+  .modal,
+  .modal[data-profile-dialog].modal_open {
+    background-color: rgb(0 0 0 / 55%);
+  }
+
+  .modal__button_ghost {
+    color: var(--text);
+    background-color: var(--button-bg);
+
+    &:hover {
+      background-color: var(--dark-bg);
+    }
+  }
+
+  .modal__button_danger,
+  .tags-list__button_confirm,
+  .tags-list__button_confirm:hover {
+    color: var(--bg);
+    background-color: var(--error);
+  }
+
+  .modal__button_danger:hover {
+    background-color: color-mix(in srgb, var(--error) 85%, var(--bg));
+  }
+
+  .modal__button_loading,
+  .modal__button_loading:hover {
+    color: transparent;
+    background-color: var(--button-bg);
+  }
+
+  .profile__button:not(.profile__button_primary):not(.profile__button_danger) {
+    &:hover,
+    &:focus-visible {
+      background-color: var(--dark-bg);
+    }
+  }
+
+  .code-input__digit {
+    border-color: var(--disabled);
+    background-color: var(--surface-bg);
+
+    &:focus {
+      border-color: var(--accent);
+    }
+  }
+
+  :has([data-error-for="code"]:not(:empty)) .code-input__digit {
+    border-color: var(--error);
+  }
+
+  .login {
+    &::before {
+      background-image: url("/assets/images/background-dark.webp");
+    }
+
+    &__panel {
+      background: var(--bg);
+      box-shadow: inset 0 0 0 1px var(--surface-bg);
+
+      &::before {
+        background: none;
+      }
+    }
+  }
+
+  .login-form__field:not(.login-form__field_error) {
+    &:has(.login-form__input:focus),
+    &:has(.login-form__input:not(:placeholder-shown)) {
+      .login-form__label {
+        color: var(--light-text);
+      }
+    }
+  }
+
+  .login-form__submit {
+    color: var(--bg);
+  }
+
+  .login-form__submit_loading {
+    background-color: var(--surface-bg);
+  }
+
+  .login-form__spinner {
+    background: conic-gradient(from -18deg, transparent 0deg 52deg, var(--accent) 52deg 360deg);
+  }
+
+  .login-form__divider::before,
+  .login-form__divider::after {
+    background-color: var(--disabled);
+  }
+
+  .login-form__github {
+    box-shadow: inset 0 0 0 1px var(--disabled);
+
+    &:hover {
+      background-color: var(--surface-bg);
+    }
+  }
+
+  .login-form__submit:disabled:not(.login-form__submit_loading),
+  .modal__button:disabled:not(.modal__button_loading),
+  .profile__button:disabled,
+  .tag-form__submit:disabled,
+  .tag-form__cancel:disabled,
+  .note-menu__item:disabled,
+  input:disabled,
+  [aria-disabled="true"] {
+    color: var(--disabled);
+  }
+}
