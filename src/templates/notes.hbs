@@ -10,6 +10,28 @@
     {{> delete-dialog}}
     {{> profile-dialog}}
     {{> tags-dialog}}
+    <div class="format-bar" data-format-bar hidden>
+        <div class="format-bar__types">
+            <button class="format-bar__button format-bar__type-toggle" type="button" data-selection-type-toggle aria-label="Тип блока" aria-expanded="false">
+                <span data-selection-type-label>Текст</span> ▾
+            </button>
+            <div class="format-bar__type-menu" data-selection-types hidden>
+                <button class="block-menu__item" type="button" data-selection-type="text" aria-pressed="false">Текст</button>
+                <button class="block-menu__item" type="button" data-selection-type="heading" aria-pressed="false">Заголовок</button>
+                <button class="block-menu__item" type="button" data-selection-type="subtitle" aria-pressed="false">Подзаголовок</button>
+                <button class="block-menu__item" type="button" data-selection-type="bulleted" aria-pressed="false">Маркированный список</button>
+                <button class="block-menu__item" type="button" data-selection-type="numbered" aria-pressed="false">Нумерованный список</button>
+                <button class="block-menu__item" type="button" data-selection-type="checklist" aria-pressed="false">Чек-лист</button>
+                <button class="block-menu__item" type="button" data-selection-type="quote" aria-pressed="false">Цитата</button>
+            </div>
+        </div>
+        <div class="format-bar__formats">
+            <button class="format-bar__button" type="button" data-format="bold" aria-label="Жирный" aria-pressed="false"><b>Ж</b></button>
+            <button class="format-bar__button" type="button" data-format="italic" aria-label="Курсив" aria-pressed="false"><i>К</i></button>
+            <button class="format-bar__button" type="button" data-format="underline" aria-label="Подчёркнутый" aria-pressed="false"><u>Ч</u></button>
+            <button class="format-bar__button" type="button" data-format="strike" aria-label="Зачёркнутый" aria-pressed="false"><s>А</s></button>
+        </div>
+    </div>
     <div class="toast" data-toast hidden>
         <span class="toast__icon">{{> icon name="check" size="s"}}</span>
         <span class="toast__text" data-toast-text></span>
