@@ -14,12 +14,9 @@
         <span class="notebook__save-status" data-save-status>{{saveStatus}}</span>
         <div class="notebook__actions">
             {{#if canDictate}}
-                <div class="dictation">
-                    <button class="dictation__language" type="button" aria-label="Язык голосового ввода: {{dictationLanguage}}" title="Сменить язык голосового ввода" data-dictation-language>{{dictationLanguage}}</button>
-                    <button class="icon-button" type="button" aria-label="Голосовой ввод" aria-pressed="false" title="Голосовой ввод" data-dictation-toggle>
-                        {{> icon name="mic"}}
-                    </button>
-                </div>
+                <button class="icon-button" type="button" aria-label="Голосовой ввод" aria-pressed="false" title="Голосовой ввод" data-dictation-toggle>
+                    {{> icon name="mic"}}
+                </button>
             {{/if}}
             <button class="icon-button icon-button_disabled" type="button" aria-label="Избранное" disabled>
                 {{> icon name="heart"}}

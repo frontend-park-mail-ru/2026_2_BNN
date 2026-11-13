@@ -1,12 +1,4 @@
-const STORAGE_KEY = "dictation-language";
-
-/** Язык голосового ввода. */
-export interface DictationLanguage {
-  /** Код языка для SpeechRecognition, например `ru-RU`. */
-  code: string;
-  /** Короткая подпись на кнопке переключения. */
-  label: string;
-}
+const DICTATION_LANGUAGE = "ru-RU";
 
 /** Колбэки голосового ввода. */
 export interface DictationHandlers {
@@ -64,19 +56,13 @@ interface Recognition {
 
 type RecognitionConstructor = new () => Recognition;
 
-/** Языки, между которыми переключается голосовой ввод. */
-export const DICTATION_LANGUAGES: DictationLanguage[] = [
-  { code: "ru-RU", label: "RU" },
-  { code: "en-US", label: "EN" },
-];
-
 const ERROR_MESSAGES: Record<string, string> = {
   "not-allowed": "Нет доступа к микрофону. Разрешите его в настройках сайта",
   "service-not-allowed": "Браузер запретил распознавание речи",
   "audio-capture": "Микрофон не найден",
   network: "Для голосового ввода нужен интернет",
   "no-speech": "Ничего не услышали, попробуйте ещё раз",
-  "language-not-supported": "Браузер не распознаёт этот язык",
+  "language-not-supported": "Браузер не распознаёт русскую речь",
 };
 
 /**
@@ -102,83 +88,19 @@ export function isSpeechSupported(): boolean {
 }
 
 /**
- * Читает сохранённый язык голосового ввода из localStorage.
+ * Запускает распознавание русской речи. Отдельные английские слова и фразы браузер тоже распознаёт.
  *
- * @returns Код языка или `null`.
- */
-function readStoredLanguage(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Подбирает язык по настройкам браузера.
- *
- * @returns Первый язык браузера из списка поддерживаемых или русский.
- */
-function getBrowserLanguage(): DictationLanguage {
-  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
-
-  for (const code of preferred) {
-    const prefix = code.toLowerCase().split("-")[0];
-    const language = DICTATION_LANGUAGES.find((item) => item.code.toLowerCase().startsWith(prefix));
-    if (language) {
-      return language;
-    }
-  }
-
-  return DICTATION_LANGUAGES[0];
-}
-
-/**
- * Возвращает текущий язык голосового ввода.
- *
- * @returns Сохранённый язык или язык браузера.
- */
-export function getDictationLanguage(): DictationLanguage {
-  const stored = readStoredLanguage();
-  return DICTATION_LANGUAGES.find((item) => item.code === stored) ?? getBrowserLanguage();
-}
-
-/**
- * Переключает язык голосового ввода на следующий из списка и сохраняет выбор.
- *
- * @returns Новый язык.
- */
-export function switchDictationLanguage(): DictationLanguage {
-  const current = DICTATION_LANGUAGES.indexOf(getDictationLanguage());
-  const next = DICTATION_LANGUAGES[(current + 1) % DICTATION_LANGUAGES.length];
-
-  try {
-    localStorage.setItem(STORAGE_KEY, next.code);
-  } catch {
-    return next;
-  }
-
-  return next;
-}
-
-/**
- * Запускает распознавание речи.
- *
- * @param language Язык, на котором говорит пользователь.
  * @param handlers Колбэки для фраз, ошибок и завершения.
  * @returns Управление записью или `null`, если запустить распознавание не удалось.
  */
-export function startDictation(
-  language: DictationLanguage,
-  handlers: DictationHandlers
-): Dictation | null {
+export function startDictation(handlers: DictationHandlers): Dictation | null {
   const Constructor = getRecognitionConstructor();
   if (!Constructor || !window.isSecureContext) {
     return null;
   }
 
   const recognition = new Constructor();
-  recognition.lang = language.code;
+  recognition.lang = DICTATION_LANGUAGE;
   recognition.continuous = true;
   recognition.interimResults = true;
 
