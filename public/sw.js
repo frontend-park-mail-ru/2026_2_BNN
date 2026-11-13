@@ -1,4 +1,4 @@
-const STATIC_CACHE = "bnn-static-v1";
+const STATIC_CACHE = "bnn-static-v2";
 const API_CACHE = "bnn-api";
 
 const SHELL_FILES = [
@@ -7,7 +7,9 @@ const SHELL_FILES = [
   "/assets/icons/ui/sprite.svg",
   "/assets/icons/logo-auth.svg",
   "/assets/icons/logo-shape.svg",
+  "/assets/icons/logo-shape-dark.svg",
   "/assets/images/avatar-default.svg",
+  "/assets/images/avatar-default-dark.svg",
   "/assets/images/background_v1.svg",
   "/assets/images/background-dark.webp",
   "/assets/fonts/Comfortaa/static/Comfortaa-Light.woff2",

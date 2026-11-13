@@ -1,4 +1,5 @@
 import { getState, setState, type AuthStatus, type User } from "./store/app-store";
+import { themeAsset } from "./theme";
 import { safeResourceUrl } from "./utils/url";
 
 const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
@@ -22,7 +23,6 @@ const TECHNICAL_ERROR_MESSAGE = "Технические неполадки, по
 const CSRF_COOKIE = "bnn_csrf";
 const CSRF_HEADER = "X-CSRF-Token";
 const MUTATING_METHODS = new Set(["POST", "PUT", "DELETE"]);
-const DEFAULT_AVATAR = "/assets/images/avatar-default.svg";
 
 /**
  * Читает куку, которую бэкенд отдаёт не как HttpOnly, чтобы её можно было вернуть в заголовке.
@@ -719,10 +719,10 @@ class Api {
    */
   avatarUrl(avatar: string | null): string {
     if (!avatar) {
-      return DEFAULT_AVATAR;
+      return themeAsset("avatar");
     }
     const url = avatar.startsWith("http") ? avatar : `${this.baseUrl}${avatar}`;
-    return safeResourceUrl(url) || DEFAULT_AVATAR;
+    return safeResourceUrl(url) || themeAsset("avatar");
   }
 
   /**

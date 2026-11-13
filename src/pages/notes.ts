@@ -20,7 +20,7 @@ import {
   type TagView,
 } from "../utils/tags";
 import { classifyAttachment } from "../utils/attachment";
-import { getThemeIcon } from "../theme";
+import { getThemeIcon, themeAsset } from "../theme";
 import {
   applyInlineFormat,
   fragmentFromClipboard,
@@ -789,6 +789,7 @@ function buildView(context: PageContext, noteId: string | undefined, saveStatus:
 
   return {
     themeIcon: getThemeIcon(),
+    logoSrc: themeAsset("logo"),
     userLogin: getProfileLogin(profile),
     avatarUrl: api.avatarUrl(profile?.avatar ?? null),
 

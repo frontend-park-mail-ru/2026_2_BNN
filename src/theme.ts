@@ -10,6 +10,53 @@ const THEME_ICONS: Record<Theme, string> = {
   dark: "sunset",
 };
 
+const THEME_ASSETS = {
+  logo: {
+    light: "/assets/icons/logo-shape.svg",
+    dark: "/assets/icons/logo-shape-dark.svg",
+  },
+  avatar: {
+    light: "/assets/images/avatar-default.svg",
+    dark: "/assets/images/avatar-default-dark.svg",
+  },
+} as const;
+
+/**
+ * Возвращает логотип или дефолтный аватар для активной темы приложения.
+ * Цвет зашит в файл: картинка через `img` не видит `data-theme` на странице.
+ *
+ * @param kind `logo` или `avatar`.
+ * @returns Путь к SVG текущей темы.
+ */
+export function themeAsset(kind: keyof typeof THEME_ASSETS): string {
+  return THEME_ASSETS[kind][getTheme()];
+}
+
+/**
+ * Меняет уже показанные логотип и дефолтный аватар. Загруженный аватар не трогает.
+ *
+ * @param theme Целевая тема.
+ */
+function syncThemeAssets(theme: Theme): void {
+  document.querySelectorAll<HTMLImageElement>("img").forEach((image) => {
+    const src = image.currentSrc || image.src;
+    if (usesAsset(src, "logo")) {
+      image.src = THEME_ASSETS.logo[theme];
+    } else if (usesAsset(src, "avatar")) {
+      image.src = THEME_ASSETS.avatar[theme];
+    }
+  });
+}
+
+/**
+ * @param src Текущий адрес картинки, обычно абсолютный.
+ * @param kind Какой набор файлов проверять.
+ * @returns `true`, если адрес — светлая или тёмная версия этого ассета.
+ */
+function usesAsset(src: string, kind: keyof typeof THEME_ASSETS): boolean {
+  return src.endsWith(THEME_ASSETS[kind].light) || src.endsWith(THEME_ASSETS[kind].dark);
+}
+
 /**
  * Читает сохраненную тему из localStorage.
  *
@@ -59,6 +106,7 @@ function applyTheme(theme: Theme): void {
   document.querySelectorAll("[data-theme-toggle] use").forEach((use) => {
     use.setAttribute("href", `${SPRITE}#${THEME_ICONS[theme]}`);
   });
+  syncThemeAssets(theme);
 }
 
 async function transitionTheme(button: Element): Promise<void> {
