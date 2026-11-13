@@ -82,12 +82,7 @@
   }
 
   .skeleton {
-    background-image: linear-gradient(
-      90deg,
-      var(--bg) 25%,
-      var(--surface-bg) 50%,
-      var(--bg) 75%
-    );
+    background-image: linear-gradient(90deg, var(--bg) 25%, var(--surface-bg) 50%, var(--bg) 75%);
   }
 
   .modal,

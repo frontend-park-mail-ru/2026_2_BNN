@@ -98,10 +98,7 @@ async function transitionTheme(button: Element): Promise<void> {
     try {
       await transition.ready;
 
-      const circle = [
-        `circle(${radius}px at ${x}px ${y}px)`,
-        `circle(0px at ${x}px ${y}px)`,
-      ];
+      const circle = [`circle(${radius}px at ${x}px ${y}px)`, `circle(0px at ${x}px ${y}px)`];
 
       animation = root.animate(
         {

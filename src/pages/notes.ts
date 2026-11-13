@@ -912,8 +912,9 @@ export class NotesPage {
     } = elements;
     const formatBar = page.querySelector<HTMLElement>("[data-format-bar]");
     const selectionTypeMenu = formatBar?.querySelector<HTMLElement>("[data-selection-types]");
-    const selectionTypeToggle =
-      formatBar?.querySelector<HTMLButtonElement>("[data-selection-type-toggle]");
+    const selectionTypeToggle = formatBar?.querySelector<HTMLButtonElement>(
+      "[data-selection-type-toggle]"
+    );
     useFormatTags();
 
     const destroyProfile = mountProfile(page, {
@@ -1885,8 +1886,7 @@ export class NotesPage {
       const blockRect = block.getBoundingClientRect();
       const menuHeight = menu.getBoundingClientRect().height;
 
-      const visibleTop =
-        Math.max(0, notebookRect.top + notebook.clientTop) + edgePadding;
+      const visibleTop = Math.max(0, notebookRect.top + notebook.clientTop) + edgePadding;
       const visibleBottom =
         Math.min(
           window.innerHeight,
@@ -2941,9 +2941,7 @@ export class NotesPage {
       selectionTypeMenu.hidden = false;
       selectionTypeToggle.setAttribute("aria-expanded", "true");
 
-      for (const item of selectionTypeMenu.querySelectorAll<HTMLElement>(
-        "[data-selection-type]"
-      )) {
+      for (const item of selectionTypeMenu.querySelectorAll<HTMLElement>("[data-selection-type]")) {
         item.classList.toggle(
           "block-menu__item_active",
           item.getAttribute("aria-pressed") === "true"
@@ -3040,8 +3038,7 @@ export class NotesPage {
           return inlineFormatState(format);
         });
         const enable = !states.every(
-          (state, index) =>
-            state || !blocks[index].querySelector("[data-block-text]")?.textContent
+          (state, index) => state || !blocks[index].querySelector("[data-block-text]")?.textContent
         );
         blocks.forEach((block, index) => {
           if (states[index] !== enable) {
@@ -3103,7 +3100,10 @@ export class NotesPage {
         label.textContent = BLOCK_OPTIONS.find((option) => option.type === type)?.label ?? "Текст";
       }
       for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-selection-type]")) {
-        button.setAttribute("aria-pressed", button.dataset.selectionType === type ? "true" : "false");
+        button.setAttribute(
+          "aria-pressed",
+          button.dataset.selectionType === type ? "true" : "false"
+        );
       }
       for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-format]")) {
         const format = button.dataset.format as InlineFormat;
@@ -3167,9 +3167,7 @@ export class NotesPage {
           return;
         }
 
-        const active = selectionTypeMenu.querySelector<HTMLElement>(
-          ".block-menu__item_active"
-        );
+        const active = selectionTypeMenu.querySelector<HTMLElement>(".block-menu__item_active");
 
         if (active?.dataset.selectionType) {
           changeSelectedBlockType(active.dataset.selectionType as BlockType);
