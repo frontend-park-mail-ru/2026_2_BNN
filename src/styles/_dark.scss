@@ -77,8 +77,12 @@
     }
   }
 
-  .toast__icon {
+  .toast__icon_ok {
     color: var(--success);
+  }
+
+  .toast__icon_error {
+    color: var(--error);
   }
 
   .skeleton {
