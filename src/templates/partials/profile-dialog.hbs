@@ -110,5 +110,13 @@
                 <button class="profile__button" type="button" data-profile-cancel>Отмена</button>
             </div>
         </form>
+        <div class="avatar-crop" data-profile-view="avatar" hidden>
+            <p class="avatar-crop__hint">Перетащите круг и потяните его край. В аватарку попадёт то, что внутри.</p>
+            <canvas class="avatar-crop__canvas" data-avatar-crop width="360" height="360" aria-label="Область аватарки"></canvas>
+            <div class="avatar-crop__actions">
+                <button class="profile__button profile__button_primary" type="button" data-avatar-save>Сохранить</button>
+                <button class="profile__button" type="button" data-avatar-cancel>Отмена</button>
+            </div>
+        </div>
     </div>
 </div>

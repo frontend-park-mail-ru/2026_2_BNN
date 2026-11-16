@@ -4,7 +4,11 @@
         {{#if hasActiveTags}}
             <button class="tag-filter__action" type="button" data-tag-filter-reset>Сбросить</button>
         {{/if}}
-        <button class="tag-filter__action" type="button" data-tags-manage>{{#if filterTags.length}}Изменить{{else}}Создать{{/if}}</button>
+        {{#if filterTags.length}}
+            <button class="tag-filter__action" type="button" data-tags-manage>Изменить</button>
+        {{else}}
+            <button class="tag-filter__action" type="button" data-tags-manage>Создать тег</button>
+        {{/if}}
     </div>
     {{#if filterTags.length}}
         <div class="tag-filter__list"{{#if tagsCollapsed}} hidden{{/if}}>

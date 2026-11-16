@@ -1,10 +1,11 @@
 @mixin font-face($family, $file, $weight) {
   @font-face {
     font-family: $family;
-    src: url($file) format("truetype");
+    src: url("#{$file}.woff2") format("woff2");
     font-weight: $weight;
     font-style: normal;
-    font-display: swap;
+    // block не рисует запасной шрифт, пока грузится наш: иначе вся страница на миг становится жирной.
+    font-display: block;
   }
 }
 

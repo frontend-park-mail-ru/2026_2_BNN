@@ -1,6 +1,7 @@
 import { api, ApiError } from "../api";
 import { navigate, resetAuthState } from "../router";
 import type { User } from "../store/app-store";
+import { AvatarCrop } from "../utils/avatar-crop";
 import { getNewPasswordError, getRepeatPasswordError } from "../utils/auth-form";
 import { formatJoined } from "../utils/date";
 import { handlePasswordToggleClick, resetPasswordToggles } from "../utils/password-toggle";
@@ -12,13 +13,12 @@ import {
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;
-const AVATAR_SPINNER_MIN = 600;
 
 const PROFILE_OPEN_FAILED = "Не удалось открыть профиль, попробуйте позже";
 const PASSWORD_SAVE_FAILED = "Не удалось сохранить пароль, попробуйте позже";
 const AVATAR_UPDATE_FAILED = "Не удалось обновить аватар, попробуйте позже";
 
-type ProfileView = "loading" | "menu" | "password" | "twoFactor" | "twoFactorDisable";
+type ProfileView = "loading" | "menu" | "password" | "twoFactor" | "twoFactorDisable" | "avatar";
 
 /** Колбэки и данные, которые страница заметок передаёт в модалку профиля. */
 export interface ProfileOptions {
@@ -100,24 +100,8 @@ function showProfileView(dialog: HTMLElement, view: ProfileView): void {
 
   const identity = dialog.querySelector<HTMLElement>("[data-profile-identity]");
   if (identity) {
-    identity.hidden = view === "loading";
+    identity.hidden = view === "loading" || view === "avatar";
   }
-}
-
-/**
- * Ждёт не меньше `min` мс с момента `started` (для минимальной длительности спиннера).
- *
- * @param started Время начала операции (`Date.now()`).
- * @param min Минимальная длительность в миллисекундах.
- */
-function waitAtLeast(started: number, min: number): Promise<void> {
-  const rest = min - (Date.now() - started);
-  if (rest <= 0) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, rest);
-  });
 }
 
 /**
@@ -201,7 +185,110 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   let profileRequest = 0;
   let openFrame = 0;
   let qrUrl = "";
+  let crop: AvatarCrop | null = null;
+  let cropToken = 0;
 
+  /**
+   * Блокирует кнопки кропа на время загрузки аватара.
+   *
+   * @param saving Идёт ли отправка файла.
+   */
+  function setCropButtons(saving: boolean): void {
+    const save = dialog.querySelector<HTMLButtonElement>("[data-avatar-save]");
+    const cancel = dialog.querySelector<HTMLButtonElement>("[data-avatar-cancel]");
+    if (save) {
+      save.disabled = saving;
+      save.textContent = saving ? "Сохраняем…" : "Сохранить";
+    }
+    if (cancel) {
+      cancel.disabled = saving;
+    }
+  }
+
+  /**
+   * Сбрасывает кроп и освобождает объектный URL картинки.
+   */
+  function closeCrop(): void {
+    cropToken += 1;
+    crop?.destroy();
+    crop = null;
+    setCropButtons(false);
+  }
+
+  /**
+   * Открывает кадрирование выбранного файла, не отправляя его на сервер.
+   *
+   * @param file JPEG, PNG или WebP из поля аватара.
+   */
+  async function startCrop(file: File): Promise<void> {
+    const canvas = dialog.querySelector("canvas[data-avatar-crop]");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return;
+    }
+    closeCrop();
+    const token = cropToken;
+    const next = await AvatarCrop.open(canvas, file);
+    if (token !== cropToken) {
+      next?.destroy();
+      return;
+    }
+    if (!next) {
+      showToast("Не удалось открыть изображение", false);
+      return;
+    }
+    crop = next;
+    showProfileView(dialog, "avatar");
+  }
+
+  /**
+   * Вырезает квадрат, проверяет размер и только потом вызывает `updateAvatar`.
+   */
+  async function saveCrop(): Promise<void> {
+    const current = crop;
+    if (!current) {
+      return;
+    }
+    const token = cropToken;
+    current.lock();
+    setCropButtons(true);
+    try {
+      const file = await current.toFile();
+      if (!file || token !== cropToken) {
+        return;
+      }
+      if (file.size > AVATAR_LIMIT) {
+        showToast("После обрезки файл больше 5 МБ", false);
+        return;
+      }
+      const profile = await api.updateAvatar(file);
+      fillProfile(page, dialog, profile, options.notesCount());
+      showToast("Аватар обновлён");
+      if (token === cropToken) {
+        closeCrop();
+        showProfileView(dialog, "menu");
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        resetAuthState("unauthenticated");
+        await navigate("/login");
+        return;
+      }
+      const message =
+        error instanceof ApiError && (error.status === 413 || error.status === 415)
+          ? error.message
+          : AVATAR_UPDATE_FAILED;
+      showToast(message, false);
+    } finally {
+      if (token === cropToken) {
+        current.unlock();
+        setCropButtons(false);
+      }
+    }
+  }
+
+  /**
+   * Освобождает объектный URL QR-кода и убирает картинку из диалога.
+   */
   function clearQr(): void {
     if (qrUrl) {
       URL.revokeObjectURL(qrUrl);
@@ -210,6 +297,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     dialog.querySelector<HTMLImageElement>("[data-2fa-qr]")?.removeAttribute("src");
   }
 
+  /**
+   * Очищает поля включения и отключения двухфакторной защиты.
+   */
   function clearTwoFactorForms(): void {
     dialog
       .querySelectorAll<HTMLFormElement>(
@@ -218,6 +308,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       .forEach(clearTwoFactorForm);
   }
 
+  /**
+   * Запрашивает новый QR и показывает экран включения 2FA.
+   */
   async function openTwoFactor(): Promise<void> {
     clearTwoFactorForms();
     showProfileView(dialog, "twoFactor");
@@ -253,6 +346,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
   }
 
+  /**
+   * Открывает ввод кода, которым отключают 2FA.
+   */
   function openTwoFactorDisable(): void {
     clearTwoFactorForms();
     showProfileView(dialog, "twoFactorDisable");
@@ -261,6 +357,12 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       ?.focus();
   }
 
+  /**
+   * Показывает тост профиля и прячет его через 4 секунды.
+   *
+   * @param message Текст.
+   * @param ok `false` красит тост как ошибку.
+   */
   function showToast(message: string, ok = true): void {
     toastText.textContent = message;
     toast.classList.toggle("toast_error", !ok);
@@ -271,6 +373,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }, 4000);
   }
 
+  /**
+   * Открывает модалку профиля с двухкадровой анимацией.
+   */
   function showDialog(): void {
     window.clearTimeout(closeTimer);
     window.cancelAnimationFrame(openFrame);
@@ -282,7 +387,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     });
   }
 
+  /**
+   * Закрывает профиль, кроп и сбрасывает незавершённые формы.
+   */
   function closeProfile(): void {
+    closeCrop();
     profileRequest += 1;
     window.cancelAnimationFrame(openFrame);
     const wasOpen = dialog.classList.contains("modal_open");
@@ -307,7 +416,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }, 200);
   }
 
+  /**
+   * Открывает профиль и подгружает свежие данные пользователя.
+   */
   async function openProfile(): Promise<void> {
+    closeCrop();
     const request = ++profileRequest;
     showDialog();
     showProfileView(dialog, "loading");
@@ -333,6 +446,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
   }
 
+  /**
+   * Клики по пунктам профиля, кнопкам кропа и закрытию модалки.
+   *
+   * @param event Клик внутри страницы.
+   */
   function onClick(event: MouseEvent): void {
     const target = event.target;
     if (!(target instanceof Element)) {
@@ -360,6 +478,17 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
 
     if (target.closest("[data-profile-close]") || target === dialog) {
       closeProfile();
+      return;
+    }
+
+    if (target.closest("[data-avatar-cancel]")) {
+      closeCrop();
+      showProfileView(dialog, "menu");
+      return;
+    }
+
+    if (target.closest("[data-avatar-save]")) {
+      void saveCrop();
       return;
     }
 
@@ -396,6 +525,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
   }
 
+  /**
+   * Escape закрывает профиль, цифры 2FA переключают поля.
+   *
+   * @param event Клавиша на странице.
+   */
   function onKeyDown(event: KeyboardEvent): void {
     if (event.key === "Escape" && !dialog.hidden) {
       closeProfile();
@@ -412,6 +546,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
   }
 
+  /**
+   * Снимает ошибку поля, когда пользователь снова печатает.
+   *
+   * @param event Ввод в форме профиля.
+   */
   function onInput(event: Event): void {
     const input = event.target;
     if (input instanceof HTMLInputElement && input.matches("[data-2fa-digit]")) {
@@ -452,6 +591,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
   }
 
+  /**
+   * Отправляет смену пароля или код 2FA.
+   *
+   * @param event Сабмит формы внутри диалога.
+   */
   async function onSubmit(event: SubmitEvent): Promise<void> {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) {
@@ -566,6 +710,11 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     }
   }
 
+  /**
+   * Проверяет выбранный аватар и открывает кроп, не загружая исходный файл.
+   *
+   * @param event Смена `[data-avatar-input]`.
+   */
   function onChange(event: Event): void {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !input.matches("[data-avatar-input]")) {
@@ -586,33 +735,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
       return;
     }
 
-    const avatar = input.closest(".profile__avatar");
-    const started = Date.now();
-    avatar?.classList.add("login-form__submit_loading");
-    input.disabled = true;
-
-    void api
-      .updateAvatar(file)
-      .then(
-        (profile) => {
-          avatar?.classList.remove("login-form__submit_loading");
-          fillProfile(page, dialog, profile, options.notesCount());
-          showToast("Аватар обновлён");
-        },
-        async (error: unknown) => {
-          if (error instanceof ApiError && error.status === 401) {
-            resetAuthState("unauthenticated");
-            await navigate("/login");
-            return;
-          }
-          await waitAtLeast(started, AVATAR_SPINNER_MIN);
-          showToast(AVATAR_UPDATE_FAILED, false);
-        }
-      )
-      .finally(() => {
-        avatar?.classList.remove("login-form__submit_loading");
-        input.disabled = false;
-      });
+    void startCrop(file);
   }
 
   page.addEventListener("click", onClick);
@@ -624,6 +747,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   return () => {
     window.clearTimeout(toastTimer);
     window.clearTimeout(closeTimer);
+    closeCrop();
     clearQr();
     page.removeEventListener("click", onClick);
     page.removeEventListener("keydown", onKeyDown);
