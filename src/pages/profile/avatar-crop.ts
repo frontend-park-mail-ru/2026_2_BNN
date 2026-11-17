@@ -2,6 +2,7 @@ const VIEW = 360;
 const OUTPUT = 512;
 const MIN_SIZE = 72;
 
+/** Прямоугольник картинки внутри холста. */
 interface Frame {
   x: number;
   y: number;
@@ -9,12 +10,14 @@ interface Frame {
   h: number;
 }
 
+/** Квадрат, который попадёт в аватар. */
 interface Square {
   x: number;
   y: number;
   size: number;
 }
 
+/** Жест перетаскивания рамки или её угла. */
 interface Drag {
   mode: "move" | "resize";
   originX: number;

@@ -1,5 +1,7 @@
-import { api, ApiError } from "../api";
-import { navigate, resetAuthState } from "../router";
+import { ApiError } from "../api";
+import * as authActions from "../flux/auth/auth-actions";
+import { authStore } from "../flux/auth/auth-store";
+import { navigate } from "../router";
 import {
   type AuthPage,
   type SubmitHandler,
@@ -13,13 +15,14 @@ import {
   setFormLoading,
   getLoginError,
   getPasswordError,
-} from "../utils/auth-form";
+} from "../components/forms/auth-form";
 
 /**
  * SPA-страница авторизации.
  * Реализует render/mount/destroy контракт роутера.
  */
 export class LoginPage implements AuthPage {
+  private unsubscribeAuth: (() => void) | null = null;
   form: HTMLFormElement | null = null;
   onSubmit: SubmitHandler | null = null;
   onInput: InputHandler | null = null;
@@ -43,6 +46,11 @@ export class LoginPage implements AuthPage {
    */
   mount(root: ParentNode): void {
     mountAuthForm(this, root);
+    const updateLoading = () => {
+      if (this.form) setFormLoading(this.form, authStore.getState().pending.login);
+    };
+    this.unsubscribeAuth = authStore.subscribe(updateLoading);
+    updateLoading();
   }
 
   /**
@@ -51,6 +59,8 @@ export class LoginPage implements AuthPage {
    * @returns {void}
    */
   destroy(): void {
+    this.unsubscribeAuth?.();
+    this.unsubscribeAuth = null;
     destroyAuthForm(this);
   }
 
@@ -107,15 +117,12 @@ export class LoginPage implements AuthPage {
       return;
     }
 
-    setFormLoading(form, true);
-
     try {
-      const result = await api.logIn(login, password);
+      const result = await authActions.logIn(login, password);
       if (result.kind === "twoFactor") {
         await navigate("/login/2fa");
         return;
       }
-      resetAuthState();
       await navigate("/notes");
     } catch (error) {
       if (!this.form) {
@@ -137,10 +144,6 @@ export class LoginPage implements AuthPage {
         }
       } else {
         setFormFeedback(this.form, "Не удалось связаться с сервером");
-      }
-    } finally {
-      if (this.form) {
-        setFormLoading(this.form, false);
       }
     }
   }

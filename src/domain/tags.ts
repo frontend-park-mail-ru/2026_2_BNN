@@ -1,4 +1,4 @@
-import type { Tag } from "../api";
+import type { Tag } from "../types/tag";
 
 /** Цвет из палитры тегов. */
 export interface TagColor {
@@ -19,6 +19,7 @@ export const TAG_PALETTE: TagColor[] = [
   { color: "#9AA8BAFF", label: "Серый" },
 ];
 
+/** Максимальная длина названия тега. */
 export const TAG_NAME_MAX_LENGTH = 30;
 
 const FALLBACK_COLOR = TAG_PALETTE[TAG_PALETTE.length - 1].color;

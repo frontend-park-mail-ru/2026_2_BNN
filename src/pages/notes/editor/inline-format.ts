@@ -23,6 +23,7 @@ const COMMANDS = {
   strike: "strikeThrough",
 } as const;
 
+/** Команда панели форматирования: жирный, курсив, подчёркивание или зачёркивание. */
 export type InlineFormat = keyof typeof COMMANDS;
 
 /**
