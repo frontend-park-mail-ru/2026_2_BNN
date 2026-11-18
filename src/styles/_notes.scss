@@ -1279,16 +1279,16 @@
   }
 }
 
-  .format-bar:not([hidden]) {
-    position: fixed;
-    position-anchor: --format-line;
-    position-try-fallbacks: flip-block;
-    top: auto;
-    right: auto;
-    bottom: anchor(top);
-    left: anchor(left);
-    margin-bottom: 6px;
-  }
+.format-bar:not([hidden]) {
+  position: fixed;
+  position-anchor: --format-line;
+  position-try-fallbacks: flip-block;
+  top: auto;
+  right: auto;
+  bottom: anchor(top);
+  left: anchor(left);
+  margin-bottom: 6px;
+}
 
 :root[data-theme-transition="circle"] {
   view-transition-name: none;

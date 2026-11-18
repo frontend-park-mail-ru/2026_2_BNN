@@ -658,17 +658,18 @@ export function createEditorSelection(options: {
     const visibleLeft = Math.max(0, bounds.left);
     const visibleRight = Math.min(window.innerWidth, bounds.right);
 
-    const rects = multiple 
+    const rects = multiple
       ? marked.map((block) => block.getBoundingClientRect())
       : Array.from(selection.getRangeAt(0).getClientRects());
-    
-    const line = rects.find((rect) =>
-      rect.width > 0 && 
-      rect.height > 0 && 
-      rect.bottom > visibleTop &&
-      rect.top < visibleBottom && 
-      rect.right > visibleLeft &&
-      rect.left < visibleRight
+
+    const line = rects.find(
+      (rect) =>
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > visibleTop &&
+        rect.top < visibleBottom &&
+        rect.right > visibleLeft &&
+        rect.left < visibleRight
     );
 
     if (!line) {
@@ -682,15 +683,13 @@ export function createEditorSelection(options: {
     const lineLeft = Math.max(line.left, visibleLeft);
     const lineRight = Math.min(line.right, visibleRight);
     const centerX = (lineLeft + lineRight) / 2;
-    const left = Math.max(
-      visibleLeft,
-      Math.min(centerX - bar.width / 2, visibleRight - bar.width)
-    );
+    const left = Math.max(visibleLeft, Math.min(centerX - bar.width / 2, visibleRight - bar.width));
 
     const above = line.top - bar.height - gap;
-    const top = above >= visibleTop
-      ? above
-      : Math.max(visibleTop, Math.min(line.bottom + gap, visibleBottom - bar.height));
+    const top =
+      above >= visibleTop
+        ? above
+        : Math.max(visibleTop, Math.min(line.bottom + gap, visibleBottom - bar.height));
 
     formatBar.style.left = `${left}px`;
     formatBar.style.top = `${top}px`;
