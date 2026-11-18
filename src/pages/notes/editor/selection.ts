@@ -595,6 +595,7 @@ export function createEditorSelection(options: {
     if (!formatBar) {
       return;
     }
+
     const marked = markedBlocks();
     const multiple = marked.length > 1;
     const selection = window.getSelection();
@@ -622,26 +623,77 @@ export function createEditorSelection(options: {
     if (multiple || formatBar.parentElement !== block) {
       closeSelectionTypeMenu();
     }
+
     if (formatBar.parentElement !== block) {
       block.append(formatBar);
     }
+
     const types = formatBar.querySelector<HTMLElement>(".format-bar__types");
     if (types) {
       types.hidden = multiple;
     }
+
     formatBar.hidden = false;
     const type = block.dataset.blockType;
     const label = formatBar.querySelector<HTMLElement>("[data-selection-type-label]");
     if (label) {
       label.textContent = BLOCK_OPTIONS.find((option) => option.type === type)?.label ?? "Текст";
     }
+
     for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-selection-type]")) {
       button.setAttribute("aria-pressed", button.dataset.selectionType === type ? "true" : "false");
     }
+
     for (const button of formatBar.querySelectorAll<HTMLButtonElement>("[data-format]")) {
       const format = button.dataset.format as InlineFormat;
       button.setAttribute("aria-pressed", inlineFormatState(format) ? "true" : "false");
     }
+
+    const content = text.closest<HTMLElement>(".notebook__content");
+    if (!content) return;
+
+    const bounds = content.getBoundingClientRect();
+    const visibleTop = Math.max(0, bounds.top);
+    const visibleBottom = Math.min(window.innerHeight, bounds.bottom);
+    const visibleLeft = Math.max(0, bounds.left);
+    const visibleRight = Math.min(window.innerWidth, bounds.right);
+
+    const rects = multiple 
+      ? marked.map((block) => block.getBoundingClientRect())
+      : Array.from(selection.getRangeAt(0).getClientRects());
+    
+    const line = rects.find((rect) =>
+      rect.width > 0 && 
+      rect.height > 0 && 
+      rect.bottom > visibleTop &&
+      rect.top < visibleBottom && 
+      rect.right > visibleLeft &&
+      rect.left < visibleRight
+    );
+
+    if (!line) {
+      parkFormatBar();
+      return;
+    }
+
+    const gap = 6;
+    const bar = formatBar.getBoundingClientRect();
+
+    const lineLeft = Math.max(line.left, visibleLeft);
+    const lineRight = Math.min(line.right, visibleRight);
+    const centerX = (lineLeft + lineRight) / 2;
+    const left = Math.max(
+      visibleLeft,
+      Math.min(centerX - bar.width / 2, visibleRight - bar.width)
+    );
+
+    const above = line.top - bar.height - gap;
+    const top = above >= visibleTop
+      ? above
+      : Math.max(visibleTop, Math.min(line.bottom + gap, visibleBottom - bar.height));
+
+    formatBar.style.left = `${left}px`;
+    formatBar.style.top = `${top}px`;
   }
 
   /**

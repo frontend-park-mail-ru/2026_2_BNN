@@ -175,12 +175,14 @@ export class NotesPage {
         void goToLogin();
         return;
       }
+
       const openedId = noteIdFor(context);
       if (openedId && !instance.noteId) {
         instance.noteId = openedId;
         history.replaceState(null, "", "/notes/" + openedId);
         list.render();
       }
+
       const id = instance.noteId;
       const note = getNote(id);
       const load = id ? state.noteLoads[id] : undefined;
@@ -190,6 +192,7 @@ export class NotesPage {
         void router();
         return;
       }
+
       if (!editorRendered) {
         const key = [
           id,
@@ -207,6 +210,7 @@ export class NotesPage {
           focusPendingTitle();
         }
       }
+
       if (
         state.status === "ready" &&
         id &&
@@ -217,6 +221,7 @@ export class NotesPage {
       )
         void noteActions.loadNote(id);
     }
+
     /** Откладывает синхронизацию страницы на следующий кадр. */
     function schedulePage(): void {
       if (frame || !isActive()) return;
@@ -225,7 +230,9 @@ export class NotesPage {
         syncPage();
       });
     }
+
     const unsubscribeNotes = notesStore.subscribe(schedulePage);
+
     /** Повторяет загрузку списка, открытой заметки и догрузку для поиска. */
     function retryLoad(): void {
       const state = notesStore.getState();
@@ -235,6 +242,7 @@ export class NotesPage {
       list.ensureDetails(true);
       searchView.ensureDetails(true);
     }
+
     /** После возвращения сети прячет тост, досохраняет заметку и повторяет загрузку. */
     function onOnline(): void {
       hideToast();
@@ -242,6 +250,7 @@ export class NotesPage {
       retryLoad();
     }
     let online = uiStore.getState().online;
+
     /** Показывает тост из UiStore и реагирует на потерю или появление сети. */
     function renderUi(): void {
       const ui = uiStore.getState();
@@ -256,8 +265,10 @@ export class NotesPage {
       toast.hidden = state === null;
       toast.classList.toggle("toast_error", state?.isError ?? false);
     }
+
     const unsubscribeUi = uiStore.subscribe(renderUi);
     page.addEventListener("click", onPageClick, { signal: events.signal });
+
     document.addEventListener(
       "pointerdown",
       (event) => {
@@ -266,12 +277,14 @@ export class NotesPage {
       },
       { signal: events.signal }
     );
+
     page.addEventListener("keydown", onPageKeyDown, { signal: events.signal });
     renderUi();
     if (pendingToast) {
       showToast(pendingToast);
       pendingToast = "";
     }
+
     if (!online) onOffline();
     syncPage();
     focusPendingTitle();
@@ -604,6 +617,7 @@ export class NotesPage {
       uiActions.showToast("Потеря соединения", true, 0);
     }
   }
+
   /**
    * Адрес, который нужно вернуть в историю, если пользователь ушёл с черновика или профиля.
    *
@@ -612,6 +626,7 @@ export class NotesPage {
   getUrl(): string {
     return mounted?.noteId ? "/notes/" + mounted.noteId : (mounted?.path ?? "/notes");
   }
+
   /**
    * Сохраняет открытую заметку перед уходом с маршрута.
    *
@@ -625,6 +640,7 @@ export class NotesPage {
       uiActions.showToast("Не удалось сохранить заметку. Правки остались в редакторе.", true);
     return saved;
   }
+
   /** Снимает обработчики страницы и скрывает тост. */
   async destroy(): Promise<void> {
     const leaving = mounted;

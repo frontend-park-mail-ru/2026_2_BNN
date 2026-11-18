@@ -1204,9 +1204,9 @@
 }
 
 .format-bar {
-  position: absolute;
+  position: fixed;
   z-index: 6;
-  bottom: calc(100% + 6px);
+  top: 0;
   left: 0;
   display: flex;
   width: max-content;
@@ -1279,11 +1279,6 @@
   }
 }
 
-@supports (anchor-name: --format-line) {
-  .notebook__block:has(> .format-bar:not([hidden])) {
-    anchor-name: --format-line;
-  }
-
   .format-bar:not([hidden]) {
     position: fixed;
     position-anchor: --format-line;
@@ -1294,7 +1289,6 @@
     left: anchor(left);
     margin-bottom: 6px;
   }
-}
 
 :root[data-theme-transition="circle"] {
   view-transition-name: none;
