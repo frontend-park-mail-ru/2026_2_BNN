@@ -1,6 +1,7 @@
 import type { BlockType, NoteBlock } from "../../../types/note";
 import { safeResourceUrl } from "../../../utils/url";
 import { formatFileMeta } from "../attachments";
+import { getNote } from "../selectors";
 
 /** Блок заметки в виде, который ждёт шаблон редактора. */
 export interface BlockView {
@@ -17,6 +18,10 @@ export interface BlockView {
   contentJson: string;
   isUploading: boolean;
   uploadError: string;
+  isSubnote: boolean;
+  childNoteId: string;
+  childNoteTitle: string;
+  childNoteHref: string;
 }
 
 /**
@@ -28,6 +33,8 @@ export interface BlockView {
 export function toBlockView(block: NoteBlock): BlockView {
   const isAttachment = block.content.type === "file" || block.content.type === "image";
   const url = safeResourceUrl(block.content.url ?? "");
+  const childNoteId = block.content.childNoteId ?? "";
+  const isSubnote = block.content.type === "subnote" && childNoteId !== "";
   return {
     id: block.id,
     type: block.content.type,
@@ -42,6 +49,10 @@ export function toBlockView(block: NoteBlock): BlockView {
     contentJson: isAttachment ? JSON.stringify(block.content) : "",
     isUploading: false,
     uploadError: isAttachment && !url ? "Файл не загружен" : "",
+    isSubnote,
+    childNoteId,
+    childNoteHref: isSubnote ? `/notes/${encodeURIComponent(childNoteId)}` : "",
+    childNoteTitle: isSubnote ? getNote(childNoteId)?.title || "Без названия" : "",
   };
 }
 
@@ -75,14 +86,14 @@ export function getEditorBlocks(note: { blocks: readonly NoteBlock[] }): BlockVi
 
   while (blocks.length > 0) {
     const tail = blocks[blocks.length - 1];
-    if (tail.isAttachment || tail.isChecklist || tail.text !== "") {
+    if (tail.isAttachment || tail.isChecklist || tail.isSubnote || tail.text !== "") {
       break;
     }
     blocks.pop();
   }
 
   const last = blocks[blocks.length - 1];
-  if (!last || last.isAttachment) {
+  if (!last || last.isAttachment || last.isSubnote) {
     blocks.push(toBlockView({ id: "", content: { type: "text", text: "" } }));
   }
 

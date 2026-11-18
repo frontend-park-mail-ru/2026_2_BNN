@@ -1,14 +1,41 @@
 <article class="notebook">
     <div class="notebook__toolbar">
-        <nav class="notebook__nav">
-            <ol class="notebook__crumbs">
-                {{#each breadcrumbs}}
-                    <li class="notebook__crumb">
-                        <a class="notebook__link" href="{{href}}" data-link>{{label}}</a>
-                    </li>
-                {{/each}}
-                {{#if hasNote}}<li class="notebook__crumb">{{displayTitle}}</li>{{/if}}
-            </ol>
+        <nav class="notebook__nav" aria-label="Путь к заметке">
+            <a class="note-path__root" href="{{breadcrumbs.[0].href}}" data-link>
+                Все заметки
+            </a>
+            <span aria-hidden="true">›</span>
+
+            {{#if hasAncestors}}
+                <details class="note-path__details">
+                    <summary class="note-path__summary" title="Показать путь к заметке">
+                        <span class="note-path__more" aria-hidden="true">…</span>
+                        <span aria-hidden="true">›</span>
+                        <span class="note-path__title" data-current-crumb>{{displayTitle}}</span>
+                        <span class="note-path__sr-only"> — полный путь к заметке</span>
+                    </summary>
+
+                    <ol class="note-path__full" aria-label="Полный путь">
+                        {{#each breadcrumbs}}
+                            <li>
+                                <a class="note-path__entry" href="{{href}}" data-link>
+                                    <span aria-hidden="true">{{> icon name="file"}}</span>
+                                    {{label}}
+                                </a>
+                            </li>
+                        {{/each}}
+                        <li class="note-path__entry" aria-current="page">
+                            <span aria-hidden="true">{{> icon name="file"}}</span>
+                            <span data-current-crumb>{{displayTitle}}</span>
+                            <span class="note-path__check" aria-hidden="true">✓</span>
+                        </li>
+                    </ol>
+                </details>
+            {{else}}
+                <span class="note-path__title" aria-current="page" data-current-crumb>
+                    {{displayTitle}}
+                </span>
+            {{/if}}
         </nav>
         <span class="notebook__voice-input-status" data-voice-input-status aria-live="polite" hidden></span>
         <span class="notebook__save-status" data-save-status>{{saveStatus}}</span>

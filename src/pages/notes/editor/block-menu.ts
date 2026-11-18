@@ -15,6 +15,7 @@ export function createBlockMenu(options: {
   document: EditorDocument;
   timerSave: () => void;
   attachFile: (block: HTMLElement, requested: AttachmentRequest) => Promise<void>;
+  createSubnote: (block: HTMLElement) => void;
 }) {
   const { mainRegion, timerSave, attachFile } = options;
   const { replaceBlock } = options.document;
@@ -93,6 +94,11 @@ export function createBlockMenu(options: {
    */
   function chooseBlockType(block: HTMLElement, type: BlockType): void {
     closeBlockMenu();
+
+    if (type === "subnote") {
+      options.createSubnote(block);
+      return;
+    }
 
     if (type === "file" || type === "image") {
       void attachFile(block, type);

@@ -2,6 +2,7 @@ import type { BlockContent, BlockInput, BlockType, NoteBlock } from "../../../ty
 import { toBlockView, type BlockView } from "./block-view";
 import { TITLE_MAX_LENGTH } from "./constants";
 import { renderInlineHtml, serializeInline } from "./inline-format";
+
 /**
  * Читает и меняет блоки в DOM редактора, не обращаясь к сети.
  *
@@ -78,6 +79,15 @@ export function createEditorDocument(
       }
     }
 
+    if (element.dataset.blockType === "subnote") {
+      const link = element.querySelector<HTMLElement>("[data-child-note-id]");
+      const childNoteId = link?.dataset.childNoteId;
+
+      if (childNoteId) {
+        return { type: "subnote", text: "", childNoteId };
+      }
+    }
+
     const text = blockText(element);
     const check = element.querySelector<HTMLInputElement>("[data-block-check]");
     const content: BlockContent = { type: element.dataset.blockType as BlockType, text };
@@ -124,7 +134,8 @@ export function createEditorDocument(
         tail.content.text === "" &&
         tail.content.checked === undefined &&
         tail.content.type !== "file" &&
-        tail.content.type !== "image";
+        tail.content.type !== "image" &&
+        !tail.content.childNoteId;
       if (!isBlankLine) {
         break;
       }

@@ -11,9 +11,9 @@
     {{#if isFilterEmpty}}
         <p class="sidebar__message">{{#if isFilterLoading}}Ищем заметки с этими тегами…{{else}}Нет заметок с выбранными тегами{{/if}}</p>
     {{/if}}
-    <ul class="sidebar__list">
+    <ul class="sidebar__list note-tree" aria-label="Заметки">
         {{#each notes}}
-            <li>{{> notecard}}</li>
+            {{> note-tree-item}}
         {{/each}}
     </ul>
     {{#if isFilterLoading}}

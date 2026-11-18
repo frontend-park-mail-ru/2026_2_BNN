@@ -1,5 +1,18 @@
 <div class="notebook__block notebook__block_{{type}}{{#if isFileCard}} notebook__block_file-card{{/if}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
-    {{#if isAttachment}}
+        {{#if isSubnote}}
+        <a
+            class="notebook__child-note"
+            href="{{childNoteHref}}"
+            data-link
+            data-child-note-id="{{childNoteId}}"
+            contenteditable="false"
+        >
+            <span class="notebook__file-icon" aria-hidden="true">
+                {{> icon name="file"}}
+            </span>
+            <span class="notebook__child-note-title">{{childNoteTitle}}</span>
+        </a>
+        {{else if isAttachment}}        
         {{#if isUploading}}
             <span class="notebook__attachment-status">
                 <span class="notebook__attachment-spinner" aria-hidden="true"></span>

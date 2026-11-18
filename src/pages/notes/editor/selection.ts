@@ -490,6 +490,7 @@ export function createEditorSelection(options: {
     if (
       type === "file" ||
       type === "image" ||
+      type === "subnote" ||
       !BLOCK_OPTIONS.some((option) => option.type === type)
     ) {
       return;

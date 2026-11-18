@@ -45,7 +45,9 @@
     <article class="notebook notebook_centered">
         <div class="notebook__message">
             <span class="notebook__status">{{> icon name="file" size="l"}}</span>
-            <h2 class="notebook__message-title">Добро пожаловать</h2>
+            <h2 class="notebook__message-title">
+                {{#if isAllNotes}}Все заметки{{else}}Добро пожаловать{{/if}}
+            </h2>
             <p class="notebook__message-text">Выберите заметку<br>или создайте новую</p>
             <button class="notebook__action" type="button" data-new-note>Создать заметку</button>
         </div>

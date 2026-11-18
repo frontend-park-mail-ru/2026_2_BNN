@@ -12,12 +12,10 @@ import { SAVE_STATUS } from "./editor/constants";
 import { isSpeechSupported } from "./voice-input/speech";
 import { matchesTagFilter } from "./tag-filter";
 import { getTags, getActiveTagIds, findNote, tagsByIds } from "./selectors";
-/** Ссылка на заметку в списке или в результатах поиска. */
-interface NoteLink {
-  href: string;
-  title: string;
-}
+import { buildNoteTree } from "./note-tree";
+
 const WELCOME_TITLE = "добро пожаловать";
+
 /** Пункт боковой панели: адрес, иконка и название раздела. */
 interface Section {
   href: string;
@@ -26,7 +24,7 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { href: "/notes", icon: "file", title: "Все заметки" },
+  { href: "/notes/all", icon: "file", title: "Все заметки" },
   { href: "/notes/favourites", icon: "heart", title: "Избранное" },
   { href: "/notes/trash", icon: "trash", title: "Корзина" },
 ];
@@ -164,20 +162,14 @@ export function buildNotesView(
 
   const activeTagIds = getActiveTagIds();
   const isFiltering = activeTagIds.length > 0;
-  const notes: Array<NoteLink & { isActive: boolean }> = [];
-  if (noteId === "new") {
-    notes.push({ href: "/notes/" + "new", title: "Без названия", isActive: true });
-  }
-  for (const note of notesStore.getState().notes) {
-    if (isFiltering && !matchesTagFilter(note.tags, activeTagIds)) {
-      continue;
-    }
-    notes.push({
-      href: "/notes/" + note.id,
-      title: note.title || "Без названия",
-      isActive: note === currentNote,
-    });
-  }
+  const visibleNotes = state.notes.filter(
+    (note) => !isFiltering || matchesTagFilter(note.tags, activeTagIds)
+  );
+
+  const notes = buildNoteTree(
+    noteId === "new" ? [createDraft(), ...visibleNotes] : visibleNotes,
+    noteId
+  );
 
   const filterTagViews: Array<TagView & { isActive: boolean }> = [];
   for (const tag of getTags()) {
@@ -188,7 +180,7 @@ export function buildNotesView(
   let displayTitle = "";
   let blocks: BlockView[] = [];
   let noteTags: TagView[] = [];
-  const breadcrumbs = [{ href: "/notes", label: "Все заметки" }];
+  const breadcrumbs = [{ href: "/notes/all", label: "Все заметки" }];
 
   if (currentNote) {
     title = currentNote.title;
@@ -199,13 +191,23 @@ export function buildNotesView(
       currentNote.tags
     ).map(toTagView);
 
-    const parentNote = findNote(notesStore.getState().notes, currentNote.parentId);
-    if (parentNote) {
-      breadcrumbs.push({
-        href: "/notes/" + parentNote.id,
-        label: parentNote.title || "Без названия",
+    const ancestors: Array<{ href: string; label: string }> = [];
+    const visited = new Set<string>([currentNote.id]);
+    let parentId = currentNote.parentId;
+
+    while (parentId && !visited.has(parentId)) {
+      const parent = findNote(state.notes, parentId);
+      if (!parent) break;
+
+      visited.add(parent.id);
+      ancestors.push({
+        href: `/notes/${encodeURIComponent(parent.id)}`,
+        label: parent.title || "Без названия",
       });
+      parentId = parent.parentId;
     }
+
+    breadcrumbs.push(...ancestors.reverse());
   }
 
   const profile = authStore.getState().user;
@@ -243,7 +245,9 @@ export function buildNotesView(
     displayTitle: displayTitle,
     blocks: blocks,
     noteTags: noteTags,
-    breadcrumbs: breadcrumbs,
+    breadcrumbs,
+    hasAncestors: breadcrumbs.length > 1,
+    isAllNotes: context.path === "/notes/all",
     saveStatus: SAVE_STATUS[state.saveStatus],
   };
 }

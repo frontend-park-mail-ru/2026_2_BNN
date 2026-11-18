@@ -27,6 +27,7 @@ interface NotesInstance {
   finishEditing: () => Promise<boolean>;
   dispose: () => void;
 }
+
 let mounted: NotesInstance | null = null;
 let pendingFocusNoteId: string | null = null;
 let pendingToast = "";
@@ -42,6 +43,7 @@ export class NotesPage {
   async render(context: PageContext): Promise<string> {
     return Handlebars.templates["notes"](buildNotesView(context, noteIdFor(context)));
   }
+
   /**
    * Подключает список, поиск, редактор и диалоги и запускает загрузку заметок.
    *
@@ -116,6 +118,7 @@ export class NotesPage {
         logoutDialog.hidden = false;
       },
     });
+
     /**
      * Дожидается создания тега и сохраняет заметку перед уходом.
      *
@@ -255,6 +258,14 @@ export class NotesPage {
     }
     const unsubscribeUi = uiStore.subscribe(renderUi);
     page.addEventListener("click", onPageClick, { signal: events.signal });
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        const path = page.querySelector<HTMLDetailsElement>(".note-path__details[open]");
+        if (path && event.target instanceof Node && !path.contains(event.target)) path.open = false;
+      },
+      { signal: events.signal }
+    );
     page.addEventListener("keydown", onPageKeyDown, { signal: events.signal });
     renderUi();
     if (pendingToast) {
@@ -480,11 +491,10 @@ export class NotesPage {
     function showTitleInList(title: string): void {
       const text = title || "Без названия";
       list.updateTitle(title);
-      const crumbs = mainRegion.querySelectorAll<HTMLElement>(".notebook__crumb");
-      const last = crumbs[crumbs.length - 1];
-      if (last) {
-        last.textContent = text;
-      }
+
+      mainRegion.querySelectorAll<HTMLElement>("[data-current-crumb]").forEach((crumb) => {
+        crumb.textContent = text;
+      });
     }
 
     /**
@@ -573,6 +583,12 @@ export class NotesPage {
         return;
       }
 
+      const path = page.querySelector<HTMLDetailsElement>(".note-path__details[open]");
+      if (path) {
+        path.open = false;
+        path.querySelector("summary")?.focus();
+        return;
+      }
       editor.escape();
       searchView.hide();
       closeLogoutDialog();
