@@ -26,6 +26,7 @@ interface NotesInstance {
   deleting: boolean;
   finishEditing: () => Promise<boolean>;
   dispose: () => void;
+  isDeletingChild: () => boolean;
 }
 
 let mounted: NotesInstance | null = null;
@@ -145,6 +146,7 @@ export class NotesPage {
         editor.noteId = id;
       },
       deleting: false,
+      isDeletingChild: () => instance.deleting && childToDelete !== null,
       finishEditing,
       /** Снимает обработчики страницы и вложенных модулей. */
       dispose() {
@@ -468,6 +470,32 @@ export class NotesPage {
         }
       }
 
+      if (childId) {
+        if (mounted !== instance) return;
+      
+        const links = mainRegion.querySelectorAll<HTMLElement>("[data-child-note-id]");
+        for (const link of links) {
+          if (link.dataset.childNoteId === childId) {
+            link.closest<HTMLElement>("[data-block]")?.remove();
+          }
+        }
+      
+        editor.scheduleSave();
+        const saved = await finishEditing();
+      
+        if (mounted !== instance) return;
+      
+        setDeleting(false);
+        closeDeleteDialog();
+      
+        if (saved) {
+          showToast("Подзаметка удалена");
+        } else {
+          showToast("Подзаметка удалена, но изменение родительской заметки ещё не сохранено", true);
+        }
+        return;
+      }
+
       editor.clearSave();
 
       let next: ReadonlyState<Note> | undefined;
@@ -660,6 +688,7 @@ export class NotesPage {
   async beforeLeave(): Promise<boolean> {
     const leaving = mounted;
     if (!leaving || authStore.getState().status !== "authenticated") return true;
+    if (leaving.isDeletingChild()) return false;
     const saved = await leaving.finishEditing();
     if (!saved && mounted === leaving)
       uiActions.showToast("Не удалось сохранить заметку. Правки остались в редакторе.", true);
