@@ -369,34 +369,34 @@ export class NotesPage {
      */
     function openDeleteDialog(childId: string | null = null): void {
       if (instance.deleting) return;
-    
+
       childToDelete = childId;
       setNoteMenu(false);
-    
+
       const targetId = childId ?? instance.noteId;
       const note = notesStore.getState().notes.find((item) => item.id === targetId);
       const title = note?.title || "Без названия";
-    
+
       const message = deleteDialog.querySelector<HTMLElement>("[data-delete-message]");
       if (message) {
         message.textContent = childId
           ? `Удалить вложенную заметку «${title}»?`
           : `Удалить заметку «${title}»?`;
       }
-    
+
       const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
       if (error) error.hidden = true;
-    
+
       deleteDialog.hidden = false;
       deleteDialog.querySelector<HTMLButtonElement>("[data-delete-cancel]")?.focus();
     }
-    
+
     /**
      * Прячет подтверждение удаления.
      */
     function closeDeleteDialog(): void {
       if (instance.deleting) return;
-    
+
       deleteDialog.hidden = true;
       childToDelete = null;
     }
@@ -472,22 +472,22 @@ export class NotesPage {
 
       if (childId) {
         if (mounted !== instance) return;
-      
+
         const links = mainRegion.querySelectorAll<HTMLElement>("[data-child-note-id]");
         for (const link of links) {
           if (link.dataset.childNoteId === childId) {
             link.closest<HTMLElement>("[data-block]")?.remove();
           }
         }
-      
+
         editor.scheduleSave();
         const saved = await finishEditing();
-      
+
         if (mounted !== instance) return;
-      
+
         setDeleting(false);
         closeDeleteDialog();
-      
+
         if (saved) {
           showToast("Подзаметка удалена");
         } else {
