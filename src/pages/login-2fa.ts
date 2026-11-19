@@ -1,18 +1,18 @@
-import { ApiError } from "../api";
-import * as authActions from "../flux/auth/auth-actions";
-import { authStore } from "../flux/auth/auth-store";
-import { navigate } from "../router";
+import { ApiError } from "@/api";
+import * as authActions from "@/flux/auth/auth-actions";
+import { authStore } from "@/flux/auth/auth-store";
+import { navigate } from "@/router";
 import {
   clearFormErrors,
   setFormFeedback,
   setFormFieldError,
   setFormLoading,
-} from "../components/forms/auth-form";
+} from "@/components/forms/auth-form";
 import {
   fillTwoFactorDigit,
   handleTwoFactorKeyDown,
   twoFactorCode,
-} from "../components/forms/two-factor-input";
+} from "@/components/forms/two-factor-input";
 
 /**
  * Страница ввода TOTP после signin/OAuth (кука `bnn_2fa`, маршрут `/login/2fa`).

@@ -1,6 +1,6 @@
-import { dispatcher } from "../app-dispatcher";
-import { BaseStore } from "../base-store";
-import type { Theme } from "./ui-action-types";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { BaseStore } from "@/flux/base-store";
+import type { Theme } from "@/flux/ui/ui-action-types";
 
 /** Тема, доступность сети и текущий тост. */
 interface UiState {

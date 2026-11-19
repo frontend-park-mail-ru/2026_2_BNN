@@ -1,7 +1,7 @@
-import type { User } from "../../types/user";
-import { dispatcher } from "../app-dispatcher";
-import { BaseStore } from "../base-store";
-import type { AuthOperation } from "./auth-action-types";
+import type { User } from "@/types/user";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { BaseStore } from "@/flux/base-store";
+import type { AuthOperation } from "@/flux/auth/auth-action-types";
 
 /** Состояние сессии: ещё не проверяли, идёт проверка, вошли или нет. */
 export type AuthStatus = "unknown" | "loading" | "authenticated" | "unauthenticated";

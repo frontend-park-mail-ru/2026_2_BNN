@@ -1,12 +1,12 @@
-import { api, ApiError, isOfflineError } from "../../api";
-import type { BlockInput, Note } from "../../types/note";
-import { dispatcher } from "../app-dispatcher";
-import type { NoteStateItem, SaveStatus, LoadError } from "./note-action-types";
-import type { Tag } from "../../types/tag";
-import { notesStore } from "./note-store";
-import { tagStore } from "../tags/tag-store";
-import { normalizeNote } from "./note-mapper";
-import type { ReadonlyState } from "../base-store";
+import { api, ApiError, isOfflineError } from "@/api";
+import type { BlockInput, Note } from "@/types/note";
+import { dispatcher } from "@/flux/app-dispatcher";
+import type { NoteStateItem, SaveStatus, LoadError } from "@/flux/notes/note-action-types";
+import type { Tag } from "@/types/tag";
+import { notesStore } from "@/flux/notes/note-store";
+import { tagStore } from "@/flux/tags/tag-store";
+import { normalizeNote } from "@/flux/notes/note-mapper";
+import type { ReadonlyState } from "@/flux/base-store";
 
 const NOTES_LIMIT = 100;
 const DETAILS_CONCURRENCY = 4;

@@ -1,11 +1,15 @@
-import { api, ApiError } from "../../api";
-import type { User } from "../../types/user";
-import { dispatcher } from "../app-dispatcher";
-import { resetAuth } from "../auth/auth-actions";
-import { authStore } from "../auth/auth-store";
-import { showToast } from "../ui/ui-actions";
-import type { ProfileError, ProfileOperation, ProfileView } from "./profile-action-types";
-import { profileStore } from "./profile-store";
+import { api, ApiError } from "@/api";
+import type { User } from "@/types/user";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { resetAuth } from "@/flux/auth/auth-actions";
+import { authStore } from "@/flux/auth/auth-store";
+import { showToast } from "@/flux/ui/ui-actions";
+import type {
+  ProfileError,
+  ProfileOperation,
+  ProfileView,
+} from "@/flux/profile/profile-action-types";
+import { profileStore } from "@/flux/profile/profile-store";
 
 let sessionVersion = 0;
 let mutationVersion = 0;

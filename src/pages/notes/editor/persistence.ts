@@ -1,8 +1,8 @@
-import { ApiError } from "../../../api";
-import * as noteActions from "../../../flux/notes/note-actions";
-import { createAutosave } from "./autosave";
-import { SAVE_DELAY } from "./constants";
-import type { EditorDocument } from "./document";
+import { ApiError } from "@/api";
+import * as noteActions from "@/flux/notes/note-actions";
+import { createAutosave } from "@/pages/notes/editor/autosave";
+import { SAVE_DELAY } from "@/pages/notes/editor/constants";
+import type { EditorDocument } from "@/pages/notes/editor/document";
 
 /** Снимок DOM принадлежит редактору; запросы и обновление Store выполняют actions. */
 export function createEditorPersistence(options: {

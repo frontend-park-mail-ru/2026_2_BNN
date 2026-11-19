@@ -1,4 +1,4 @@
-import type { Tag } from "../../types/tag";
+import type { Tag } from "@/types/tag";
 
 /**
  * Проверяет, что у заметки есть все выбранные теги.

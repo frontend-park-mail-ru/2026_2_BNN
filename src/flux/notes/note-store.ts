@@ -1,5 +1,5 @@
-import { dispatcher } from "../app-dispatcher";
-import { BaseStore } from "../base-store";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { BaseStore } from "@/flux/base-store";
 import type {
   NoteStateItem,
   NotesStatus,
@@ -7,7 +7,7 @@ import type {
   LoadError,
   NoteLoadState,
   DetailsStatus,
-} from "./note-action-types";
+} from "@/flux/notes/note-action-types";
 
 /** Список заметок и статусы загрузки, сохранения и догрузки тел. */
 interface NotesState {

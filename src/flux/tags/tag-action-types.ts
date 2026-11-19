@@ -1,4 +1,4 @@
-import type { Tag } from "../../types/tag";
+import type { Tag } from "@/types/tag";
 
 /** Действия справочника тегов и фильтра списка заметок. */
 export type TagAction =

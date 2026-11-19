@@ -1,8 +1,8 @@
-import { tagStore } from "../../flux/tags/tag-store";
-import { notesStore } from "../../flux/notes/note-store";
-import type { NoteStateItem as Note } from "../../flux/notes/note-action-types";
-import type { ReadonlyState } from "../../flux/base-store";
-import type { Tag } from "../../types/tag";
+import { tagStore } from "@/flux/tags/tag-store";
+import { notesStore } from "@/flux/notes/note-store";
+import type { NoteStateItem as Note } from "@/flux/notes/note-action-types";
+import type { ReadonlyState } from "@/flux/base-store";
+import type { Tag } from "@/types/tag";
 
 /**
  * Возвращает копию справочника тегов.

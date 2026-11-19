@@ -1,5 +1,5 @@
-import type { SaveStatus } from "../../../flux/notes/note-action-types";
-import type { BlockType } from "../../../types/note";
+import type { SaveStatus } from "@/flux/notes/note-action-types";
+import type { BlockType } from "@/types/note";
 /** Пауза после ввода, через которую заметка сохраняется, в миллисекундах. */
 export const SAVE_DELAY = 1000;
 /** Максимальная длина заголовка заметки. */

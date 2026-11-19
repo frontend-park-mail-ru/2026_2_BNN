@@ -146,6 +146,9 @@ function policyFor(html, distDir) {
 
 export default defineConfig({
   publicDir: "public",
+  resolve: {
+    tsconfigPaths: true,
+  },
   plugins: [
     legacy({
       targets: ["defaults", "not IE 11"],

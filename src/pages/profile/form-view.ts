@@ -1,4 +1,4 @@
-import { resetPasswordToggles } from "../../components/forms/password-toggle";
+import { resetPasswordToggles } from "@/components/forms/password-toggle";
 
 /**
  * Показывает или снимает ошибку поля формы профиля.

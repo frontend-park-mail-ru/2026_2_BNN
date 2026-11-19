@@ -1,5 +1,5 @@
-import type { Note as ApiNote } from "../../types/note";
-import type { NoteStateItem as Note } from "./note-action-types";
+import type { Note as ApiNote } from "@/types/note";
+import type { NoteStateItem as Note } from "@/flux/notes/note-action-types";
 
 /**
  * Приводит заметку API к формату, удобному для UI.

@@ -2,10 +2,10 @@ import {
   fillTwoFactorDigit,
   handleTwoFactorKeyDown,
   twoFactorCode,
-} from "../../components/forms/two-factor-input";
-import * as profileActions from "../../flux/profile/profile-actions";
-import { profileStore } from "../../flux/profile/profile-store";
-import { clearTwoFactorForm, setProfileError } from "./form-view";
+} from "@/components/forms/two-factor-input";
+import * as profileActions from "@/flux/profile/profile-actions";
+import { profileStore } from "@/flux/profile/profile-store";
+import { clearTwoFactorForm, setProfileError } from "@/pages/profile/form-view";
 
 /**
  * Подключает формы включения и отключения двухфакторной аутентификации.

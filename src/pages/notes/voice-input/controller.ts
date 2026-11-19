@@ -1,4 +1,4 @@
-import { startVoiceInput, type VoiceInput } from "./speech";
+import { startVoiceInput, type VoiceInput } from "@/pages/notes/voice-input/speech";
 
 /** Куда контроллер отдаёт фразы и состояние микрофона. */
 interface VoiceInputOptions {

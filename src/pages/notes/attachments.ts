@@ -1,6 +1,6 @@
-import * as noteActions from "../../flux/notes/note-actions";
-import type { BlockType } from "../../types/note";
-import { classifyAttachment } from "./attachment-validation";
+import * as noteActions from "@/flux/notes/note-actions";
+import type { BlockType } from "@/types/note";
+import { classifyAttachment } from "@/pages/notes/attachment-validation";
 
 /** Значение `accept` для выбора изображения. */
 export const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";

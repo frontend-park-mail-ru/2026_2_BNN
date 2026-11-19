@@ -1,6 +1,10 @@
-import { dispatcher } from "../app-dispatcher";
-import { BaseStore } from "../base-store";
-import type { OperationState, ProfileOperation, ProfileView } from "./profile-action-types";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { BaseStore } from "@/flux/base-store";
+import type {
+  OperationState,
+  ProfileOperation,
+  ProfileView,
+} from "@/flux/profile/profile-action-types";
 
 /** Открыт ли диалог, какой экран показан и в каком состоянии его операции. */
 interface ProfileState {

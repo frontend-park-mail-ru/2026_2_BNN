@@ -1,22 +1,22 @@
-import { ApiError } from "../api";
-import * as authActions from "../flux/auth/auth-actions";
-import { authStore } from "../flux/auth/auth-store";
-import type { ReadonlyState } from "../flux/base-store";
-import type { NoteStateItem as Note } from "../flux/notes/note-action-types";
-import * as noteActions from "../flux/notes/note-actions";
-import { notesStore } from "../flux/notes/note-store";
-import * as tagActions from "../flux/tags/tag-actions";
-import * as uiActions from "../flux/ui/ui-actions";
-import { uiStore } from "../flux/ui/ui-store";
-import { router, navigate, type PageContext } from "../router";
-import { createNoteEditor, type NoteEditor } from "./notes/editor/controller";
-import { getNotesElements } from "./notes/elements";
-import { buildNotesView, noteIdFor } from "./notes/view";
-import { getNote } from "./notes/selectors";
-import { mountNotesList } from "./notes/list";
-import { mountNotesSearch } from "./notes/search-controller";
-import { createTagPicker } from "./notes/tag-picker";
-import { mountProfile } from "./profile";
+import { ApiError } from "@/api";
+import * as authActions from "@/flux/auth/auth-actions";
+import { authStore } from "@/flux/auth/auth-store";
+import type { ReadonlyState } from "@/flux/base-store";
+import type { NoteStateItem as Note } from "@/flux/notes/note-action-types";
+import * as noteActions from "@/flux/notes/note-actions";
+import { notesStore } from "@/flux/notes/note-store";
+import * as tagActions from "@/flux/tags/tag-actions";
+import * as uiActions from "@/flux/ui/ui-actions";
+import { uiStore } from "@/flux/ui/ui-store";
+import { router, navigate, type PageContext } from "@/router";
+import { createNoteEditor, type NoteEditor } from "@/pages/notes/editor/controller";
+import { getNotesElements } from "@/pages/notes/elements";
+import { buildNotesView, noteIdFor } from "@/pages/notes/view";
+import { getNote } from "@/pages/notes/selectors";
+import { mountNotesList } from "@/pages/notes/list";
+import { mountNotesSearch } from "@/pages/notes/search-controller";
+import { createTagPicker } from "@/pages/notes/tag-picker";
+import { mountProfile } from "@/pages/profile";
 
 /** Смонтированная страница заметок. Нужна, чтобы отличать устаревший ответ от текущего экрана. */
 interface NotesInstance {

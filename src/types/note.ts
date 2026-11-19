@@ -1,4 +1,4 @@
-import type { Tag } from "./tag";
+import type { Tag } from "@/types/tag";
 
 /** Тип содержимого блока заметки. */
 export type BlockType =

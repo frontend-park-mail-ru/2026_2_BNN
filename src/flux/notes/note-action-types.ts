@@ -1,5 +1,5 @@
-import type { NoteBlock } from "../../types/note";
-import type { Tag } from "../../types/tag";
+import type { NoteBlock } from "@/types/note";
+import type { Tag } from "@/types/tag";
 
 /** Заметка в store: список API не всегда содержит блоки и теги. */
 export interface NoteStateItem {

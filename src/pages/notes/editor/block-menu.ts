@@ -1,9 +1,9 @@
-import type { BlockType } from "../../../types/note";
-import type { AttachmentRequest } from "../attachments";
-import { toBlockView } from "./block-view";
-import { placeCaret } from "./caret";
-import { BLOCK_OPTIONS } from "./constants";
-import type { EditorDocument } from "./document";
+import type { BlockType } from "@/types/note";
+import type { AttachmentRequest } from "@/pages/notes/attachments";
+import { toBlockView } from "@/pages/notes/editor/block-view";
+import { placeCaret } from "@/pages/notes/editor/caret";
+import { BLOCK_OPTIONS } from "@/pages/notes/editor/constants";
+import type { EditorDocument } from "@/pages/notes/editor/document";
 /**
  * Открывает меню типа блока по `/` и заменяет блок выбранным типом.
  *

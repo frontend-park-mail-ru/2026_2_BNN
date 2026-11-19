@@ -1,8 +1,8 @@
-import { api } from "../../api";
-import { themeAsset } from "../../components/theme/theme";
-import type { User } from "../../types/user";
-import type { ProfileView } from "../../flux/profile/profile-action-types";
-import { formatJoined } from "./date";
+import { api } from "@/api";
+import { themeAsset } from "@/components/theme/theme";
+import type { User } from "@/types/user";
+import type { ProfileView } from "@/flux/profile/profile-action-types";
+import { formatJoined } from "@/pages/profile/date";
 
 /**
  * Переключает видимые секции модалки: загрузка, меню или смена пароля.

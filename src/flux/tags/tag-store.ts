@@ -1,7 +1,7 @@
-import type { Tag } from "../../types/tag";
-import { sortTags } from "../../domain/tags";
-import { dispatcher } from "../app-dispatcher";
-import { BaseStore } from "../base-store";
+import type { Tag } from "@/types/tag";
+import { sortTags } from "@/domain/tags";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { BaseStore } from "@/flux/base-store";
 
 /** Справочник тегов и id, выбранные в фильтре списка. */
 interface TagState {

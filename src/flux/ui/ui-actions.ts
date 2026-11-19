@@ -1,5 +1,5 @@
-import { dispatcher } from "../app-dispatcher";
-import type { Theme } from "./ui-action-types";
+import { dispatcher } from "@/flux/app-dispatcher";
+import type { Theme } from "@/flux/ui/ui-action-types";
 
 let toastTimer: number | undefined;
 

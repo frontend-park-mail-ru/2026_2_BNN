@@ -1,15 +1,19 @@
-import { notesStore } from "../../../flux/notes/note-store";
-import type { BlockType } from "../../../types/note";
-import { createVoiceInputController } from "../voice-input/controller";
-import { createVoiceInputView } from "../voice-input/view";
-import { createAttachmentInput } from "./attachment-input";
-import { createBlockMenu } from "./block-menu";
-import { cutAfterCaret, placeCaret } from "./caret";
-import { LIST_TYPES, SAVE_STATUS, TITLE_MAX_LENGTH } from "./constants";
-import { createEditorDocument } from "./document";
-import { fragmentFromClipboard, useFormatTags, type InlineFormat } from "./inline-format";
-import { createEditorPersistence } from "./persistence";
-import { createEditorSelection } from "./selection";
+import { notesStore } from "@/flux/notes/note-store";
+import type { BlockType } from "@/types/note";
+import { createVoiceInputController } from "@/pages/notes/voice-input/controller";
+import { createVoiceInputView } from "@/pages/notes/voice-input/view";
+import { createAttachmentInput } from "@/pages/notes/editor/attachment-input";
+import { createBlockMenu } from "@/pages/notes/editor/block-menu";
+import { cutAfterCaret, placeCaret } from "@/pages/notes/editor/caret";
+import { LIST_TYPES, SAVE_STATUS, TITLE_MAX_LENGTH } from "@/pages/notes/editor/constants";
+import { createEditorDocument } from "@/pages/notes/editor/document";
+import {
+  fragmentFromClipboard,
+  useFormatTags,
+  type InlineFormat,
+} from "@/pages/notes/editor/inline-format";
+import { createEditorPersistence } from "@/pages/notes/editor/persistence";
+import { createEditorSelection } from "@/pages/notes/editor/selection";
 
 /** Узлы страницы и колбэки, которые редактор не берёт из store. */
 export interface EditorOptions {

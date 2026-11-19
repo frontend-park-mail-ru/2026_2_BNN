@@ -1,9 +1,9 @@
-import { ApiError } from "../../api";
-import { TAG_NAME_MAX_LENGTH, findTagByName, nextTagColor, toTagView } from "../../domain/tags";
-import * as tagActions from "../../flux/tags/tag-actions";
-import { tagStore } from "../../flux/tags/tag-store";
-import { getTags, getNote, tagsByIds } from "./selectors";
-import { mountTagsDialog } from "./tags-dialog";
+import { ApiError } from "@/api";
+import { TAG_NAME_MAX_LENGTH, findTagByName, nextTagColor, toTagView } from "@/domain/tags";
+import * as tagActions from "@/flux/tags/tag-actions";
+import { tagStore } from "@/flux/tags/tag-store";
+import { getTags, getNote, tagsByIds } from "@/pages/notes/selectors";
+import { mountTagsDialog } from "@/pages/notes/tags-dialog";
 /**
  * Управляет чипами тегов открытой заметки и окном их выбора.
  *

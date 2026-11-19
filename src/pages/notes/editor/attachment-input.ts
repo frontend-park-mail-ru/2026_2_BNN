@@ -1,6 +1,6 @@
-import { ApiError } from "../../../api";
-import * as noteActions from "../../../flux/notes/note-actions";
-import type { BlockContent } from "../../../types/note";
+import { ApiError } from "@/api";
+import * as noteActions from "@/flux/notes/note-actions";
+import type { BlockContent } from "@/types/note";
 import {
   acceptedAttachment,
   FILE_ACCEPT,
@@ -8,10 +8,10 @@ import {
   pickFile,
   removeAttachment,
   type AttachmentRequest,
-} from "../attachments";
-import { toBlockView } from "./block-view";
-import { placeCaret } from "./caret";
-import type { EditorDocument } from "./document";
+} from "@/pages/notes/attachments";
+import { toBlockView } from "@/pages/notes/editor/block-view";
+import { placeCaret } from "@/pages/notes/editor/caret";
+import type { EditorDocument } from "@/pages/notes/editor/document";
 /**
  * Загружает файлы в блоки и удаляет вложения, пока редактор открыт.
  *
