@@ -73,6 +73,7 @@ export class NotesPage {
     let mainKey = "";
     let frame = 0;
     let redirecting = false;
+    let childToDelete: string | null = null;
     const events = new AbortController();
     const list = mountNotesList({
       region: listRegion,
@@ -364,23 +365,38 @@ export class NotesPage {
     /**
      * Показывает подтверждение удаления заметки.
      */
-    function openDeleteDialog(): void {
+    function openDeleteDialog(childId: string | null = null): void {
+      if (instance.deleting) return;
+    
+      childToDelete = childId;
       setNoteMenu(false);
-      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
-      if (error) {
-        error.hidden = true;
+    
+      const targetId = childId ?? instance.noteId;
+      const note = notesStore.getState().notes.find((item) => item.id === targetId);
+      const title = note?.title || "Без названия";
+    
+      const message = deleteDialog.querySelector<HTMLElement>("[data-delete-message]");
+      if (message) {
+        message.textContent = childId
+          ? `Удалить вложенную заметку «${title}»?`
+          : `Удалить заметку «${title}»?`;
       }
+    
+      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
+      if (error) error.hidden = true;
+    
       deleteDialog.hidden = false;
-      deleteDialog.querySelector<HTMLElement>("[data-delete-cancel]")?.focus();
+      deleteDialog.querySelector<HTMLButtonElement>("[data-delete-cancel]")?.focus();
     }
-
+    
     /**
      * Прячет подтверждение удаления.
      */
     function closeDeleteDialog(): void {
-      if (!instance.deleting) {
-        deleteDialog.hidden = true;
-      }
+      if (instance.deleting) return;
+    
+      deleteDialog.hidden = true;
+      childToDelete = null;
     }
 
     /**
@@ -428,7 +444,8 @@ export class NotesPage {
         return;
       }
 
-      const id = instance.noteId;
+      const childId = childToDelete;
+      const id = childId ?? instance.noteId;
       const index = notesStore.getState().notes.findIndex((note) => note.id === id);
       try {
         if (id && id !== "new") {
@@ -519,6 +536,14 @@ export class NotesPage {
       const target = event.target;
 
       if (!(target instanceof Element)) {
+        return;
+      }
+
+      const removeSubnote = target.closest<HTMLButtonElement>("[data-subnote-remove]");
+      const childId = removeSubnote?.dataset.subnoteRemove;
+
+      if (childId) {
+        openDeleteDialog(childId);
         return;
       }
 
