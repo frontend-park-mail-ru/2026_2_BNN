@@ -506,6 +506,18 @@ export function createNoteEditor(options: EditorOptions) {
    * @returns `true`, если клик относится к редактору.
    */
   function handleClick(target: Element): boolean {
+    const insert = target.closest("[data-insert-paragraph]");
+    if (insert) {
+      const previous = insert.closest("[data-block]")?.previousElementSibling;
+      if (previous instanceof HTMLElement && previous.querySelector("[data-insert-paragraph]")) {
+        const text = insertBlockAfter(previous, "text");
+        if (text) {
+          placeCaret(text, false);
+          timerSave();
+        }
+      }
+      return true;
+    }
     if (target.closest("[data-selection-type-toggle]")) {
       toggleSelectionTypeMenu();
       return true;

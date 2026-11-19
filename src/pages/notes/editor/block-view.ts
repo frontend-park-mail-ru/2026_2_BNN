@@ -5,6 +5,7 @@ import { getNote } from "../selectors";
 
 /** Блок заметки в виде, который ждёт шаблон редактора. */
 export interface BlockView {
+  isCard: boolean;
   id: string;
   type: BlockType;
   text: string;
@@ -50,6 +51,7 @@ export function toBlockView(block: NoteBlock): BlockView {
     isUploading: false,
     uploadError: isAttachment && !url ? "Файл не загружен" : "",
     isSubnote,
+    isCard: isAttachment || isSubnote,
     childNoteId,
     childNoteHref: isSubnote ? `/notes/${encodeURIComponent(childNoteId)}` : "",
     childNoteTitle: isSubnote ? getNote(childNoteId)?.title || "Без названия" : "",

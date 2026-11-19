@@ -194,6 +194,30 @@ export function createEditorSelection(options: {
     placeAtChar(targetText, joinAt);
   }
 
+  /** Переходит через карточки, сохраняя текстовые блоки по обе стороны. */
+  function crossCard(block: HTMLElement, text: HTMLElement, direction: 1 | -1): void {
+    const empty = !text.textContent && block.dataset.blockType === "text";
+    let destination = neighborTextBlock(block, direction)?.querySelector<HTMLElement>("[data-block-text]");
+    let atEnd = direction === -1;
+
+    if (!destination && direction === -1) {
+      destination = mainRegion.querySelector<HTMLElement>("[data-note-title]");
+    }
+    if (!destination && empty) {
+      destination = neighborTextBlock(block, -1)?.querySelector<HTMLElement>("[data-block-text]")
+        ?? mainRegion.querySelector<HTMLElement>("[data-note-title]");
+      atEnd = true;
+    }
+    if (!destination) return;
+
+    if (empty && block.nextElementSibling) {
+      if (formatBar && block.contains(formatBar)) parkFormatBar();
+      block.remove();
+      timerSave();
+    }
+    placeCaret(destination, atEnd);
+  }
+
   /**
    * Стрелки и Backspace между отдельными contenteditable.
    * Пока каретка внутри строки, клавишу забирает браузер.
@@ -238,6 +262,11 @@ export function createEditorSelection(options: {
         timerSave();
         return true;
       }
+      if (block.previousElementSibling?.matches("[data-block]")) {
+        event.preventDefault();
+        crossCard(block, text, -1);
+        return true;
+      }
     }
 
     if (!event.shiftKey && key === "Delete" && collapsedIn(text) && reachesEdge(text, false)) {
@@ -246,6 +275,11 @@ export function createEditorSelection(options: {
         event.preventDefault();
         mergeBlocks(block, next);
         timerSave();
+        return true;
+      }
+      if (block.nextElementSibling?.matches("[data-block]")) {
+        event.preventDefault();
+        crossCard(block, text, 1);
         return true;
       }
     }
