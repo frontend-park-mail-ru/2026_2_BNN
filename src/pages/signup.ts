@@ -1,5 +1,7 @@
-import { api, ApiError } from "../api";
-import { navigate, resetAuthState } from "../router";
+import { ApiError } from "@/api";
+import * as authActions from "@/flux/auth/auth-actions";
+import { authStore } from "@/flux/auth/auth-store";
+import { navigate } from "@/router";
 import {
   type AuthPage,
   type SubmitHandler,
@@ -13,10 +15,11 @@ import {
   setFormLoading,
   getLoginError,
   getPasswordError,
-} from "../utils/auth-form";
+} from "@/components/forms/auth-form";
 
 const SIGNUP_FIELDS = ["login", "password", "repeatPassword"] as const;
 
+/** Имя поля формы регистрации. */
 type SignupField = (typeof SIGNUP_FIELDS)[number];
 
 /**
@@ -34,6 +37,7 @@ function isSignupField(name: string): name is SignupField {
  * Реализует render/mount/destroy контракт роутера.
  */
 export class SignupPage implements AuthPage {
+  private unsubscribeAuth: (() => void) | null = null;
   form: HTMLFormElement | null = null;
   onSubmit: SubmitHandler | null = null;
   onInput: InputHandler | null = null;
@@ -57,6 +61,11 @@ export class SignupPage implements AuthPage {
    */
   mount(root: ParentNode): void {
     mountAuthForm(this, root);
+    const updateLoading = () => {
+      if (this.form) setFormLoading(this.form, authStore.getState().pending.signup);
+    };
+    this.unsubscribeAuth = authStore.subscribe(updateLoading);
+    updateLoading();
   }
 
   /**
@@ -65,6 +74,8 @@ export class SignupPage implements AuthPage {
    * @returns {void}
    */
   destroy(): void {
+    this.unsubscribeAuth?.();
+    this.unsubscribeAuth = null;
     destroyAuthForm(this);
   }
 
@@ -156,11 +167,8 @@ export class SignupPage implements AuthPage {
       return;
     }
 
-    setFormLoading(form, true);
-
     try {
-      await api.signUp(login, password);
-      resetAuthState();
+      await authActions.signUp(login, password);
       await navigate("/login");
     } catch (error) {
       if (!this.form) {
@@ -175,10 +183,6 @@ export class SignupPage implements AuthPage {
         }
       } else {
         setFormFeedback(this.form, "Не удалось связаться с сервером");
-      }
-    } finally {
-      if (this.form) {
-        setFormLoading(this.form, false);
       }
     }
   }

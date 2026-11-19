@@ -1,7 +1,7 @@
-const DICTATION_LANGUAGE = "ru-RU";
+const VOICE_INPUT_LANGUAGE = "ru-RU";
 
 /** Колбэки голосового ввода. */
-export interface DictationHandlers {
+export interface VoiceInputHandlers {
   /** Получена законченная фраза. */
   onFinal(text: string): void;
   /** Получен промежуточный вариант фразы, пока пользователь говорит. */
@@ -13,23 +13,26 @@ export interface DictationHandlers {
 }
 
 /** Запущенный голосовой ввод. */
-export interface Dictation {
+export interface VoiceInput {
   /** Дослушивает текущую фразу и останавливает запись. */
   stop(): void;
   /** Останавливает запись сразу, без текущей фразы. */
   abort(): void;
 }
 
+/** Один вариант распознанной фразы из Web Speech API. */
 interface RecognitionAlternative {
   transcript: string;
 }
 
+/** Результат распознавания: промежуточный или окончательный. */
 interface RecognitionResult {
   readonly isFinal: boolean;
   readonly length: number;
   [index: number]: RecognitionAlternative;
 }
 
+/** Событие `result` распознавания речи. В TypeScript DOM его типа нет. */
 interface RecognitionResultEvent extends Event {
   readonly resultIndex: number;
   readonly results: {
@@ -38,10 +41,12 @@ interface RecognitionResultEvent extends Event {
   };
 }
 
+/** Событие ошибки распознавания речи. */
 interface RecognitionErrorEvent extends Event {
   readonly error: string;
 }
 
+/** Сессия `SpeechRecognition`, которую браузер отдаёт без типов. */
 interface Recognition {
   lang: string;
   continuous: boolean;
@@ -54,6 +59,7 @@ interface Recognition {
   abort(): void;
 }
 
+/** Конструктор `SpeechRecognition` или `webkitSpeechRecognition`. */
 type RecognitionConstructor = new () => Recognition;
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -93,14 +99,14 @@ export function isSpeechSupported(): boolean {
  * @param handlers Колбэки для фраз, ошибок и завершения.
  * @returns Управление записью или `null`, если запустить распознавание не удалось.
  */
-export function startDictation(handlers: DictationHandlers): Dictation | null {
+export function startVoiceInput(handlers: VoiceInputHandlers): VoiceInput | null {
   const Constructor = getRecognitionConstructor();
   if (!Constructor || !window.isSecureContext) {
     return null;
   }
 
   const recognition = new Constructor();
-  recognition.lang = DICTATION_LANGUAGE;
+  recognition.lang = VOICE_INPUT_LANGUAGE;
   recognition.continuous = true;
   recognition.interimResults = true;
 

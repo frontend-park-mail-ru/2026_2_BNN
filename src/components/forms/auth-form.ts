@@ -1,4 +1,4 @@
-import { handlePasswordToggleClick } from "./password-toggle";
+import { handlePasswordToggleClick } from "@/components/forms/password-toggle";
 
 /** Обработчик submit формы авторизации/регистрации. */
 export type SubmitHandler = (event: SubmitEvent) => void | Promise<void>;

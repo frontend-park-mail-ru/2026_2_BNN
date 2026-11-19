@@ -1,7 +1,8 @@
-const STORAGE_KEY = "theme";
-const SPRITE = "/assets/icons/ui/sprite.svg";
+import { setTheme } from "@/flux/ui/ui-actions";
+import { uiStore } from "@/flux/ui/ui-store";
+import type { Theme } from "@/flux/ui/ui-action-types";
 
-type Theme = "light" | "dark";
+const SPRITE = "/assets/icons/ui/sprite.svg";
 
 let themeTransitionRunning = false;
 
@@ -58,25 +59,12 @@ function usesAsset(src: string, kind: keyof typeof THEME_ASSETS): boolean {
 }
 
 /**
- * Читает сохраненную тему из localStorage.
- *
- * @returns {string | null}
- */
-function readStoredTheme(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Возвращает активную тему интерфейса.
  *
  * @returns {"light" | "dark"}
  */
 export function getTheme(): Theme {
-  return readStoredTheme() === "dark" ? "dark" : "light";
+  return uiStore.getState().theme;
 }
 
 /**
@@ -97,18 +85,17 @@ export function getThemeIcon(): string {
 function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
 
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // Ignore storage errors (private mode, quota, disabled storage).
-  }
-
   document.querySelectorAll("[data-theme-toggle] use").forEach((use) => {
     use.setAttribute("href", `${SPRITE}#${THEME_ICONS[theme]}`);
   });
   syncThemeAssets(theme);
 }
 
+/**
+ * Переключает тему круговым переходом от кнопки. Без View Transitions тема меняется сразу.
+ *
+ * @param button Кнопка, из центра которой расходится переход.
+ */
 async function transitionTheme(button: Element): Promise<void> {
   if (themeTransitionRunning) {
     return;
@@ -120,7 +107,7 @@ async function transitionTheme(button: Element): Promise<void> {
     !document.startViewTransition ||
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
-    applyTheme(theme);
+    setTheme(theme);
     return;
   }
 
@@ -140,7 +127,7 @@ async function transitionTheme(button: Element): Promise<void> {
 
   try {
     const transition = document.startViewTransition(() => {
-      applyTheme(theme);
+      setTheme(theme);
     });
 
     try {
@@ -182,7 +169,13 @@ async function transitionTheme(button: Element): Promise<void> {
  * @returns {void}
  */
 export function initTheme() {
-  document.documentElement.dataset.theme = getTheme();
+  uiStore.subscribe(() => {
+    const theme = getTheme();
+    if (document.documentElement.dataset.theme !== theme) {
+      applyTheme(theme);
+    }
+  });
+  applyTheme(getTheme());
 
   document.addEventListener("click", (event) => {
     const target = event.target;
