@@ -701,14 +701,21 @@
       background: var(--accent);
     }
 
-    &:hover, &:focus-visible { opacity: 1; }
-    @media (hover: none) { opacity: 1; }
+    &:hover,
+    &:focus-visible {
+      opacity: 1;
+    }
+    @media (hover: none) {
+      opacity: 1;
+    }
   }
 
   &__block:has(> [data-insert-paragraph]) + &__block:has(> [data-insert-paragraph]) {
     margin-top: 20px;
 
-    > .notebook__insert-paragraph { display: flex; }
+    > .notebook__insert-paragraph {
+      display: flex;
+    }
   }
 
   &__block {

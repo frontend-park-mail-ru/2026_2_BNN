@@ -197,15 +197,18 @@ export function createEditorSelection(options: {
   /** Переходит через карточки, сохраняя текстовые блоки по обе стороны. */
   function crossCard(block: HTMLElement, text: HTMLElement, direction: 1 | -1): void {
     const empty = !text.textContent && block.dataset.blockType === "text";
-    let destination = neighborTextBlock(block, direction)?.querySelector<HTMLElement>("[data-block-text]");
+    let destination = neighborTextBlock(block, direction)?.querySelector<HTMLElement>(
+      "[data-block-text]"
+    );
     let atEnd = direction === -1;
 
     if (!destination && direction === -1) {
       destination = mainRegion.querySelector<HTMLElement>("[data-note-title]");
     }
     if (!destination && empty) {
-      destination = neighborTextBlock(block, -1)?.querySelector<HTMLElement>("[data-block-text]")
-        ?? mainRegion.querySelector<HTMLElement>("[data-note-title]");
+      destination =
+        neighborTextBlock(block, -1)?.querySelector<HTMLElement>("[data-block-text]") ??
+        mainRegion.querySelector<HTMLElement>("[data-note-title]");
       atEnd = true;
     }
     if (!destination) return;
