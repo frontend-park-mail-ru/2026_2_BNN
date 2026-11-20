@@ -1,19 +1,23 @@
-import { api } from "../../api";
-import { getThemeIcon, themeAsset } from "../../components/theme/theme";
-import { toTagView, type TagView } from "../../domain/tags";
-import { authStore } from "../../flux/auth/auth-store";
-import { notesStore } from "../../flux/notes/note-store";
-import type { NoteStateItem as Note } from "../../flux/notes/note-action-types";
-import type { ReadonlyState } from "../../flux/base-store";
-import type { User } from "../../types/user";
-import type { PageContext } from "../../router";
-import { getEditorBlocks, type BlockView } from "./editor/block-view";
-import { SAVE_STATUS } from "./editor/constants";
-import { isSpeechSupported } from "./voice-input/speech";
-import { matchesTagFilter } from "./tag-filter";
-import { getTags, getActiveTagIds, findNote, tagsByIds } from "./selectors";
-import { buildNoteTree } from "./note-tree";
+import { api } from "@/api";
+import { getThemeIcon, themeAsset } from "@/components/theme/theme";
+import { toTagView, type TagView } from "@/domain/tags";
+import { authStore } from "@/flux/auth/auth-store";
+import { notesStore } from "@/flux/notes/note-store";
+import type { NoteStateItem as Note } from "@/flux/notes/note-action-types";
+import type { ReadonlyState } from "@/flux/base-store";
+import type { User } from "@/types/user";
+import type { PageContext } from "@/router";
+import { getEditorBlocks, type BlockView } from "@/pages/notes/editor/block-view";
+import { SAVE_STATUS } from "@/pages/notes/editor/constants";
+import { isSpeechSupported } from "@/pages/notes/voice-input/speech";
+import { matchesTagFilter } from "@/pages/notes/tag-filter";
+import { getTags, getActiveTagIds, findNote, tagsByIds } from "@/pages/notes/selectors";
 
+/** Ссылка на заметку в списке или в результатах поиска. */
+interface NoteLink {
+  href: string;
+  title: string;
+}
 const WELCOME_TITLE = "добро пожаловать";
 
 /** Пункт боковой панели: адрес, иконка и название раздела. */

@@ -1,12 +1,12 @@
-import { authStore } from "../flux/auth/auth-store";
-import * as profileActions from "../flux/profile/profile-actions";
-import { profileStore } from "../flux/profile/profile-store";
-import { notesStore } from "../flux/notes/note-store";
-import { navigate } from "../router";
-import { mountAvatarForm } from "./profile/avatar-form";
-import { mountPasswordForm } from "./profile/password-form";
-import { mountTwoFactorForm } from "./profile/two-factor-form";
-import { fillProfile, showProfileView } from "./profile/view";
+import { authStore } from "@/flux/auth/auth-store";
+import * as profileActions from "@/flux/profile/profile-actions";
+import { profileStore } from "@/flux/profile/profile-store";
+import { notesStore } from "@/flux/notes/note-store";
+import { navigate } from "@/router";
+import { mountAvatarForm } from "@/pages/profile/avatar-form";
+import { mountPasswordForm } from "@/pages/profile/password-form";
+import { mountTwoFactorForm } from "@/pages/profile/two-factor-form";
+import { fillProfile, showProfileView } from "@/pages/profile/view";
 
 /** Данные страницы, которые диалогу профиля сам store не отдаёт. */
 export interface ProfileOptions {

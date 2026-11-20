@@ -1,8 +1,8 @@
-import type { User } from "./types/user";
-import type { BlockInput, Note } from "./types/note";
-import type { Tag, TagInput } from "./types/tag";
-import type { Attachment } from "./types/attachment";
-import { safeResourceUrl } from "./utils/url";
+import type { User } from "@/types/user";
+import type { BlockInput, Note } from "@/types/note";
+import type { Tag, TagInput } from "@/types/tag";
+import type { Attachment } from "@/types/attachment";
+import { safeResourceUrl } from "@/utils/url";
 
 const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   400: "Проверьте введённые данные",

@@ -1,8 +1,8 @@
-import { getNewPasswordError, getRepeatPasswordError } from "../../components/forms/auth-form";
-import { handlePasswordToggleClick } from "../../components/forms/password-toggle";
-import * as profileActions from "../../flux/profile/profile-actions";
-import { profileStore } from "../../flux/profile/profile-store";
-import { clearPasswordForm, setProfileError } from "./form-view";
+import { getNewPasswordError, getRepeatPasswordError } from "@/components/forms/auth-form";
+import { handlePasswordToggleClick } from "@/components/forms/password-toggle";
+import * as profileActions from "@/flux/profile/profile-actions";
+import { profileStore } from "@/flux/profile/profile-store";
+import { clearPasswordForm, setProfileError } from "@/pages/profile/form-view";
 
 /**
  * Подключает форму смены пароля.

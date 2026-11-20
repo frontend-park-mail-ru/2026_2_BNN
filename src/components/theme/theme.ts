@@ -1,6 +1,6 @@
-import { setTheme } from "../../flux/ui/ui-actions";
-import { uiStore } from "../../flux/ui/ui-store";
-import type { Theme } from "../../flux/ui/ui-action-types";
+import { setTheme } from "@/flux/ui/ui-actions";
+import { uiStore } from "@/flux/ui/ui-store";
+import type { Theme } from "@/flux/ui/ui-action-types";
 
 const SPRITE = "/assets/icons/ui/sprite.svg";
 

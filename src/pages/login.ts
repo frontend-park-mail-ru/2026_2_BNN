@@ -1,7 +1,7 @@
-import { ApiError } from "../api";
-import * as authActions from "../flux/auth/auth-actions";
-import { authStore } from "../flux/auth/auth-store";
-import { navigate } from "../router";
+import { ApiError } from "@/api";
+import * as authActions from "@/flux/auth/auth-actions";
+import { authStore } from "@/flux/auth/auth-store";
+import { navigate } from "@/router";
 import {
   type AuthPage,
   type SubmitHandler,
@@ -15,7 +15,7 @@ import {
   setFormLoading,
   getLoginError,
   getPasswordError,
-} from "../components/forms/auth-form";
+} from "@/components/forms/auth-form";
 
 /**
  * SPA-страница авторизации.

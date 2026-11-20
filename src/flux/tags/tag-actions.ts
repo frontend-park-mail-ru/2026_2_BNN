@@ -1,7 +1,7 @@
-import { api, ApiError } from "../../api";
-import type { TagInput } from "../../types/tag";
-import type { Tag } from "../../types/tag";
-import { dispatcher } from "../app-dispatcher";
+import { api, ApiError } from "@/api";
+import type { TagInput } from "@/types/tag";
+import type { Tag } from "@/types/tag";
+import { dispatcher } from "@/flux/app-dispatcher";
 
 let sessionVersion = 0;
 let mutationVersion = 0;

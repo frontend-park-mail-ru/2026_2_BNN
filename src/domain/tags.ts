@@ -1,4 +1,4 @@
-import type { Tag } from "../types/tag";
+import type { Tag } from "@/types/tag";
 
 /** Цвет из палитры тегов. */
 export interface TagColor {

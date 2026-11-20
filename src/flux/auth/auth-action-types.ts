@@ -1,4 +1,4 @@
-import type { User } from "../../types/user";
+import type { User } from "@/types/user";
 
 /** Запрос авторизации, который показывает индикатор загрузки на своей форме. */
 export type AuthOperation = "login" | "signup" | "two-factor";

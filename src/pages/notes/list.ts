@@ -1,9 +1,9 @@
-import * as noteActions from "../../flux/notes/note-actions";
-import { notesStore } from "../../flux/notes/note-store";
-import * as tagActions from "../../flux/tags/tag-actions";
-import { tagStore } from "../../flux/tags/tag-store";
-import type { PageContext } from "../../router";
-import { buildNotesView } from "./view";
+import * as noteActions from "@/flux/notes/note-actions";
+import { notesStore } from "@/flux/notes/note-store";
+import * as tagActions from "@/flux/tags/tag-actions";
+import { tagStore } from "@/flux/tags/tag-store";
+import type { PageContext } from "@/router";
+import { buildNotesView } from "@/pages/notes/view";
 
 /** Список и фильтр обновляются независимо от DOM открытой заметки. */
 export function mountNotesList(options: {

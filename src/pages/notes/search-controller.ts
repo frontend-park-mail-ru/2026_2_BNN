@@ -1,8 +1,8 @@
-import { toTagView } from "../../domain/tags";
-import * as noteActions from "../../flux/notes/note-actions";
-import { notesStore } from "../../flux/notes/note-store";
-import { tagStore } from "../../flux/tags/tag-store";
-import { filterNotes, filterTags } from "./search";
+import { toTagView } from "@/domain/tags";
+import * as noteActions from "@/flux/notes/note-actions";
+import { notesStore } from "@/flux/notes/note-store";
+import { tagStore } from "@/flux/tags/tag-store";
+import { filterNotes, filterTags } from "@/pages/notes/search";
 
 const SEARCH_DELAY = 200;
 const SEARCH_RESULTS_LIMIT = 8;

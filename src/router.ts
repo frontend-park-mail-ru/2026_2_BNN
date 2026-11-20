@@ -1,9 +1,9 @@
-import { NotesPage } from "./pages/notes";
-import { LoginPage } from "./pages/login";
-import { LoginTwoFactorPage } from "./pages/login-2fa";
-import { SignupPage } from "./pages/signup";
-import { NotFoundPage } from "./pages/notfound";
-import { ensureAuth } from "./flux/auth/auth-actions";
+import { NotesPage } from "@/pages/notes";
+import { LoginPage } from "@/pages/login";
+import { LoginTwoFactorPage } from "@/pages/login-2fa";
+import { SignupPage } from "@/pages/signup";
+import { NotFoundPage } from "@/pages/notfound";
+import { ensureAuth } from "@/flux/auth/auth-actions";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {

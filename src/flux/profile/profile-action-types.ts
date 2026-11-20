@@ -1,4 +1,4 @@
-import type { User } from "../../types/user";
+import type { User } from "@/types/user";
 
 /** Экран внутри диалога профиля. */
 export type ProfileView =

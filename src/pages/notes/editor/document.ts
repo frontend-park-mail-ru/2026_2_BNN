@@ -1,8 +1,7 @@
-import type { BlockContent, BlockInput, BlockType, NoteBlock } from "../../../types/note";
-import { toBlockView, type BlockView } from "./block-view";
-import { TITLE_MAX_LENGTH } from "./constants";
-import { renderInlineHtml, serializeInline } from "./inline-format";
-
+import type { BlockContent, BlockInput, BlockType, NoteBlock } from "@/types/note";
+import { toBlockView, type BlockView } from "@/pages/notes/editor/block-view";
+import { TITLE_MAX_LENGTH } from "@/pages/notes/editor/constants";
+import { renderInlineHtml, serializeInline } from "@/pages/notes/editor/inline-format";
 /**
  * Читает и меняет блоки в DOM редактора, не обращаясь к сети.
  *

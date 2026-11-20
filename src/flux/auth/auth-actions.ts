@@ -1,8 +1,8 @@
-import { api, isOfflineError } from "../../api";
-import type { User } from "../../types/user";
-import { dispatcher } from "../app-dispatcher";
-import { authStore } from "./auth-store";
-import type { AuthOperation } from "./auth-action-types";
+import { api, isOfflineError } from "@/api";
+import type { User } from "@/types/user";
+import { dispatcher } from "@/flux/app-dispatcher";
+import { authStore } from "@/flux/auth/auth-store";
+import type { AuthOperation } from "@/flux/auth/auth-action-types";
 
 const API_CACHE = "bnn-api";
 const PROFILE_CACHE_PATH = "/api/auth/me";

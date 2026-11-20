@@ -1,7 +1,7 @@
-import * as profileActions from "../../flux/profile/profile-actions";
-import { profileStore } from "../../flux/profile/profile-store";
-import { showToast } from "../../flux/ui/ui-actions";
-import { AvatarCrop } from "./avatar-crop";
+import * as profileActions from "@/flux/profile/profile-actions";
+import { profileStore } from "@/flux/profile/profile-store";
+import { showToast } from "@/flux/ui/ui-actions";
+import { AvatarCrop } from "@/pages/profile/avatar-crop";
 
 const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_LIMIT = 5 * 1024 * 1024;

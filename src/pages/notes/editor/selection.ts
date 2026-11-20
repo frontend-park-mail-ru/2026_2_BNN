@@ -1,4 +1,4 @@
-import type { BlockType } from "../../../types/note";
+import type { BlockType } from "@/types/note";
 import {
   caretX,
   collapsedIn,
@@ -8,9 +8,13 @@ import {
   placeCaret,
   reachesEdge,
   visibleText,
-} from "./caret";
-import { BLOCK_OPTIONS } from "./constants";
-import { applyInlineFormat, inlineFormatState, type InlineFormat } from "./inline-format";
+} from "@/pages/notes/editor/caret";
+import { BLOCK_OPTIONS } from "@/pages/notes/editor/constants";
+import {
+  applyInlineFormat,
+  inlineFormatState,
+  type InlineFormat,
+} from "@/pages/notes/editor/inline-format";
 /**
  * Следит за выделением строк, панелью форматирования и протяжкой через несколько блоков.
  *

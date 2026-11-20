@@ -1,6 +1,6 @@
-import { ApiError } from "../../api";
-import type { Tag } from "../../types/tag";
-import * as tagActions from "../../flux/tags/tag-actions";
+import { ApiError } from "@/api";
+import type { Tag } from "@/types/tag";
+import * as tagActions from "@/flux/tags/tag-actions";
 import {
   TAG_NAME_MAX_LENGTH,
   TAG_PALETTE,
@@ -8,7 +8,7 @@ import {
   nextTagColor,
   safeTagColor,
   toTagView,
-} from "../../domain/tags";
+} from "@/domain/tags";
 
 const NETWORK_ERROR = "Не удалось связаться с сервером";
 
