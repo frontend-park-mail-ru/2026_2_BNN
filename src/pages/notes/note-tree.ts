@@ -14,6 +14,26 @@ export interface NoteTreeItem {
   children: NoteTreeItem[];
 }
 
+export const MAX_NOTE_DEPTH = 9;
+
+export function getNoteDepth(notes: readonly NoteTreeSource[], noteId: string): number | null {
+  const byId = new Map(notes.map((note) => [note.id, note] as const));
+  const visited = new Set<string>();
+  let current = byId.get(noteId);
+  let depth = 0;
+
+  while (current) {
+    if (visited.has(current.id)) return null;
+    if (current.parentId === null) return depth;
+
+    visited.add(current.id);
+    current = byId.get(current.parentId);
+    depth++;
+  }
+
+  return null;
+}
+
 /**
  * Собирает плоский список заметок в дерево по `parentId`.
  * Заметка без родителя или с неизвестным родителем становится корнем.
