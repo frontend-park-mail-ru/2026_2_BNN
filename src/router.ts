@@ -1,10 +1,9 @@
-import { NotesPage, resetNotesStore } from "./pages/notes";
-import { LoginPage } from "./pages/login";
-import { LoginTwoFactorPage } from "./pages/login-2fa";
-import { SignupPage } from "./pages/signup";
-import { NotFoundPage } from "./pages/notfound";
-import { api, isOfflineError } from "./api";
-import { getState, setState, type User } from "./store/app-store";
+import { NotesPage } from "@/pages/notes";
+import { LoginPage } from "@/pages/login";
+import { LoginTwoFactorPage } from "@/pages/login-2fa";
+import { SignupPage } from "@/pages/signup";
+import { NotFoundPage } from "@/pages/notfound";
+import { ensureAuth } from "@/flux/auth/auth-actions";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
@@ -16,6 +15,10 @@ export interface PageContext {
 
 /** Контракт SPA-страницы: отрисовка, подключение и снятие обработчиков. */
 interface Page {
+  /** Проверяет сохранение перед уходом. При false текущая страница остаётся открыта. */
+  beforeLeave?(): Promise<boolean>;
+  getUrl?(): string;
+  updateRoute?(context: PageContext): boolean;
   /** Возвращает HTML страницы. */
   render(context: PageContext): Promise<string>;
   /** Подключает обработчики после вставки разметки в DOM. */
@@ -41,15 +44,15 @@ const notFoundPage = new NotFoundPage();
 const loginPage = new LoginPage();
 const loginTwoFactorPage = new LoginTwoFactorPage();
 const signupPage = new SignupPage();
-const API_CACHE = "bnn-api";
-const PROFILE_CACHE_PATH = "/api/auth/me";
 
 const routes: RouteRecord[] = [
   { path: "/", page: notesPage, auth: true },
   { path: "/notes", page: notesPage, auth: true },
-  { path: "/notes/favourites", page: notesPage, auth: true },
+  { path: "/notes/favorites/:id", page: notesPage, auth: true },
+  { path: "/notes/favorites", page: notesPage, auth: true },
   { path: "/notes/trash", page: notesPage, auth: true },
   { path: "/notes/notifications", page: notesPage, auth: true },
+  { path: "/notes/all", page: notesPage, auth: true },
   { path: "/notes/:id", page: notesPage, auth: true },
   { path: "/login", page: loginPage, guest: true },
   { path: "/login/2fa", page: loginTwoFactorPage, guest: true },
@@ -90,115 +93,13 @@ function matchRoute(pattern: string, path: string): Record<string, string> | nul
 
 let currentPage: Page | null = null;
 let renderId = 0;
-
-/**
- * Проверяет, что JSON из кэша похож на профиль `/api/auth/me`.
- *
- * @param value Разобранное тело ответа.
- * @returns `true`, если обязательные поля профиля на месте.
- */
-function isCachedUser(value: unknown): value is User {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const data = value as Record<string, unknown>;
-  const avatarOk = typeof data.avatar === "string" || data.avatar === null;
-  const providerOk = data.oauth_provider === null || data.oauth_provider === "github";
-
-  return (
-    typeof data.id === "string" &&
-    typeof data.login === "string" &&
-    avatarOk &&
-    typeof data.created_at === "string" &&
-    typeof data.updated_at === "string" &&
-    typeof data.is_2fa_enabled === "boolean" &&
-    providerOk
-  );
-}
-
-/**
- * Достаёт профиль из кэша `bnn-api`, если его уже получали онлайн.
- *
- * @returns Профиль или `null`, если кэша нет или он битый.
- */
-async function cachedProfile(): Promise<User | null> {
-  if (!("caches" in window)) {
-    return null;
-  }
-
-  try {
-    const cache = await caches.open(API_CACHE);
-    const response = await cache.match(PROFILE_CACHE_PATH, { ignoreVary: true });
-    if (!response?.ok) {
-      return null;
-    }
-    const data: unknown = await response.json();
-    if (!isCachedUser(data)) {
-      return null;
-    }
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Проверяет авторизацию по кэшу store и при необходимости запрашивает профиль.
- *
- * @returns `true`, если пользователь авторизован.
- */
-async function ensureAuth(): Promise<boolean> {
-  const auth = getState().auth;
-  const knownUser = auth.user;
-
-  if (auth.status === "authenticated" && auth.isLoggedIn) {
-    return true;
-  }
-
-  if (auth.status === "unauthenticated") {
-    return false;
-  }
-
-  setState({
-    auth: {
-      status: "loading",
-      isLoggedIn: false,
-      user: null,
-    },
-  });
-
-  try {
-    await api.getProfile();
-  } catch (error) {
-    if (isOfflineError(error)) {
-      // Без сети сервер не может сказать «вы не вошли»: navigator.onLine
-      // не видит галочку «Офлайн» у service worker, поэтому на него не опираемся.
-      const profile = knownUser ?? (await cachedProfile());
-      setState({
-        auth: profile
-          ? { status: "authenticated", isLoggedIn: true, user: profile }
-          : { status: "unknown", isLoggedIn: false, user: null },
-      });
-      return profile !== null;
-    }
-
-    setState({
-      auth: {
-        status: "unauthenticated",
-        isLoggedIn: false,
-        user: null,
-      },
-    });
-  }
-
-  return getState().auth.isLoggedIn;
-}
+let currentUrl = window.location.pathname;
 
 /**
  * Выбирает страницу по URL, проверяет доступ и монтирует её.
  */
 export async function router(): Promise<void> {
+  const thisRender = ++renderId;
   const path = window.location.pathname;
   let page: Page = notFoundPage;
   let params: Record<string, string> = {};
@@ -217,6 +118,7 @@ export async function router(): Promise<void> {
 
   if (matchedRoute?.auth) {
     const ok = await ensureAuth();
+    if (thisRender !== renderId) return;
     if (!ok) {
       await navigate("/login");
       return;
@@ -225,21 +127,31 @@ export async function router(): Promise<void> {
 
   if (matchedRoute?.guest) {
     const ok = await ensureAuth();
+    if (thisRender !== renderId) return;
     if (ok) {
       await navigate("/notes");
       return;
     }
   }
 
-  if (currentPage?.destroy) {
-    await currentPage.destroy();
+  const leaving = currentPage;
+  if (leaving?.beforeLeave) {
+    const saved = await leaving.beforeLeave();
+    if (thisRender !== renderId) return;
+    if (!saved) {
+      history.replaceState(null, "", leaving.getUrl?.() ?? currentUrl);
+      return;
+    }
+  }
+  const context: PageContext = { path, params };
+  if (leaving === page && page.updateRoute?.(context)) {
+    currentUrl = path;
+    return;
   }
   currentPage = null;
+  await leaving?.destroy?.();
+  if (thisRender !== renderId) return;
 
-  renderId++;
-  const thisRender = renderId;
-
-  const context: PageContext = { path, params };
   const root = document.querySelector("#app");
   if (!root) {
     return;
@@ -253,6 +165,7 @@ export async function router(): Promise<void> {
 
   root.innerHTML = html;
   currentPage = page;
+  currentUrl = path;
 
   if (page.mount) {
     void page.mount(root, context);
@@ -273,17 +186,6 @@ export async function navigate(url: string): Promise<void> {
 
   history.pushState(null, "", url);
   await router();
-}
-
-/**
- * Сбрасывает авторизацию и заметки при смене пользователя или выходе.
- *
- * @param authStatus Статус авторизации после сброса.
- */
-export function resetAuthState(authStatus: "unknown" | "unauthenticated" = "unknown"): void {
-  api.clearCachedProfile(authStatus);
-  window.caches?.delete(API_CACHE);
-  resetNotesStore();
 }
 
 /**
