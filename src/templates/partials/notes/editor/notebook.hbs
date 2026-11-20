@@ -1,6 +1,17 @@
 <article class="notebook">
     <div class="notebook__toolbar">
         <nav class="notebook__nav" aria-label="Путь к заметке">
+            {{#if hasAncestors}}
+                <div class="note-path__inline">
+                    <div class="note-path__trail">
+                        {{#each breadcrumbs}}
+                            <a class="note-path__root" href="{{href}}" data-link>{{label}}</a>
+                            <span aria-hidden="true">›</span>
+                        {{/each}}
+                        <span aria-current="page" data-current-crumb>{{displayTitle}}</span>
+                    </div>
+                </div>
+            {{/if}}
             <a class="note-path__root" href="{{breadcrumbs.[0].href}}" data-link>
                 Все заметки
             </a>

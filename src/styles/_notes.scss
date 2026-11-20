@@ -1484,6 +1484,33 @@
 }
 
 .note-path {
+  &__inline {
+    position: absolute;
+    visibility: hidden;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  &__trail {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-s);
+    width: max-content;
+    white-space: nowrap;
+  }
+
+  .notebook__nav[data-path-fits] > &__inline {
+    position: static;
+    visibility: visible;
+    width: auto;
+    height: auto;
+  }
+
+  .notebook__nav[data-path-fits] > &__inline ~ * {
+    display: none;
+  }
+
   &__root {
     flex: 0 0 auto;
     color: inherit;

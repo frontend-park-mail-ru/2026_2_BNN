@@ -14,6 +14,9 @@ import {
 } from "@/pages/notes/editor/inline-format";
 import { createEditorPersistence } from "@/pages/notes/editor/persistence";
 import { createEditorSelection } from "@/pages/notes/editor/selection";
+import { getNoteDepth, MAX_NOTE_DEPTH } from "@/pages/notes/note-tree";
+import { toBlockView } from "@/pages/notes/editor/block-view";
+import * as noteActions from "@/flux/notes/note-actions";
 
 /** Узлы страницы и колбэки, которые редактор не берёт из store. */
 export interface EditorOptions {
@@ -139,6 +142,20 @@ export function createNoteEditor(options: EditorOptions) {
   async function createSubnote(block: HTMLElement): Promise<void> {
     const text = block.querySelector<HTMLElement>("[data-block-text]");
     if (!text || text.innerText.trim() !== "/") return;
+
+    if (!noteId) return;
+
+    const depth = noteId === "new" ? 0 : getNoteDepth(notesStore.getState().notes, noteId);
+
+    if (depth === null) {
+      options.showToast("Не удалось определить уровень вложенности заметки", true);
+      return;
+    }
+
+    if (depth >= MAX_NOTE_DEPTH) {
+      options.showToast(`Достигнут предел вложенности — ${MAX_NOTE_DEPTH} уровней`, true);
+      return;
+    }
 
     // Для черновика persistence создаст родителя и обновит noteId.
     timerSave();

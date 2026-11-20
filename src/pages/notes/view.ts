@@ -12,12 +12,8 @@ import { SAVE_STATUS } from "@/pages/notes/editor/constants";
 import { isSpeechSupported } from "@/pages/notes/voice-input/speech";
 import { matchesTagFilter } from "@/pages/notes/tag-filter";
 import { getTags, getActiveTagIds, findNote, tagsByIds } from "@/pages/notes/selectors";
+import { buildNoteTree } from "@/pages/notes/note-tree";
 
-/** Ссылка на заметку в списке или в результатах поиска. */
-interface NoteLink {
-  href: string;
-  title: string;
-}
 const WELCOME_TITLE = "добро пожаловать";
 
 /** Пункт боковой панели: адрес, иконка и название раздела. */

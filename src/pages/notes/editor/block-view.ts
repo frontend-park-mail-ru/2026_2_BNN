@@ -1,6 +1,7 @@
 import type { BlockType, NoteBlock } from "@/types/note";
 import { safeResourceUrl } from "@/utils/url";
 import { formatFileMeta } from "@/pages/notes/attachments";
+import { getNote } from "@/pages/notes/selectors";
 
 /** Блок заметки в виде, который ждёт шаблон редактора. */
 export interface BlockView {

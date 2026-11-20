@@ -76,6 +76,30 @@ export class NotesPage {
     let redirecting = false;
     let childToDelete: string | null = null;
     const events = new AbortController();
+
+    // Измеряем полную цепочку даже тогда, когда пользователю показано меню.
+    const pathObserver = new ResizeObserver(syncBreadcrumbWidth);
+
+    function syncBreadcrumbWidth(): void {
+      const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
+      const nav = trail?.closest<HTMLElement>(".notebook__nav");
+      if (!nav || !trail) return;
+      const fits = trail.getBoundingClientRect().width <= nav.getBoundingClientRect().width;
+      nav.toggleAttribute("data-path-fits", fits);
+      if (fits) nav.querySelector("details")?.removeAttribute("open");
+    }
+
+    function observeBreadcrumbs(): void {
+      pathObserver.disconnect();
+      const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
+      const nav = trail?.closest<HTMLElement>(".notebook__nav");
+      if (!nav || !trail) return;
+      pathObserver.observe(nav);
+      pathObserver.observe(trail);
+      syncBreadcrumbWidth();
+    }
+
+    observeBreadcrumbs();
     const list = mountNotesList({
       region: listRegion,
       context,
@@ -151,6 +175,7 @@ export class NotesPage {
       /** Снимает обработчики страницы и вложенных модулей. */
       dispose() {
         events.abort();
+        pathObserver.disconnect();
         window.cancelAnimationFrame(frame);
         unsubscribeNotes();
         unsubscribeUi();
@@ -209,6 +234,7 @@ export class NotesPage {
           mainKey = key;
           editor.resetSelection();
           mainRegion.innerHTML = Handlebars.partials["notes-main"](buildNotesView(context, id));
+          observeBreadcrumbs();
           editorRendered = mainRegion.querySelector("[data-note-title]") !== null;
           focusPendingTitle();
         }
