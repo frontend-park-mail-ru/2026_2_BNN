@@ -342,6 +342,10 @@
 }
 
 .block-menu {
+  box-sizing: border-box;
+  &:focus {
+    outline: none;
+  }
   position: absolute;
   top: calc(100% + 6px);
   left: 0;

@@ -72,7 +72,7 @@ export function fillProfile(
   page
     .querySelectorAll<HTMLImageElement>(".profile__avatar-image, .user-menu__image")
     .forEach((image) => {
-      image.src = src;
+      if (image.getAttribute("src") !== src) image.src = src;
     });
 
   syncProfileMenu(dialog, profile);

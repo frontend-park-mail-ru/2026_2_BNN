@@ -35,6 +35,7 @@ export interface EditorOptions {
 export function createNoteEditor(options: EditorOptions) {
   const { page, mainRegion, showTitleInList } = options;
   let noteId = options.noteId;
+  let focusedBlock: HTMLElement | null = null;
   let pendingSubnote: Promise<void> | null = null;
   let active = true;
   const isActive = () => active && options.isActive();
@@ -80,6 +81,7 @@ export function createNoteEditor(options: EditorOptions) {
     mainRegion,
     document: editorDocument,
     getNoteId: () => noteId,
+    needsParent: () => pendingSubnote !== null,
     setNoteId: (id) => {
       noteId = id;
       if (isActive()) options.onCreated(id);
@@ -141,7 +143,9 @@ export function createNoteEditor(options: EditorOptions) {
   /** Создаёт подзаметку после `/`. */
   async function createSubnote(block: HTMLElement): Promise<void> {
     const text = block.querySelector<HTMLElement>("[data-block-text]");
-    if (!text || text.innerText.trim() !== "/") return;
+    if (!text) return;
+    const command = text.innerText.trim();
+    if (command !== "/" && command !== "") return;
 
     if (!noteId) return;
 
@@ -166,14 +170,14 @@ export function createNoteEditor(options: EditorOptions) {
 
     const parentId = noteId;
     if (!parentId || parentId === "new" || !isActive()) return;
-    if (!mainRegion.contains(block) || text.innerText.trim() !== "/") return;
+    if (!mainRegion.contains(block) || text.innerText.trim() !== command) return;
 
     const child = await noteActions.createNote({ parent_note_id: parentId });
 
     if (!isActive() || noteId !== parentId) return;
 
     // Пользователь мог изменить строку, пока шёл запрос.
-    if (!mainRegion.contains(block) || text.innerText.trim() !== "/") {
+    if (!mainRegion.contains(block) || text.innerText.trim() !== command) {
       options.showToast("Подзаметка создана. Её можно открыть в списке заметок.");
       return;
     }
@@ -185,12 +189,14 @@ export function createNoteEditor(options: EditorOptions) {
 
     const inserted = editorDocument.replaceBlock(block, view);
 
-    if (!inserted.nextElementSibling) {
-      const nextText = insertBlockAfter(inserted, "text");
-      if (nextText) placeCaret(nextText, false);
-    } else {
-      inserted.querySelector<HTMLAnchorElement>("[data-child-note-id]")?.focus();
+    let following = inserted.nextElementSibling;
+    while (following && !following.querySelector("[data-block-text]")) {
+      following = following.nextElementSibling;
     }
+    const nextText =
+      following?.querySelector<HTMLElement>("[data-block-text]") ??
+      insertBlockAfter(inserted, "text");
+    if (nextText) placeCaret(nextText, false);
 
     timerSave();
     if (!(await autosave.flush()) && isActive()) {
@@ -513,7 +519,10 @@ export function createNoteEditor(options: EditorOptions) {
   /** Не даёт кнопке голосового ввода забрать фокус и каретку из текста заметки. */
   function onMainMouseDown(event: MouseEvent): void {
     const target = event.target;
-    if (target instanceof Element && target.closest("[data-voice-input-toggle]")) {
+    if (
+      target instanceof Element &&
+      target.closest("[data-voice-input-toggle], [data-add-block]")
+    ) {
       event.preventDefault();
     }
   }
@@ -525,6 +534,21 @@ export function createNoteEditor(options: EditorOptions) {
    * @returns `true`, если клик относится к редактору.
    */
   function handleClick(target: Element): boolean {
+    if (target.closest("[data-add-block]")) {
+      if (mainRegion.querySelector("[data-block-menu]")) {
+        closeBlockMenu();
+        return true;
+      }
+      const block =
+        focusedBlock && mainRegion.contains(focusedBlock)
+          ? focusedBlock
+          : mainRegion.querySelector<HTMLElement>("[data-note-body] > [data-block]");
+      if (block) {
+        block.scrollIntoView({ block: "nearest" });
+        openBlockMenu(block, true);
+      }
+      return true;
+    }
     const insert = target.closest("[data-insert-paragraph]");
     if (insert) {
       const previous = insert.closest("[data-block]")?.previousElementSibling;
@@ -613,6 +637,16 @@ export function createNoteEditor(options: EditorOptions) {
 
   const events = new AbortController();
   const signal = events.signal;
+  mainRegion.addEventListener(
+    "focusin",
+    (event) => {
+      if (event.target instanceof Element) {
+        const block = event.target.closest<HTMLElement>("[data-block]");
+        if (block || event.target.matches("[data-note-title]")) focusedBlock = block;
+      }
+    },
+    { signal }
+  );
   mainRegion.addEventListener("input", onNoteInput, { signal });
   mainRegion.addEventListener("change", onNoteChange, { signal });
   mainRegion.addEventListener("keydown", onNoteKeyDown, { signal });

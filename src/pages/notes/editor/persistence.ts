@@ -9,6 +9,7 @@ export function createEditorPersistence(options: {
   mainRegion: HTMLElement;
   document: EditorDocument;
   getNoteId: () => string | undefined;
+  needsParent: () => boolean;
   setNoteId: (id: string) => void;
   getNoteTagIds: () => string[];
   isActive: () => boolean;
@@ -29,7 +30,10 @@ export function createEditorPersistence(options: {
       : undefined;
     try {
       let id = options.getNoteId();
-      if (!id || (id === "new" && !title && !blocks.length && !tagIds?.length)) {
+      if (
+        !id ||
+        (id === "new" && !title && !blocks.length && !tagIds?.length && !options.needsParent())
+      ) {
         noteActions.setSaveStatus("idle");
         return true;
       }

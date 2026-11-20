@@ -1,56 +1,14 @@
 <article class="notebook">
     <div class="notebook__toolbar">
         <nav class="notebook__nav" aria-label="Путь к заметке">
-            {{#if hasAncestors}}
-                <div class="note-path__inline">
-                    <div class="note-path__trail">
-                        {{#each breadcrumbs}}
-                            <a class="note-path__root" href="{{href}}" data-link>{{label}}</a>
-                            <span aria-hidden="true">›</span>
-                        {{/each}}
-                        <span aria-current="page" data-current-crumb>{{displayTitle}}</span>
-                    </div>
-                </div>
-            {{/if}}
-            <a class="note-path__root" href="{{breadcrumbs.[0].href}}" data-link>
-                Все заметки
-            </a>
-            <span aria-hidden="true">›</span>
-
-            {{#if hasAncestors}}
-                <details class="note-path__details">
-                    <summary class="note-path__summary" title="Показать путь к заметке">
-                        <span class="note-path__more" aria-hidden="true">…</span>
-                        <span aria-hidden="true">›</span>
-                        <span class="note-path__title" data-current-crumb>{{displayTitle}}</span>
-                        <span class="note-path__sr-only"> — полный путь к заметке</span>
-                    </summary>
-
-                    <ol class="note-path__full" aria-label="Полный путь">
-                        {{#each breadcrumbs}}
-                            <li>
-                                <a class="note-path__entry" href="{{href}}" data-link>
-                                    <span aria-hidden="true">{{> icon name="file"}}</span>
-                                    {{label}}
-                                </a>
-                            </li>
-                        {{/each}}
-                        <li class="note-path__entry" aria-current="page">
-                            <span aria-hidden="true">{{> icon name="file"}}</span>
-                            <span data-current-crumb>{{displayTitle}}</span>
-                            <span class="note-path__check" aria-hidden="true">✓</span>
-                        </li>
-                    </ol>
-                </details>
-            {{else}}
-                <span class="note-path__title" aria-current="page" data-current-crumb>
-                    {{displayTitle}}
-                </span>
-            {{/if}}
+            {{> note-path}}
         </nav>
         <span class="notebook__voice-input-status" data-voice-input-status aria-live="polite" hidden></span>
         <span class="notebook__save-status" data-save-status>{{saveStatus}}</span>
         <div class="notebook__actions">
+            <button class="icon-button" type="button" data-add-block aria-label="Добавить блок" title="Добавить блок">
+                {{> icon name="plus"}}
+            </button>
             {{#if canUseVoiceInput}}
                 <button class="icon-button" type="button" aria-label="Голосовой ввод" aria-pressed="false" title="Голосовой ввод" data-voice-input-toggle>
                     {{> icon name="mic"}}
@@ -73,11 +31,6 @@
         </div>
     </div>
     <div class="notebook__content">
-        {{#if hasNote}}<h1 class="notebook__title" contenteditable="plaintext-only" data-note-title data-placeholder="Без названия">{{title}}</h1>
-        <div class="note-tags" data-note-tags-root>
-            <div class="note-tags__list" data-note-tags>{{> note-tags}}</div>
-        </div>
-        <div class="notebook__body" data-note-body>{{#each blocks}}{{> note-block}}{{/each}}</div>
-        {{/if}}
+        {{> note-content}}
     </div>
 </article>

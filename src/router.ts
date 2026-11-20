@@ -18,6 +18,7 @@ interface Page {
   /** Проверяет сохранение перед уходом. При false текущая страница остаётся открыта. */
   beforeLeave?(): Promise<boolean>;
   getUrl?(): string;
+  updateRoute?(context: PageContext): boolean;
   /** Возвращает HTML страницы. */
   render(context: PageContext): Promise<string>;
   /** Подключает обработчики после вставки разметки в DOM. */
@@ -141,11 +142,15 @@ export async function router(): Promise<void> {
       return;
     }
   }
+  const context: PageContext = { path, params };
+  if (leaving === page && page.updateRoute?.(context)) {
+    currentUrl = path;
+    return;
+  }
   currentPage = null;
   await leaving?.destroy?.();
   if (thisRender !== renderId) return;
 
-  const context: PageContext = { path, params };
   const root = document.querySelector("#app");
   if (!root) {
     return;

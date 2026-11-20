@@ -27,6 +27,7 @@ interface NotesInstance {
   finishEditing: () => Promise<boolean>;
   dispose: () => void;
   isDeletingChild: () => boolean;
+  updateRoute: (context: PageContext) => boolean;
 }
 
 let mounted: NotesInstance | null = null;
@@ -35,6 +36,10 @@ let pendingToast = "";
 
 /** Собирает модули страницы; состояние запросов и данные принадлежат Flux. */
 export class NotesPage {
+  updateRoute(context: PageContext): boolean {
+    return mounted?.updateRoute(context) ?? false;
+  }
+
   /**
    * Рендерит страницу заметок по текущему маршруту.
    *
@@ -71,7 +76,7 @@ export class NotesPage {
       history.replaceState(null, "", "/notes/" + openedNoteId);
     const isActive = () => mounted === instance;
     let editorRendered = mainRegion.querySelector("[data-note-title]") !== null;
-    let mainKey = "";
+    let mainKey = mainRenderKey(openedNoteId);
     let frame = 0;
     let redirecting = false;
     let childToDelete: string | null = null;
@@ -102,7 +107,9 @@ export class NotesPage {
     observeBreadcrumbs();
     const list = mountNotesList({
       region: listRegion,
-      context,
+      get context() {
+        return context;
+      },
       getNoteId: () => editor.noteId,
       getTitle: () =>
         mainRegion.querySelector<HTMLElement>("[data-note-title]")?.textContent?.trim(),
@@ -170,8 +177,51 @@ export class NotesPage {
         editor.noteId = id;
       },
       deleting: false,
+
       isDeletingChild: () => instance.deleting && childToDelete !== null,
+
+      updateRoute(next) {
+        // Другие разделы и открытые диалоги имеют собственный жизненный цикл.
+        if (
+          !next.params.id ||
+          !editor.noteId ||
+          redirecting ||
+          instance.deleting ||
+          page.querySelector(".modal:not([hidden])")
+        )
+          return false;
+
+        context = next;
+        instance.path = next.path;
+        editor.clearSave();
+        editor.noteId = next.params.id;
+        noteActions.setSaveStatus("idle");
+        searchView.clear();
+        tagPicker.close();
+        editor.resetSelection();
+        setNoteMenu(false);
+        const view = buildNotesView(context, editor.noteId);
+        const content = mainRegion.querySelector<HTMLElement>(".notebook__content");
+        const nav = mainRegion.querySelector<HTMLElement>(".notebook__nav");
+
+        if (editorRendered && content && nav && view.hasNote && !view.isLoading && !view.isError) {
+          nav.innerHTML = Handlebars.partials["note-path"](view);
+          content.innerHTML = Handlebars.partials["note-content"](view);
+          content.scrollTop = 0;
+          observeBreadcrumbs();
+          focusPendingTitle();
+        } else {
+          editorRendered = false;
+          mainKey = "";
+          syncPage();
+        }
+
+        list.render();
+        return true;
+      },
+
       finishEditing,
+
       /** Снимает обработчики страницы и вложенных модулей. */
       dispose() {
         events.abort();
@@ -187,6 +237,19 @@ export class NotesPage {
       },
     };
     mounted = instance;
+
+    function mainRenderKey(id: string | undefined): string {
+      const state = notesStore.getState();
+      const load = id ? state.noteLoads[id] : undefined;
+      return [
+        id,
+        state.status === "ready",
+        state.status === "error",
+        state.loadError,
+        getNote(id)?.isLoaded,
+        load?.error,
+      ].join(":");
+    }
 
     /**
      * Реагирует на store: уводит на логин, подставляет приветственную заметку
@@ -222,14 +285,7 @@ export class NotesPage {
       }
 
       if (!editorRendered) {
-        const key = [
-          id,
-          state.status,
-          state.loadError,
-          note?.isLoaded,
-          load?.status,
-          load?.error,
-        ].join(":");
+        const key = mainRenderKey(id);
         if (key !== mainKey) {
           mainKey = key;
           editor.resetSelection();
