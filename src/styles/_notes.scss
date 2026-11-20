@@ -481,6 +481,17 @@
     background-color: transparent;
   }
 
+  &_favorite[aria-pressed="true"] {
+    --heart-fill: currentColor;
+    color: var(--text);
+    background-color: var(--accent-soft);
+  }
+
+  &_favorite:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
   &_recording,
   &_recording:hover {
     color: #ffffff;

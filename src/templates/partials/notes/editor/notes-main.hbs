@@ -32,6 +32,19 @@
             <button class="notebook__action notebook__action_secondary" type="button" data-retry>Повторить</button>
         </div>
     </article>
+{{else if isFavoritesOverview}}
+    <article class="notebook notebook_centered">
+        <div class="notebook__message">
+            <span class="notebook__status">{{> icon name="heart" size="l"}}</span>
+            {{#if hasFavorites}}
+                <h2 class="notebook__message-title">Избранное</h2>
+                <p class="notebook__message-text">Выберите заметку в списке</p>
+            {{else}}
+                <h2 class="notebook__message-title">Пока нет избранных заметок</h2>
+                <p class="notebook__message-text">Нажмите на сердечко в заметке, чтобы добавить её сюда</p>
+            {{/if}}
+        </div>
+    </article>
 {{else if isEmpty}}
     <article class="notebook notebook_centered">
         <div class="notebook__message">

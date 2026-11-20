@@ -48,7 +48,8 @@ const signupPage = new SignupPage();
 const routes: RouteRecord[] = [
   { path: "/", page: notesPage, auth: true },
   { path: "/notes", page: notesPage, auth: true },
-  { path: "/notes/favourites", page: notesPage, auth: true },
+  { path: "/notes/favorites/:id", page: notesPage, auth: true },
+  { path: "/notes/favorites", page: notesPage, auth: true },
   { path: "/notes/trash", page: notesPage, auth: true },
   { path: "/notes/notifications", page: notesPage, auth: true },
   { path: "/notes/all", page: notesPage, auth: true },

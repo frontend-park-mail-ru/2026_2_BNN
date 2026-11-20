@@ -3,9 +3,10 @@
         {{#each sections}}
             <a
                 href="{{href}}"
-                class="icon-button{{#if isActive}} icon-button_active{{/if}}{{#unless @first}} icon-button_disabled{{/unless}}"
+                class="icon-button{{#if isActive}} icon-button_active{{/if}}{{#unless enabled}} icon-button_disabled{{/unless}}"
                 aria-label="{{title}}"
-                {{#if @first}}data-link{{else}}aria-disabled="true" tabindex="-1"{{/if}}
+                {{#if isActive}}aria-current="page"{{/if}}
+                {{#if enabled}}data-link{{else}}aria-disabled="true" tabindex="-1"{{/if}}
             >
                 {{> icon name=icon}}
             </a>

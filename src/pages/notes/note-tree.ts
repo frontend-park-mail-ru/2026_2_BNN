@@ -44,7 +44,8 @@ export function getNoteDepth(notes: readonly NoteTreeSource[], noteId: string): 
  */
 export function buildNoteTree(
   notes: readonly NoteTreeSource[],
-  activeId: string | undefined
+  activeId: string | undefined,
+  basePath = "/notes"
 ): NoteTreeItem[] {
   const byId = new Map<string, NoteTreeItem>();
   const roots: NoteTreeItem[] = [];
@@ -52,7 +53,7 @@ export function buildNoteTree(
   for (const note of notes) {
     byId.set(note.id, {
       id: note.id,
-      href: `/notes/${encodeURIComponent(note.id)}`,
+      href: `${basePath}/${encodeURIComponent(note.id)}`,
       title: note.title || "Без названия",
       isActive: note.id === activeId,
       children: [],
@@ -71,4 +72,14 @@ export function buildNoteTree(
   }
 
   return roots;
+}
+
+export function filterNoteTree(
+  nodes: NoteTreeItem[],
+  visibleIds: ReadonlySet<string>
+): NoteTreeItem[] {
+  return nodes.flatMap((node) => {
+    const children = filterNoteTree(node.children, visibleIds);
+    return visibleIds.has(node.id) ? [{ ...node, children }] : children;
+  });
 }

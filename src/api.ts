@@ -368,6 +368,16 @@ class Api {
     return notes ?? [];
   }
 
+  async getFavorites(): Promise<Note[]> {
+    return (await this.request<Note[]>("/api/notes/favorites")) ?? [];
+  }
+
+  async setFavorite(id: string, favorite: boolean): Promise<void> {
+    await this.request(`/api/notes/${encodeURIComponent(id)}/favorite`, {
+      method: favorite ? "POST" : "DELETE",
+    });
+  }
+
   /**
    * Отправляет запрос на создание новой заметки.
    *

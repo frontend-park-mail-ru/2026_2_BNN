@@ -11,7 +11,7 @@ import { uiStore } from "@/flux/ui/ui-store";
 import { router, navigate, type PageContext } from "@/router";
 import { createNoteEditor, type NoteEditor } from "@/pages/notes/editor/controller";
 import { getNotesElements } from "@/pages/notes/elements";
-import { buildNotesView, noteIdFor } from "@/pages/notes/view";
+import { buildNotesView, isFavoritesPath, noteIdFor } from "@/pages/notes/view";
 import { getNote } from "@/pages/notes/selectors";
 import { mountNotesList } from "@/pages/notes/list";
 import { mountNotesSearch } from "@/pages/notes/search-controller";
@@ -183,6 +183,7 @@ export class NotesPage {
       updateRoute(next) {
         // Другие разделы и открытые диалоги имеют собственный жизненный цикл.
         if (
+          isFavoritesPath(next.path) !== isFavoritesPath(context.path) ||
           !next.params.id ||
           !editor.noteId ||
           redirecting ||
@@ -208,6 +209,7 @@ export class NotesPage {
           nav.innerHTML = Handlebars.partials["note-path"](view);
           content.innerHTML = Handlebars.partials["note-content"](view);
           content.scrollTop = 0;
+          syncFavoriteButton();
           observeBreadcrumbs();
           focusPendingTitle();
         } else {
@@ -238,6 +240,44 @@ export class NotesPage {
     };
     mounted = instance;
 
+    function syncFavoriteButton(): void {
+      const button = mainRegion.querySelector<HTMLButtonElement>("[data-note-favorite]");
+      if (!button) return;
+      const id = editor.noteId;
+      const { favoriteIds, favoritesStatus, pendingFavoriteIds } = notesStore.getState();
+      const saved = !!id && id !== "new";
+      const pressed = saved && favoriteIds.includes(id);
+      const retry = favoritesStatus === "error";
+      button.disabled =
+        !saved || (!retry && favoritesStatus !== "ready") || pendingFavoriteIds.includes(id ?? "");
+      button.setAttribute("aria-pressed", String(pressed));
+      button.title = !saved
+        ? "Сначала сохраните заметку"
+        : retry
+          ? "Повторить загрузку избранного"
+          : pressed
+            ? "Убрать из избранного"
+            : "Добавить в избранное";
+      button.setAttribute("aria-label", retry ? button.title : "Избранное");
+    }
+
+    async function toggleOpenedFavorite(): Promise<void> {
+      const id = editor.noteId;
+      if (!id || id === "new") return;
+      if (notesStore.getState().favoritesStatus === "error") {
+        await noteActions.loadFavorites();
+        if (isActive() && notesStore.getState().favoritesStatus === "error")
+          showToast("Не удалось загрузить избранное", true);
+        return;
+      }
+      try {
+        await noteActions.toggleFavorite(id);
+      } catch {
+        if (isActive() && editor.noteId === id)
+          showToast("Не удалось изменить отметку избранного", true);
+      }
+    }
+
     function mainRenderKey(id: string | undefined): string {
       const state = notesStore.getState();
       const load = id ? state.noteLoads[id] : undefined;
@@ -248,6 +288,8 @@ export class NotesPage {
         state.loadError,
         getNote(id)?.isLoaded,
         load?.error,
+        context.path === "/notes/favorites" ? state.favoritesStatus : "",
+        context.path === "/notes/favorites" && state.favoriteIds.length > 0,
       ].join(":");
     }
 
@@ -296,6 +338,7 @@ export class NotesPage {
         }
       }
 
+      syncFavoriteButton();
       if (
         state.status === "ready" &&
         id &&
@@ -320,6 +363,7 @@ export class NotesPage {
 
     /** Повторяет загрузку списка, открытой заметки и догрузку для поиска. */
     function retryLoad(): void {
+      void noteActions.loadFavorites();
       const state = notesStore.getState();
       if (state.status !== "ready" || state.loadError) void noteActions.loadNotes({ retry: true });
       if (instance.noteId && instance.noteId !== "new")
@@ -375,6 +419,7 @@ export class NotesPage {
     focusPendingTitle();
     list.ensureDetails();
     void noteActions.loadNotes();
+    void noteActions.loadFavorites();
     void tagActions.loadTags().catch((error) => {
       if (isActive() && error instanceof ApiError && error.status === 401) void goToLogin();
     });
@@ -669,6 +714,11 @@ export class NotesPage {
         setNoteMenu(false);
       }
 
+      if (target.closest("[data-note-favorite]")) {
+        void toggleOpenedFavorite();
+        return;
+      }
+
       if (target.closest("[data-note-menu-toggle]")) {
         const panel = mainRegion.querySelector<HTMLElement>("[data-note-menu-panel]");
         setNoteMenu(panel?.hidden === true);
@@ -759,6 +809,7 @@ export class NotesPage {
    * @returns Путь открытой заметки или раздела.
    */
   getUrl(): string {
+    if (mounted && isFavoritesPath(mounted.path)) return mounted.path;
     return mounted?.noteId ? "/notes/" + mounted.noteId : (mounted?.path ?? "/notes");
   }
 

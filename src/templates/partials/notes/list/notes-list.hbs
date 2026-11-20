@@ -4,21 +4,22 @@
             <li class="card"><span class="skeleton skeleton_line"></span></li>
         {{/each}}
     </ul>
-{{else if isError}}
+{{else if isListError}}
     <p class="sidebar__message sidebar__message_error">Не удалось загрузить список</p>
 {{else}}
     {{> tag-filter}}
-    {{#if isFilterEmpty}}
-        <p class="sidebar__message">{{#if isFilterLoading}}Ищем заметки с этими тегами…{{else}}Нет заметок с выбранными тегами{{/if}}</p>
-    {{/if}}
-    <ul class="sidebar__list note-tree" aria-label="Заметки">
-        {{#each notes}}
-            {{> note-tree-item}}
-        {{/each}}
-    </ul>
     {{#if isFilterLoading}}
-        {{#unless isFilterEmpty}}
-            <p class="sidebar__message">Проверяем остальные заметки…</p>
-        {{/unless}}
+        <p class="sidebar__message" role="status">Ищем заметки с этими тегами…</p>
+    {{else}}
+        {{#if isFilterIncomplete}}
+            <p class="sidebar__message" role="status">Не удалось проверить все заметки. <button type="button" data-retry>Повторить</button></p>
+        {{else if isFilterEmpty}}
+            <p class="sidebar__message">Нет заметок с выбранными тегами</p>
+        {{/if}}
+        <ul class="sidebar__list note-tree" aria-label="Заметки">
+            {{#each notes}}
+                {{> note-tree-item}}
+            {{/each}}
+        </ul>
     {{/if}}
 {{/if}}

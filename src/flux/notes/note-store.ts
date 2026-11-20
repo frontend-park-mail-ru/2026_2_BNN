@@ -11,6 +11,9 @@ import type {
 
 /** Список заметок и статусы загрузки, сохранения и догрузки тел. */
 interface NotesState {
+  favoriteIds: string[];
+  favoritesStatus: "idle" | "loading" | "ready" | "error";
+  pendingFavoriteIds: string[];
   notes: NoteStateItem[];
   status: NotesStatus;
   saveStatus: SaveStatus;
@@ -20,6 +23,9 @@ interface NotesState {
 }
 
 const initialState = (): NotesState => ({
+  favoriteIds: [],
+  favoritesStatus: "idle",
+  pendingFavoriteIds: [],
   notes: [],
   status: "idle",
   saveStatus: "idle",
@@ -35,6 +41,33 @@ class NotesStore extends BaseStore<NotesState> {
     super(initialState());
     dispatcher.register((action) => {
       switch (action.type) {
+        case "notes/favorites-loading":
+          this.state = { ...this.state, favoritesStatus: "loading" };
+          break;
+        case "notes/favorites-loaded":
+          this.state = { ...this.state, favoritesStatus: "ready", favoriteIds: action.ids };
+          break;
+        case "notes/favorites-failed":
+          this.state = { ...this.state, favoritesStatus: "error" };
+          break;
+        case "notes/favorite-pending":
+          this.state = {
+            ...this.state,
+            pendingFavoriteIds: [...this.state.pendingFavoriteIds, action.id],
+          };
+          break;
+        case "notes/favorite-finished": {
+          if (!this.state.pendingFavoriteIds.includes(action.id)) return;
+          let ids = this.state.favoriteIds;
+          if (action.favorite === true && !ids.includes(action.id)) ids = [...ids, action.id];
+          if (action.favorite === false) ids = ids.filter((id) => id !== action.id);
+          this.state = {
+            ...this.state,
+            favoriteIds: ids,
+            pendingFavoriteIds: this.state.pendingFavoriteIds.filter((id) => id !== action.id),
+          };
+          break;
+        }
         case "notes/loading":
           this.state = { ...this.state, status: "loading", loadError: null };
           break;
@@ -110,6 +143,8 @@ class NotesStore extends BaseStore<NotesState> {
         case "notes/deleted":
           this.state = {
             ...this.state,
+            favoriteIds: this.state.favoriteIds.filter((id) => id !== action.id),
+            pendingFavoriteIds: this.state.pendingFavoriteIds.filter((id) => id !== action.id),
             notes: this.state.notes.filter((note) => note.id !== action.id),
           };
           break;

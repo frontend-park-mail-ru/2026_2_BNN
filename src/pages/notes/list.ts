@@ -3,7 +3,7 @@ import { notesStore } from "@/flux/notes/note-store";
 import * as tagActions from "@/flux/tags/tag-actions";
 import { tagStore } from "@/flux/tags/tag-store";
 import type { PageContext } from "@/router";
-import { buildNotesView } from "@/pages/notes/view";
+import { buildNotesView, isFavoritesPath } from "@/pages/notes/view";
 
 /** Список и фильтр обновляются независимо от DOM открытой заметки. */
 export function mountNotesList(options: {
@@ -95,7 +95,10 @@ export function mountNotesList(options: {
    * @param retry Повторить догрузку после ошибки.
    */
   function ensureDetails(retry = false): void {
-    if (tagStore.getState().activeIds.length) void noteActions.loadMissingDetails({ retry });
+    if (!tagStore.getState().activeIds.length) return;
+    const state = notesStore.getState();
+    const ids = isFavoritesPath(options.context.path) ? new Set(state.favoriteIds) : undefined;
+    void noteActions.loadMissingDetails({ retry, tagsOnly: true, ids });
   }
 
   /**
@@ -134,9 +137,13 @@ export function mountNotesList(options: {
   const unsubscribeNotes = notesStore.subscribe(() => {
     const state = notesStore.getState();
     if (
-      state.notes !== previous.notes ||
+      (state.notes !== previous.notes &&
+        !(tagStore.getState().activeIds.length && state.detailsStatus === "loading")) ||
       state.status !== previous.status ||
-      state.detailsStatus !== previous.detailsStatus
+      state.detailsStatus !== previous.detailsStatus ||
+      (isFavoritesPath(options.context.path) &&
+        (state.favoritesStatus !== previous.favoritesStatus ||
+          state.favoriteIds !== previous.favoriteIds))
     )
       schedule();
     previous = state;
