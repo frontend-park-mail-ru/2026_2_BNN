@@ -1,4 +1,6 @@
-import { api, ApiError, type Tag } from "../api";
+import { ApiError } from "@/api";
+import type { Tag } from "@/types/tag";
+import * as tagActions from "@/flux/tags/tag-actions";
 import {
   TAG_NAME_MAX_LENGTH,
   TAG_PALETTE,
@@ -6,18 +8,14 @@ import {
   nextTagColor,
   safeTagColor,
   toTagView,
-} from "../utils/tags";
+} from "@/domain/tags";
 
 const NETWORK_ERROR = "Не удалось связаться с сервером";
 
-/** Колбэки, через которые страница заметок узнаёт об изменении тегов. */
+/** Источник тегов и обработчик истечения сессии. */
 export interface TagsDialogOptions {
   /** Текущий список тегов. */
   getTags: () => Tag[];
-  /** Тег создан или изменён. */
-  onSaved: (tag: Tag) => void;
-  /** Тег удалён. */
-  onDeleted: (id: string) => void;
   /** Сессия истекла. */
   onUnauthorized: () => Promise<void>;
 }
@@ -180,10 +178,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     }
 
     try {
-      const saved = id
-        ? await api.updateTag(id, { name, color })
-        : await api.createTag({ name, color });
-      options.onSaved(saved);
+      if (id) {
+        await tagActions.updateTag(id, { name, color });
+      } else {
+        await tagActions.createTag({ name, color });
+      }
       editingId = null;
       error = "";
       render();
@@ -214,8 +213,7 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
   async function deleteTag(id: string): Promise<void> {
     busy = true;
     try {
-      await api.deleteTag(id);
-      options.onDeleted(id);
+      await tagActions.deleteTag(id);
       error = "";
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
@@ -224,11 +222,7 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
         await options.onUnauthorized();
         return;
       }
-      if (caught instanceof ApiError && caught.status === 404) {
-        options.onDeleted(id);
-      } else {
-        error = readError(caught);
-      }
+      error = readError(caught);
     } finally {
       busy = false;
     }

@@ -1,6 +1,8 @@
-import { getState, setState, type AuthStatus, type User } from "./store/app-store";
-import { themeAsset } from "./theme";
-import { safeResourceUrl } from "./utils/url";
+import type { User } from "@/types/user";
+import type { BlockInput, Note } from "@/types/note";
+import type { Tag, TagInput } from "@/types/tag";
+import type { Attachment } from "@/types/attachment";
+import { safeResourceUrl } from "@/utils/url";
 
 const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   400: "Проверьте введённые данные",
@@ -92,74 +94,6 @@ export function isOfflineError(error: unknown): boolean {
   return error instanceof TypeError || (error instanceof ApiError && error.status === 503);
 }
 
-/** Тип содержимого блока заметки. */
-export type BlockType =
-  | "text"
-  | "heading"
-  | "subtitle"
-  | "bulleted"
-  | "numbered"
-  | "checklist"
-  | "quote"
-  | "file"
-  | "image";
-
-/** Содержимое блока заметки. */
-export interface BlockContent {
-  type: BlockType;
-  text: string;
-  checked?: boolean;
-  attachmentId?: string;
-  url?: string;
-  size?: number;
-}
-
-/** Блок заметки с идентификатором. */
-export interface NoteBlock {
-  id: string;
-  content: BlockContent;
-}
-
-/** Блок, который клиент отправляет при сохранении заметки. */
-export interface BlockInput {
-  id?: string;
-  content: BlockContent;
-}
-
-/** Тег пользователя. */
-export interface Tag {
-  id: string;
-  name: string;
-  /** Цвет в формате `#RRGGBBAA`. */
-  color: string;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Данные для создания и изменения тега. */
-export interface TagInput {
-  name: string;
-  color: string;
-}
-
-/** Заметка в формате ответа бэкенда. */
-export interface Note {
-  id: string;
-  parent_note_id?: string | null;
-  title: string;
-  blocks?: NoteBlock[];
-  /** Есть только в ответах на одну заметку. */
-  tags?: Tag[];
-  created_at: string;
-  updated_at: string;
-}
-
-/** Загруженный файл, прикреплённый к блоку. */
-export interface Attachment {
-  id: string;
-  url: string;
-}
-
 /**
  * Возвращает базовый URL API.
  * Запросы идут на текущий хост: локально Vite проксирует `/api` на бэкенд,
@@ -234,18 +168,14 @@ class Api {
   }
 
   /**
-   * Выполняет запрос с единым парсингом JSON и нормализацией ошибок.
-   *
-   * @param path Путь запроса без базового URL.
-   * @param options Опции fetch.
-   * @param messages Переопределения текстов ошибок по статусам.
-   * @returns Разобранный JSON, либо `null` для пустого ответа и статуса 204.
+   * Отправляет запрос, при необходимости обновляет сессию
+   * и возвращает успешный ответ с ещё не прочитанным телом.
    */
-  async request<T>(
+  private async requestResponse(
     path: string,
     options: RequestInit = {},
     messages: Record<number, string> = {}
-  ): Promise<T | null> {
+  ): Promise<Response> {
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string> | undefined),
     };
@@ -255,6 +185,7 @@ class Api {
     }
 
     const method = (options.method ?? "GET").toUpperCase();
+
     const send = (): Promise<Response> =>
       fetch(`${this.baseUrl}${path}`, {
         ...options,
@@ -264,10 +195,7 @@ class Api {
 
     let response = await send();
 
-    if (
-      (response.status === 401 || response.status === 403) &&
-      !NO_REFRESH_PATHS.some((item) => path.startsWith(item))
-    ) {
+    if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
       if (await this.refreshSession()) {
         response = await send();
       }
@@ -291,12 +219,22 @@ class Api {
       throw new ApiError(message, response.status);
     }
 
+    return response;
+  }
+
+  /** Читает успешный ответ как JSON. Для пустого ответа возвращает null. */
+  async request<T>(
+    path: string,
+    options: RequestInit = {},
+    messages: Record<number, string> = {}
+  ): Promise<T | null> {
+    const response = await this.requestResponse(path, options, messages);
+
     if (response.status === 204) {
       return null;
     }
 
     const text = await response.text();
-
     if (!text) {
       return null;
     }
@@ -327,23 +265,6 @@ class Api {
         409: "Такой логин уже занят",
       }
     );
-  }
-
-  /**
-   * Записывает пользователя в store как авторизованного.
-   *
-   * @param profile Профиль из ответа API.
-   * @returns Сохранённый профиль.
-   */
-  private setAuthenticatedUser(profile: User): User {
-    setState({
-      auth: {
-        status: "authenticated",
-        isLoggedIn: true,
-        user: profile,
-      },
-    });
-    return profile;
   }
 
   /**
@@ -402,7 +323,7 @@ class Api {
       throw new Error("Сервер вернул некорректный JSON");
     }
 
-    return { kind: "session", user: this.setAuthenticatedUser(profile) };
+    return { kind: "session", user: profile };
   }
 
   /**
@@ -428,7 +349,7 @@ class Api {
       throw new ApiError("Профиль не найден", 500);
     }
 
-    return this.setAuthenticatedUser(profile);
+    return profile;
   }
 
   /**
@@ -629,31 +550,7 @@ class Api {
       if (!profile) {
         throw new ApiError("Профиль не найден", 404);
       }
-      return this.setAuthenticatedUser(profile);
-    });
-  }
-
-  /**
-   * Возвращает профиль из локального store без сетевого запроса.
-   *
-   * @returns Сохранённый профиль или `null`.
-   */
-  getCachedProfile(): User | null {
-    return getState().auth.user;
-  }
-
-  /**
-   * Сбрасывает данные авторизации в store.
-   *
-   * @param status Целевой auth-статус после сброса.
-   */
-  clearCachedProfile(status: Extract<AuthStatus, "unknown" | "unauthenticated"> = "unknown"): void {
-    setState({
-      auth: {
-        status,
-        isLoggedIn: false,
-        user: null,
-      },
+      return profile;
     });
   }
 
@@ -708,7 +605,7 @@ class Api {
       throw new ApiError("Профиль не найден", 404);
     }
 
-    return this.setAuthenticatedUser(profile);
+    return profile;
   }
 
   /**
@@ -719,10 +616,10 @@ class Api {
    */
   avatarUrl(avatar: string | null): string {
     if (!avatar) {
-      return themeAsset("avatar");
+      return "";
     }
     const url = avatar.startsWith("http") ? avatar : `${this.baseUrl}${avatar}`;
-    return safeResourceUrl(url) || themeAsset("avatar");
+    return safeResourceUrl(url);
   }
 
   /**
@@ -733,24 +630,14 @@ class Api {
    * @returns Временный URL PNG 256×256.
    */
   async generateTwoFactorQr(): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/api/auth/2fa/generate`, {
-      credentials: "include",
-    });
+    const response = await this.requestResponse(
+      "/api/auth/2fa/generate",
+      {},
+      { 409: "Двухфакторная аутентификация уже включена" }
+    );
 
-    if (response.status === 401) {
-      throw new ApiError("Нужно войти в аккаунт", 401);
-    }
-
-    if (response.status === 409) {
-      throw new ApiError("Двухфакторная аутентификация уже включена", 409);
-    }
-
-    if (!response.ok) {
-      throw new ApiError("Не удалось получить QR-код", response.status);
-    }
-
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
+    const image = await response.blob();
+    return URL.createObjectURL(image);
   }
 
   /**

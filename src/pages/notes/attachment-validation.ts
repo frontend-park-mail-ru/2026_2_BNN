@@ -1,4 +1,6 @@
+/** Формат изображения, который можно вставить в заметку. */
 export type ImageKind = "png" | "jpeg" | "gif" | "webp";
+/** Результат проверки файла по сигнатуре: картинка, PDF или неподдерживаемый формат. */
 export type AttachmentKind = ImageKind | "pdf" | "invalid";
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];

@@ -1,5 +1,7 @@
-import { api, ApiError } from "../api";
-import { navigate, resetAuthState } from "../router";
+import { ApiError } from "@/api";
+import * as authActions from "@/flux/auth/auth-actions";
+import { authStore } from "@/flux/auth/auth-store";
+import { navigate } from "@/router";
 import {
   type AuthPage,
   type SubmitHandler,
@@ -13,13 +15,14 @@ import {
   setFormLoading,
   getLoginError,
   getPasswordError,
-} from "../utils/auth-form";
+} from "@/components/forms/auth-form";
 
 /**
  * SPA-страница авторизации.
  * Реализует render/mount/destroy контракт роутера.
  */
 export class LoginPage implements AuthPage {
+  private unsubscribeAuth: (() => void) | null = null;
   form: HTMLFormElement | null = null;
   onSubmit: SubmitHandler | null = null;
   onInput: InputHandler | null = null;
@@ -28,7 +31,7 @@ export class LoginPage implements AuthPage {
   /**
    * Рендерит HTML страницы авторизации.
    *
-   * @returns {Promise<string>} Готовая HTML-строка страницы.
+   * @returns Готовая HTML-строка страницы.
    */
   async render(): Promise<string> {
     const template = Handlebars.templates["login"];
@@ -38,28 +41,32 @@ export class LoginPage implements AuthPage {
   /**
    * Подключает обработчики формы после вставки страницы в DOM.
    *
-   * @param {ParentNode} root Корневой узел отрисованной страницы.
-   * @returns {void}
+   * @param root Корневой узел отрисованной страницы.
    */
   mount(root: ParentNode): void {
     mountAuthForm(this, root);
+    const updateLoading = () => {
+      if (this.form) setFormLoading(this.form, authStore.getState().pending.login);
+    };
+    this.unsubscribeAuth = authStore.subscribe(updateLoading);
+    updateLoading();
   }
 
   /**
    * Снимает обработчики страницы при уходе с роута.
-   *
-   * @returns {void}
    */
   destroy(): void {
+    this.unsubscribeAuth?.();
+    this.unsubscribeAuth = null;
     destroyAuthForm(this);
   }
 
   /**
    * Проверяет одно поле логина и показывает или снимает ошибку.
    *
-   * @param {string} name Имя поля: `login` или `password`.
-   * @param {string} value Текущее значение этого поля.
-   * @returns {boolean} `true`, если поле прошло проверку.
+   * @param name Имя поля: `login` или `password`.
+   * @param value Текущее значение этого поля.
+   * @returns `true`, если поле прошло проверку.
    */
   validateField(name: string, value: string): boolean {
     const message = name === "login" ? getLoginError(value.trim()) : getPasswordError(value);
@@ -81,8 +88,7 @@ export class LoginPage implements AuthPage {
    * Обрабатывает отправку формы логина:
    * валидирует поля, вызывает API, сбрасывает кэш auth/notes и перенаправляет пользователя.
    *
-   * @param {SubmitEvent} event Событие submit от формы.
-   * @returns {Promise<void>}
+   * @param event Событие submit от формы.
    */
   async handleSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
@@ -107,15 +113,12 @@ export class LoginPage implements AuthPage {
       return;
     }
 
-    setFormLoading(form, true);
-
     try {
-      const result = await api.logIn(login, password);
+      const result = await authActions.logIn(login, password);
       if (result.kind === "twoFactor") {
         await navigate("/login/2fa");
         return;
       }
-      resetAuthState();
       await navigate("/notes");
     } catch (error) {
       if (!this.form) {
@@ -137,10 +140,6 @@ export class LoginPage implements AuthPage {
         }
       } else {
         setFormFeedback(this.form, "Не удалось связаться с сервером");
-      }
-    } finally {
-      if (this.form) {
-        setFormLoading(this.form, false);
       }
     }
   }
