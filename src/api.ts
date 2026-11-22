@@ -168,18 +168,14 @@ class Api {
   }
 
   /**
-   * Выполняет запрос с единым парсингом JSON и нормализацией ошибок.
-   *
-   * @param path Путь запроса без базового URL.
-   * @param options Опции fetch.
-   * @param messages Переопределения текстов ошибок по статусам.
-   * @returns Разобранный JSON, либо `null` для пустого ответа и статуса 204.
+   * Отправляет запрос, при необходимости обновляет сессию
+   * и возвращает успешный ответ с ещё не прочитанным телом.
    */
-  async request<T>(
+  private async requestResponse(
     path: string,
     options: RequestInit = {},
     messages: Record<number, string> = {}
-  ): Promise<T | null> {
+  ): Promise<Response> {
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string> | undefined),
     };
@@ -189,6 +185,7 @@ class Api {
     }
 
     const method = (options.method ?? "GET").toUpperCase();
+
     const send = (): Promise<Response> =>
       fetch(`${this.baseUrl}${path}`, {
         ...options,
@@ -222,12 +219,22 @@ class Api {
       throw new ApiError(message, response.status);
     }
 
+    return response;
+  }
+
+  /** Читает успешный ответ как JSON. Для пустого ответа возвращает null. */
+  async request<T>(
+    path: string,
+    options: RequestInit = {},
+    messages: Record<number, string> = {}
+  ): Promise<T | null> {
+    const response = await this.requestResponse(path, options, messages);
+
     if (response.status === 204) {
       return null;
     }
 
     const text = await response.text();
-
     if (!text) {
       return null;
     }
@@ -633,24 +640,14 @@ class Api {
    * @returns Временный URL PNG 256×256.
    */
   async generateTwoFactorQr(): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/api/auth/2fa/generate`, {
-      credentials: "include",
-    });
+    const response = await this.requestResponse(
+      "/api/auth/2fa/generate",
+      {},
+      { 409: "Двухфакторная аутентификация уже включена" }
+    );
 
-    if (response.status === 401) {
-      throw new ApiError("Нужно войти в аккаунт", 401);
-    }
-
-    if (response.status === 409) {
-      throw new ApiError("Двухфакторная аутентификация уже включена", 409);
-    }
-
-    if (!response.ok) {
-      throw new ApiError("Не удалось получить QR-код", response.status);
-    }
-
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
+    const image = await response.blob();
+    return URL.createObjectURL(image);
   }
 
   /**

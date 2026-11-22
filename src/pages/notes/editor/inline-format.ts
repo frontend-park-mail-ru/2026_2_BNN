@@ -84,8 +84,6 @@ export function renderInlineHtml(text: string): string {
  * Регистрирует помощник Handlebars `inline`.
  * Обычные скобки `{{inline text}}` не экранируют результат повторно:
  * помощник возвращает SafeString, в котором опасные символы уже заменены.
- *
- * @returns {void}
  */
 export function registerInlineFormatHelper(): void {
   Handlebars.registerHelper("inline", (value: unknown) => {
@@ -138,8 +136,6 @@ export function serializeInline(root: Node): string {
 /**
  * Просит браузер ставить теги, а не `style=""`.
  * Иначе жирный текст нечем прочитать обратно и его срежет CSP.
- *
- * @returns {void}
  */
 export function useFormatTags(): void {
   document.execCommand("styleWithCSS", false, "false");
@@ -149,7 +145,6 @@ export function useFormatTags(): void {
  * Применяет формат к текущему выделению.
  *
  * @param format Команда панели.
- * @returns {void}
  */
 export function applyInlineFormat(format: InlineFormat): void {
   useFormatTags();
@@ -175,7 +170,6 @@ export function inlineFormatState(format: InlineFormat): boolean {
  *
  * @param node Узел из буфера обмена.
  * @param target Куда складывать безопасные узлы.
- * @returns {void}
  */
 function appendSanitized(node: Node, target: ParentNode): void {
   node.childNodes.forEach((child) => {

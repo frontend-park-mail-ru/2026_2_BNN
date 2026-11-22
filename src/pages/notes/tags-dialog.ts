@@ -12,14 +12,10 @@ import {
 
 const NETWORK_ERROR = "Не удалось связаться с сервером";
 
-/** Колбэки, через которые страница заметок узнаёт об изменении тегов. */
+/** Источник тегов и обработчик истечения сессии. */
 export interface TagsDialogOptions {
   /** Текущий список тегов. */
   getTags: () => Tag[];
-  /** Тег создан или изменён. */
-  onSaved: (tag: Tag) => void;
-  /** Тег удалён. */
-  onDeleted: (id: string) => void;
   /** Сессия истекла. */
   onUnauthorized: () => Promise<void>;
 }
@@ -182,10 +178,11 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     }
 
     try {
-      const saved = id
-        ? await tagActions.updateTag(id, { name, color })
-        : await tagActions.createTag({ name, color });
-      options.onSaved(saved);
+      if (id) {
+        await tagActions.updateTag(id, { name, color });
+      } else {
+        await tagActions.createTag({ name, color });
+      }
       editingId = null;
       error = "";
       render();
@@ -217,7 +214,6 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
     busy = true;
     try {
       await tagActions.deleteTag(id);
-      options.onDeleted(id);
       error = "";
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) {
@@ -226,11 +222,7 @@ export function mountTagsDialog(page: HTMLElement, options: TagsDialogOptions): 
         await options.onUnauthorized();
         return;
       }
-      if (caught instanceof ApiError && caught.status === 404) {
-        options.onDeleted(id);
-      } else {
-        error = readError(caught);
-      }
+      error = readError(caught);
     } finally {
       busy = false;
     }

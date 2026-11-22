@@ -137,27 +137,24 @@ export function buildNotesView(
   noteId: string | undefined,
   tagsCollapsed = false
 ) {
-  const currentSection = getCurrentSection(
-    isFavoritesPath(context.path) ? "/notes/favorites" : context.path
-  );
-  const currentNote =
-    noteId === "new" ? createDraft() : findNote(notesStore.getState().notes, noteId);
-
-  const isReady = notesStore.getState().status === "ready";
-  const state = notesStore.getState();
-  const noteLoad = noteId ? state.noteLoads[noteId] : undefined;
   const isFavorites = isFavoritesPath(context.path);
-  const isError =
-    state.status === "error" ||
-    noteLoad?.status === "error" ||
-    (isFavorites && !noteId && state.favoritesStatus === "error");
-  const isListError = isError || (isFavorites && state.favoritesStatus === "error");
+  const currentSection = getCurrentSection(isFavorites ? "/notes/favorites" : context.path);
+  const state = notesStore.getState();
+  const currentNote = noteId === "new" ? createDraft() : findNote(state.notes, noteId);
+
+  const isReady = state.status === "ready";
+  const noteLoad = noteId ? state.noteLoads[noteId] : undefined;
+  const isFavoritesError = isFavorites && state.favoritesStatus === "error";
+  const isListError = state.status === "error" || isFavoritesError;
+  const isNoteError = noteLoad?.status === "error";
   const isListLoading =
     !isListError && (!isReady || (isFavorites && state.favoritesStatus !== "ready"));
   const isNoteLoading =
     !!noteId && noteId !== "new" && !currentNote?.isLoaded && noteLoad?.status !== "error";
-  const hasNotes = notesStore.getState().notes.length > 0;
+  const hasNotes = state.notes.length > 0;
   const hasNote = currentNote !== null && currentNote.isLoaded;
+  const isMainError =
+    isNoteError || (state.status === "error" && !hasNote) || (isFavoritesError && !noteId);
 
   /**
    * Совпадает ли пункт сайдбара с открытым разделом.
@@ -245,9 +242,10 @@ export function buildNotesView(
     sections: sections,
     mailSection: { ...NOTIFICATIONS_SECTION, isActive: isActive(NOTIFICATIONS_SECTION) },
 
-    isListLoading: isListLoading,
-    isLoading: (!noteId && isListLoading) || (!isReady && !isError) || isNoteLoading,
-    isError: isError,
+    isListLoading,
+    isNoteError,
+    isMainError,
+    isLoading: !isMainError && ((!noteId && isListLoading) || !isReady || isNoteLoading),
     isConnectionLost: !hasNote && (state.loadError === "offline" || noteLoad?.error === "offline"),
     isEmpty: isReady && !hasNotes && !(noteId === "new"),
     isWelcome: isReady && hasNotes && !currentNote,

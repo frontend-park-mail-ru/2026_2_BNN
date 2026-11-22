@@ -60,8 +60,6 @@ function usesAsset(src: string, kind: keyof typeof THEME_ASSETS): boolean {
 
 /**
  * Возвращает активную тему интерфейса.
- *
- * @returns {"light" | "dark"}
  */
 export function getTheme(): Theme {
   return uiStore.getState().theme;
@@ -69,8 +67,6 @@ export function getTheme(): Theme {
 
 /**
  * Возвращает имя SVG-иконки для текущей темы.
- *
- * @returns {string}
  */
 export function getThemeIcon(): string {
   return THEME_ICONS[getTheme()];
@@ -79,8 +75,7 @@ export function getThemeIcon(): string {
 /**
  * Применяет тему к странице и синхронизирует иконки переключателя.
  *
- * @param {"light" | "dark"} theme Целевая тема.
- * @returns {void}
+ * @param theme Целевая тема.
  */
 function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
@@ -165,8 +160,6 @@ async function transitionTheme(button: Element): Promise<void> {
 
 /**
  * Инициализирует тему и обработчик кнопки переключения.
- *
- * @returns {void}
  */
 export function initTheme() {
   uiStore.subscribe(() => {

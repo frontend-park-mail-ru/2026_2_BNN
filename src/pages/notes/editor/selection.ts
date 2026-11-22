@@ -771,5 +771,3 @@ export function createEditorSelection(options: {
     isApplyingFormat: () => applyingInlineFormat,
   };
 }
-/** Выделение блоков и панель форматирования открытой заметки. */
-export type EditorSelection = ReturnType<typeof createEditorSelection>;
