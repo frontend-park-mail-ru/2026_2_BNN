@@ -135,8 +135,7 @@ export function buildNotesView(
 ) {
   const currentSection = getCurrentSection(context.path);
   const state = notesStore.getState();
-  const currentNote =
-    noteId === "new" ? createDraft() : findNote(state.notes, noteId);
+  const currentNote = noteId === "new" ? createDraft() : findNote(state.notes, noteId);
 
   const isReady = state.status === "ready";
   const noteLoad = noteId ? state.noteLoads[noteId] : undefined;

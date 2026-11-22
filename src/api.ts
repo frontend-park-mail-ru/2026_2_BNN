@@ -177,80 +177,80 @@ class Api {
    * @returns Успешный HTTP-ответ с непрочитанным телом.
    * @throws {ApiError} Если итоговый HTTP-ответ содержит ошибку.
    */
-private async requestResponse(
-  path: string,
-  options: RequestInit = {},
-  messages: Record<number, string> = {}
-): Promise<Response> {
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> | undefined),
-  };
+  private async requestResponse(
+    path: string,
+    options: RequestInit = {},
+    messages: Record<number, string> = {}
+  ): Promise<Response> {
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> | undefined),
+    };
 
-  if (options.body && !(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const method = (options.method ?? "GET").toUpperCase();
-
-  const send = (): Promise<Response> =>
-    fetch(`${this.baseUrl}${path}`, {
-      ...options,
-      credentials: "include",
-      headers: withCsrf(method, headers),
-    });
-
-  let response = await send();
-
-  if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
-    if (await this.refreshSession()) {
-      response = await send();
+    if (options.body && !(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
     }
-  }
 
-  if (!response.ok) {
-    const text = await response.text();
-    let message = getErrorMessage(response.status, messages);
+    const method = (options.method ?? "GET").toUpperCase();
 
-    if (text) {
-      try {
-        const data: unknown = JSON.parse(text);
-        if (isRecord(data) && data.message) {
-          message = String(data.message);
-        }
-      } catch {
-        message = TECHNICAL_ERROR_MESSAGE;
+    const send = (): Promise<Response> =>
+      fetch(`${this.baseUrl}${path}`, {
+        ...options,
+        credentials: "include",
+        headers: withCsrf(method, headers),
+      });
+
+    let response = await send();
+
+    if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
+      if (await this.refreshSession()) {
+        response = await send();
       }
     }
 
-    throw new ApiError(message, response.status);
+    if (!response.ok) {
+      const text = await response.text();
+      let message = getErrorMessage(response.status, messages);
+
+      if (text) {
+        try {
+          const data: unknown = JSON.parse(text);
+          if (isRecord(data) && data.message) {
+            message = String(data.message);
+          }
+        } catch {
+          message = TECHNICAL_ERROR_MESSAGE;
+        }
+      }
+
+      throw new ApiError(message, response.status);
+    }
+
+    return response;
   }
 
-  return response;
-}
+  /** Читает успешный ответ как JSON. Для пустого ответа возвращает null. */
+  async request<T>(
+    path: string,
+    options: RequestInit = {},
+    messages: Record<number, string> = {}
+  ): Promise<T | null> {
+    const response = await this.requestResponse(path, options, messages);
 
-/** Читает успешный ответ как JSON. Для пустого ответа возвращает null. */
-async request<T>(
-  path: string,
-  options: RequestInit = {},
-  messages: Record<number, string> = {}
-): Promise<T | null> {
-  const response = await this.requestResponse(path, options, messages);
+    if (response.status === 204) {
+      return null;
+    }
 
-  if (response.status === 204) {
-    return null;
+    const text = await response.text();
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error("Сервер вернул некорректный JSON");
+    }
   }
-
-  const text = await response.text();
-  if (!text) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error("Сервер вернул некорректный JSON");
-  }
-}
 
   /**
    * Регистрирует пользователя.
@@ -638,7 +638,7 @@ async request<T>(
       {},
       { 409: "Двухфакторная аутентификация уже включена" }
     );
-  
+
     const image = await response.blob();
     return URL.createObjectURL(image);
   }
