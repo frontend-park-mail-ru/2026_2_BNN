@@ -168,83 +168,95 @@ class Api {
   }
 
   /**
-   * Выполняет запрос с единым парсингом JSON и нормализацией ошибок.
+   * Отправляет запрос с куками сессии. Для маршрутов с обновлением сессии
+   * повторяет запрос один раз, если после 401 удалось обновить токен.
    *
    * @param path Путь запроса без базового URL.
    * @param options Опции fetch.
    * @param messages Переопределения текстов ошибок по статусам.
-   * @returns Разобранный JSON, либо `null` для пустого ответа и статуса 204.
+   * @returns Успешный HTTP-ответ с непрочитанным телом.
+   * @throws {ApiError} Если итоговый HTTP-ответ содержит ошибку.
    */
-  async request<T>(
-    path: string,
-    options: RequestInit = {},
-    messages: Record<number, string> = {}
-  ): Promise<T | null> {
-    const headers: Record<string, string> = {
-      ...(options.headers as Record<string, string> | undefined),
-    };
+private async requestResponse(
+  path: string,
+  options: RequestInit = {},
+  messages: Record<number, string> = {}
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  };
 
-    if (options.body && !(options.body instanceof FormData)) {
-      headers["Content-Type"] = "application/json";
-    }
+  if (options.body && !(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
-    const method = (options.method ?? "GET").toUpperCase();
-    const send = (): Promise<Response> =>
-      fetch(`${this.baseUrl}${path}`, {
-        ...options,
-        credentials: "include",
-        headers: withCsrf(method, headers),
-      });
+  const method = (options.method ?? "GET").toUpperCase();
 
-    let response = await send();
+  const send = (): Promise<Response> =>
+    fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: withCsrf(method, headers),
+    });
 
-    if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
-      if (await this.refreshSession()) {
-        response = await send();
-      }
-    }
+  let response = await send();
 
-    if (!response.ok) {
-      const text = await response.text();
-      let message = getErrorMessage(response.status, messages);
-
-      if (text) {
-        try {
-          const data: unknown = JSON.parse(text);
-          if (isRecord(data) && data.message) {
-            message = String(data.message);
-          }
-        } catch {
-          message = TECHNICAL_ERROR_MESSAGE;
-        }
-      }
-
-      throw new ApiError(message, response.status);
-    }
-
-    if (response.status === 204) {
-      return null;
-    }
-
-    const text = await response.text();
-
-    if (!text) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      throw new Error("Сервер вернул некорректный JSON");
+  if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
+    if (await this.refreshSession()) {
+      response = await send();
     }
   }
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message = getErrorMessage(response.status, messages);
+
+    if (text) {
+      try {
+        const data: unknown = JSON.parse(text);
+        if (isRecord(data) && data.message) {
+          message = String(data.message);
+        }
+      } catch {
+        message = TECHNICAL_ERROR_MESSAGE;
+      }
+    }
+
+    throw new ApiError(message, response.status);
+  }
+
+  return response;
+}
+
+/** Читает успешный ответ как JSON. Для пустого ответа возвращает null. */
+async request<T>(
+  path: string,
+  options: RequestInit = {},
+  messages: Record<number, string> = {}
+): Promise<T | null> {
+  const response = await this.requestResponse(path, options, messages);
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Сервер вернул некорректный JSON");
+  }
+}
 
   /**
    * Регистрирует пользователя.
    *
    * @param login Логин.
    * @param password Пароль.
-   * @returns Ответ сервера.
    */
   async signUp(login: string, password: string): Promise<void> {
     await this.request(
@@ -347,8 +359,6 @@ class Api {
 
   /**
    * Завершает пользовательскую сессию на бэкенде.
-   *
-   * @returns Ответ сервера или `null`, если тела нет.
    */
   async logOut(): Promise<void> {
     await this.request("/api/auth/logout", {
@@ -534,7 +544,7 @@ class Api {
   }
 
   /**
-   * Загружает профиль текущего пользователя и записывает его в store.
+   * Загружает профиль текущего пользователя.
    *
    * @returns Профиль пользователя.
    */
@@ -572,7 +582,7 @@ class Api {
   }
 
   /**
-   * Загружает аватар и обновляет профиль в store.
+   * Загружает аватар текущего пользователя.
    *
    * @param file Файл изображения (JPEG, PNG или WebP).
    * @returns Обновлённый профиль.
@@ -623,24 +633,14 @@ class Api {
    * @returns Временный URL PNG 256×256.
    */
   async generateTwoFactorQr(): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/api/auth/2fa/generate`, {
-      credentials: "include",
-    });
-
-    if (response.status === 401) {
-      throw new ApiError("Нужно войти в аккаунт", 401);
-    }
-
-    if (response.status === 409) {
-      throw new ApiError("Двухфакторная аутентификация уже включена", 409);
-    }
-
-    if (!response.ok) {
-      throw new ApiError("Не удалось получить QR-код", response.status);
-    }
-
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
+    const response = await this.requestResponse(
+      "/api/auth/2fa/generate",
+      {},
+      { 409: "Двухфакторная аутентификация уже включена" }
+    );
+  
+    const image = await response.blob();
+    return URL.createObjectURL(image);
   }
 
   /**

@@ -288,8 +288,6 @@ export function createTagPicker(options: {
   });
   const dialog = mountTagsDialog(options.page, {
     getTags,
-    onSaved: () => {},
-    onDeleted: () => {},
     onUnauthorized: goToLogin,
   });
   const events = new AbortController();
@@ -332,5 +330,3 @@ export function createTagPicker(options: {
     },
   };
 }
-/** Пикер тегов открытой заметки. */
-export type TagPicker = ReturnType<typeof createTagPicker>;

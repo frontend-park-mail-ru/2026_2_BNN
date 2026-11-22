@@ -2,7 +2,6 @@ import { authStore } from "@/flux/auth/auth-store";
 import * as profileActions from "@/flux/profile/profile-actions";
 import { profileStore } from "@/flux/profile/profile-store";
 import { notesStore } from "@/flux/notes/note-store";
-import { navigate } from "@/router";
 import { mountAvatarForm } from "@/pages/profile/avatar-form";
 import { mountPasswordForm } from "@/pages/profile/password-form";
 import { mountTwoFactorForm } from "@/pages/profile/two-factor-form";
@@ -28,19 +27,14 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   let opened = false;
   let openFrame = 0;
   let closeTimer: number | undefined;
-  let authenticated = authStore.getState().status === "authenticated";
   let previousUser = authStore.getState().user;
   let previousCount = -1;
 
-  /** Синхронизирует диалог с профилем, сессией и числом заметок. */
+  /** Обновляет данные пользователя, счётчик заметок и открытую форму диалога. */
   function render(): void {
     if (disposed) return;
     const state = profileStore.getState();
     const auth = authStore.getState();
-    if (authenticated && auth.status === "unauthenticated") {
-      authenticated = false;
-      void navigate("/login");
-    }
     const count = options.notesCount();
     if (auth.user && (auth.user !== previousUser || count !== previousCount)) {
       fillProfile(page, dialog, auth.user, count);
@@ -119,7 +113,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     },
     { signal: events.signal }
   );
-  page.addEventListener(
+  document.addEventListener(
     "keydown",
     (event) => {
       if (event.key === "Escape" && profileStore.getState().open) profileActions.closeProfile();

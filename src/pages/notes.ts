@@ -48,7 +48,7 @@ export class NotesPage {
    * @param root Корневой узел отрисованной страницы.
    * @param context Путь и параметры маршрута.
    */
-  async mount(root: ParentNode, context: PageContext): Promise<void> {
+  mount(root: ParentNode, context: PageContext): void {
     const elements = getNotesElements(root);
     if (!elements) return;
     const {
@@ -68,7 +68,7 @@ export class NotesPage {
       history.replaceState(null, "", "/notes/" + openedNoteId);
     const isActive = () => mounted === instance;
     let editorRendered = mainRegion.querySelector("[data-note-title]") !== null;
-    let mainKey = "";
+    let mainKey = mainRenderKey(openedNoteId);
     let frame = 0;
     let redirecting = false;
     const events = new AbortController();
@@ -147,6 +147,7 @@ export class NotesPage {
         events.abort();
         window.cancelAnimationFrame(frame);
         unsubscribeNotes();
+        unsubscribeAuth();
         unsubscribeUi();
         list.destroy();
         searchView.destroy();
@@ -157,6 +158,20 @@ export class NotesPage {
     };
     mounted = instance;
 
+    /** Ключ состояния основной области до появления редактора. Совпадение позволяет сохранить её DOM. */
+    function mainRenderKey(id: string | undefined): string {
+      const state = notesStore.getState();
+      const load = id ? state.noteLoads[id] : undefined;
+      return [
+        id,
+        state.status === "ready",
+        state.status === "error",
+        state.loadError,
+        getNote(id)?.isLoaded,
+        load?.error,
+      ].join(":");
+    }
+
     /**
      * Реагирует на store: уводит на логин, подставляет приветственную заметку
      * и рисует редактор, пока он ещё не смонтирован.
@@ -165,10 +180,10 @@ export class NotesPage {
       if (!isActive() || redirecting) return;
       const state = notesStore.getState();
       if (
+        authStore.getState().status === "unauthenticated" ||
         state.status === "unauthorized" ||
         Object.values(state.noteLoads).some((load) => load.error === "unauthorized")
       ) {
-        redirecting = true;
         void goToLogin();
         return;
       }
@@ -188,14 +203,7 @@ export class NotesPage {
         return;
       }
       if (!editorRendered) {
-        const key = [
-          id,
-          state.status,
-          state.loadError,
-          note?.isLoaded,
-          load?.status,
-          load?.error,
-        ].join(":");
+        const key = mainRenderKey(id);
         if (key !== mainKey) {
           mainKey = key;
           editor.resetSelection();
@@ -223,6 +231,7 @@ export class NotesPage {
       });
     }
     const unsubscribeNotes = notesStore.subscribe(schedulePage);
+    const unsubscribeAuth = authStore.subscribe(schedulePage);
     /** Повторяет загрузку списка, открытой заметки и догрузку для поиска. */
     function retryLoad(): void {
       const state = notesStore.getState();
@@ -274,7 +283,11 @@ export class NotesPage {
      * Сбрасывает сессию и открывает `/login` без новой записи в истории.
      */
     async function goToLogin(): Promise<void> {
-      authActions.resetAuth("unauthenticated");
+      if (!isActive() || redirecting) return;
+      redirecting = true;
+      if (authStore.getState().status !== "unauthenticated") {
+        authActions.resetAuth("unauthenticated");
+      }
       history.replaceState(null, "", "/login");
       await router();
     }
@@ -317,8 +330,6 @@ export class NotesPage {
         return;
       }
       await authActions.logOut().catch(() => null);
-
-      await navigate("/login");
     }
 
     /**

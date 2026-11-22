@@ -4,8 +4,6 @@
 export class NotFoundPage {
   /**
    * Рендерит шаблон "страница не найдена".
-   *
-   * @returns {Promise<string>}
    */
   async render(): Promise<string> {
     const template = Handlebars.templates["notfound"];
@@ -15,15 +13,12 @@ export class NotFoundPage {
   /**
    * Заглушка для контракта роутера.
    *
-   * @param {ParentNode} _root Корневой узел страницы.
-   * @returns {void}
+   * @param _root Корневой узел страницы.
    */
   mount(_root: ParentNode): void {}
 
   /**
    * Заглушка для контракта роутера.
-   *
-   * @returns {void}
    */
   destroy(): void {}
 }

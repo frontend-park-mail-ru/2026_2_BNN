@@ -139,6 +139,12 @@ export function createAttachmentInput(options: {
     timerSave();
   }
 
+  /** Можно ли использовать этот текстовый абзац для файла или для курсора после вставки. */
+  function isEmptyParagraph(block: HTMLElement): boolean {
+    const content = readBlock(block);
+    return content?.type === "text" && content.text === "";
+  }
+
   /**
    * Ставит несколько файлов в заметку, каждый в свой блок.
    *
@@ -160,7 +166,7 @@ export function createAttachmentInput(options: {
     const slots: HTMLElement[] = [];
     let slot = block;
     for (let i = 0; i < accepted.length; i++) {
-      if (i > 0 || readBlock(slot)) {
+      if (i > 0 || !isEmptyParagraph(slot)) {
         insertBlockAfter(slot, "text");
         slot = slot.nextElementSibling as HTMLElement;
       }
@@ -169,7 +175,7 @@ export function createAttachmentInput(options: {
 
     const next = slot.nextElementSibling as HTMLElement | null;
     const nextText =
-      next && !readBlock(next)
+      next && isEmptyParagraph(next)
         ? next.querySelector<HTMLElement>("[data-block-text]")
         : insertBlockAfter(slot, "text");
     if (nextText) {
@@ -273,7 +279,6 @@ export function createAttachmentInput(options: {
     attachFiles,
     removeAttachmentBlock,
     findFileTarget,
-    findDropTarget,
     onDragOver,
     onDragLeave,
     onDrop,

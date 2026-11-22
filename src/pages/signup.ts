@@ -46,7 +46,7 @@ export class SignupPage implements AuthPage {
   /**
    * Рендерит HTML страницы регистрации.
    *
-   * @returns {Promise<string>} Готовая HTML-строка страницы.
+   * @returns Готовая HTML-строка страницы.
    */
   async render(): Promise<string> {
     const template = Handlebars.templates["signup"];
@@ -56,8 +56,7 @@ export class SignupPage implements AuthPage {
   /**
    * Подключает обработчики формы после вставки страницы в DOM.
    *
-   * @param {ParentNode} root Корневой узел отрисованной страницы.
-   * @returns {void}
+   * @param root Корневой узел отрисованной страницы.
    */
   mount(root: ParentNode): void {
     mountAuthForm(this, root);
@@ -70,8 +69,6 @@ export class SignupPage implements AuthPage {
 
   /**
    * Снимает обработчики страницы при уходе с роута.
-   *
-   * @returns {void}
    */
   destroy(): void {
     this.unsubscribeAuth?.();
@@ -83,9 +80,9 @@ export class SignupPage implements AuthPage {
    * Проверяет поле регистрации и показывает или снимает ошибку.
    * При проверке пароля заодно сверяет повтор пароля.
    *
-   * @param {string} name Имя поля: `login`, `password` или `repeatPassword`.
-   * @param {string} value Текущее значение этого поля.
-   * @returns {boolean} `true`, если проверенные поля прошли проверку.
+   * @param name Имя поля: `login`, `password` или `repeatPassword`.
+   * @param value Текущее значение этого поля.
+   * @returns `true`, если проверенные поля прошли проверку.
    */
   validateField(name: string, value: string): boolean {
     const form = this.form;
@@ -138,8 +135,7 @@ export class SignupPage implements AuthPage {
    * Обрабатывает отправку формы регистрации:
    * валидирует поля, вызывает API, сбрасывает кэш auth/notes и переводит пользователя на логин.
    *
-   * @param {SubmitEvent} event Событие submit от формы.
-   * @returns {Promise<void>}
+   * @param event Событие submit от формы.
    */
   async handleSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
