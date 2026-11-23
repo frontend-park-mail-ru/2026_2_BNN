@@ -80,11 +80,6 @@
         linear-gradient(#000 0 0);
       pointer-events: none;
     }
-
-    @media (max-width: 640px) {
-      padding: 28px 24px 32px;
-      border-radius: 40px;
-    }
   }
 
   &__brand,
@@ -446,5 +441,72 @@
     font-size: 15px;
     line-height: 1.4;
     text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .login {
+    flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .login__panel {
+    flex: none;
+    width: min(100%, 304px);
+    margin-block: auto;
+    padding: 24px clamp(16px, 5vw, 24px);
+    border-radius: 32px;
+  }
+
+  .login__brand {
+    gap: 8px;
+  }
+
+  .login__logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .login__title {
+    font-size: 18px;
+  }
+
+  .login__tagline,
+  .login-form__hint {
+    font-size: 13px;
+  }
+
+  .login-form {
+    margin-top: 12px;
+  }
+
+  .login-form__field,
+  .login-form__submit,
+  .login-form__github,
+  .login-form__divider {
+    width: 100%;
+  }
+
+  .login-form__submit,
+  .login-form__github {
+    height: auto;
+    min-height: 44px;
+    font-size: 18px;
+  }
+
+  .login-form__github_signup {
+    font-size: 15px;
+  }
+
+  .login .code-input {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .login .code-input__digit {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
   }
 }
