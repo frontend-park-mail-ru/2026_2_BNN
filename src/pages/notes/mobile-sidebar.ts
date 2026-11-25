@@ -38,7 +38,9 @@ export function mountMobileSidebar(page: HTMLElement, signal: AbortSignal): void
       if (
         mobile.matches &&
         event.target instanceof Element &&
-        event.target.closest(".sidebar__close, [data-link], [data-new-note], [data-tags-manage]")
+        event.target.closest(
+          ".sidebar__close, .sidebar__nav [data-link], [data-new-note], [data-tags-manage]"
+        )
       )
         dismiss();
     },

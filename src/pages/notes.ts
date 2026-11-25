@@ -127,7 +127,38 @@ export class NotesPage {
     compactEditor.addEventListener("change", syncEditorActions, { signal: events.signal });
 
     /** Следит за шириной пути и раскладкой кнопок после перерисовки заметки. */
+    function syncScrollHints(): void {
+      const area = mainRegion.querySelector(".notebook__scroll-area");
+      const content = area?.firstElementChild;
+      if (!area || !content) return;
+      area.toggleAttribute("data-scroll-up", content.scrollTop > 1);
+      area.toggleAttribute(
+        "data-scroll-down",
+        content.scrollTop + content.clientHeight < content.scrollHeight - 1
+      );
+    }
+
+    const scrollObserver = new ResizeObserver(syncScrollHints);
+    mainRegion.addEventListener(
+      "scroll",
+      (event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.matches(".notebook__scroll-area > .notebook__content")
+        )
+          syncScrollHints();
+      },
+      { capture: true, signal: events.signal }
+    );
+
     function observeBreadcrumbs(): void {
+      scrollObserver.disconnect();
+      for (const element of mainRegion.querySelectorAll(
+        ".notebook__scroll-area > .notebook__content, .notebook__scroll-area > .notebook__content > *"
+      )) {
+        scrollObserver.observe(element);
+      }
+      syncScrollHints();
       syncEditorActions();
       pathObserver.disconnect();
       const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
@@ -224,7 +255,6 @@ export class NotesPage {
         if (
           isFavoritesPath(next.path) !== isFavoritesPath(context.path) ||
           !next.params.id ||
-          !editor.noteId ||
           redirecting ||
           instance.deleting ||
           page.querySelector(".modal:not([hidden])")
@@ -273,6 +303,7 @@ export class NotesPage {
       /** Снимает обработчики страницы и вложенных модулей. */
       dispose() {
         events.abort();
+        scrollObserver.disconnect();
         pathObserver.disconnect();
         window.cancelAnimationFrame(frame);
         unsubscribeNotes();

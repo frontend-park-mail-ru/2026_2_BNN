@@ -171,6 +171,7 @@ export function mountNotesList(options: {
     const branchId = toggle?.dataset.noteTreeToggle;
 
     if (toggle && branchId) {
+      toggle.focus({ preventScroll: true });
       if (collapsedNotes.has(branchId)) {
         collapsedNotes.delete(branchId);
       } else {
