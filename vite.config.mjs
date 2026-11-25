@@ -182,7 +182,8 @@ export default defineConfig({
       apply: "build",
       closeBundle() {
         const source = fs.readFileSync("dist/sw.js", "utf8");
-        fs.writeFileSync("dist/sw.js", source.replace("bnn-static-v1", `bnn-static-${Date.now()}`));
+        if (!source.includes("__BUILD_ID__")) throw new Error("Missing service worker build marker");
+        fs.writeFileSync("dist/sw.js", source.replace("__BUILD_ID__", String(Date.now())));
       },
     },
   ],

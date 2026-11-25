@@ -1498,6 +1498,16 @@
     }
   }
 
+  @media (max-width: 800px), (hover: none) {
+    &__toggle .icon {
+      opacity: 0;
+    }
+
+    &__toggle &__arrow {
+      opacity: 1;
+    }
+  }
+
   &__toggle:focus-visible {
     .icon {
       opacity: 0;
