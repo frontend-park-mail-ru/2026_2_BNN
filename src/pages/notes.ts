@@ -11,6 +11,7 @@ import { uiStore } from "@/flux/ui/ui-store";
 import { router, navigate, type PageContext } from "@/router";
 import { createNoteEditor, type NoteEditor } from "@/pages/notes/editor/controller";
 import { getNotesElements } from "@/pages/notes/elements";
+import { mountMobileSidebar } from "@/pages/notes/mobile-sidebar";
 import { buildNotesView, isFavoritesPath, noteIdFor } from "@/pages/notes/view";
 import { getNote } from "@/pages/notes/selectors";
 import { mountNotesList } from "@/pages/notes/list";
@@ -36,6 +37,12 @@ let pendingToast = "";
 
 /** Собирает модули страницы; состояние запросов и данные принадлежат Flux. */
 export class NotesPage {
+  /**
+   * Меняет открытую заметку внутри уже смонтированной страницы.
+   *
+   * @param context Новый путь и параметры маршрута.
+   * @returns `false`, если страницу нужно перемонтировать целиком.
+   */
   updateRoute(context: PageContext): boolean {
     return mounted?.updateRoute(context) ?? false;
   }
@@ -81,10 +88,12 @@ export class NotesPage {
     let redirecting = false;
     let childToDelete: string | null = null;
     const events = new AbortController();
+    mountMobileSidebar(page, events.signal);
 
     // Измеряем полную цепочку даже тогда, когда пользователю показано меню.
     const pathObserver = new ResizeObserver(syncBreadcrumbWidth);
 
+    /** Прячет длинную цепочку пути в меню, если она не помещается в шапку заметки. */
     function syncBreadcrumbWidth(): void {
       const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
       const nav = trail?.closest<HTMLElement>(".notebook__nav");
@@ -94,7 +103,32 @@ export class NotesPage {
       if (fits) nav.querySelector("details")?.removeAttribute("open");
     }
 
+    const compactEditor = window.matchMedia("(max-width: 800px)");
+
+    /**
+     * На узком экране переносит кнопки заметки в меню, на широком возвращает их в шапку.
+     */
+    function syncEditorActions(): void {
+      const actions = mainRegion.querySelector(".notebook__actions");
+      const menu = actions?.querySelector("[data-note-menu]");
+      const panel = menu?.querySelector("[data-note-menu-panel]");
+      if (!actions || !menu || !panel) return;
+      const source = compactEditor.matches ? actions : panel;
+      const destination = compactEditor.matches ? panel : actions;
+      const before = compactEditor.matches ? null : menu;
+      for (const button of source.querySelectorAll(":scope > .icon-button")) {
+        destination.insertBefore(button, before);
+        if (compactEditor.matches) button.setAttribute("role", "menuitem");
+        else button.removeAttribute("role");
+      }
+      setNoteMenu(false);
+    }
+
+    compactEditor.addEventListener("change", syncEditorActions, { signal: events.signal });
+
+    /** Следит за шириной пути и раскладкой кнопок после перерисовки заметки. */
     function observeBreadcrumbs(): void {
+      syncEditorActions();
       pathObserver.disconnect();
       const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
       const nav = trail?.closest<HTMLElement>(".notebook__nav");
@@ -146,7 +180,6 @@ export class NotesPage {
       },
     });
     const destroyProfile = mountProfile(page, {
-      notesCount: () => notesStore.getState().notes.length,
       onLogout: () => {
         logoutDialog.hidden = false;
       },
@@ -180,6 +213,12 @@ export class NotesPage {
 
       isDeletingChild: () => instance.deleting && childToDelete !== null,
 
+      /**
+       * Открывает другую заметку того же раздела, не уничтожая страницу.
+       *
+       * @param next Новый маршрут.
+       * @returns `false`, если раздел сменился или открыт диалог и нужен полный переход.
+       */
       updateRoute(next) {
         // Другие разделы и открытые диалоги имеют собственный жизненный цикл.
         if (
@@ -248,6 +287,7 @@ export class NotesPage {
     };
     mounted = instance;
 
+    /** Обновляет кнопку избранного по store: нажата, недоступна или ждёт повторной загрузки. */
     function syncFavoriteButton(): void {
       const button = mainRegion.querySelector<HTMLButtonElement>("[data-note-favorite]");
       if (!button) return;
@@ -269,6 +309,10 @@ export class NotesPage {
       button.setAttribute("aria-label", retry ? button.title : "Избранное");
     }
 
+    /**
+     * Переключает избранное у открытой заметки.
+     * Если список избранного не загрузился, сначала повторяет его загрузку.
+     */
     async function toggleOpenedFavorite(): Promise<void> {
       const id = editor.noteId;
       if (!id || id === "new") return;
@@ -714,6 +758,7 @@ export class NotesPage {
         return;
       }
 
+      if (target.closest("[data-note-menu-panel] button")) setNoteMenu(false);
       if (editor.handleClick(target)) return;
       if (
         tagPicker.handleClick(target) ||

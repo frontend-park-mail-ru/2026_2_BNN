@@ -50,7 +50,6 @@ const routes: RouteRecord[] = [
   { path: "/notes", page: notesPage, auth: true },
   { path: "/notes/favorites/:id", page: notesPage, auth: true },
   { path: "/notes/favorites", page: notesPage, auth: true },
-  { path: "/notes/trash", page: notesPage, auth: true },
   { path: "/notes/notifications", page: notesPage, auth: true },
   { path: "/notes/all", page: notesPage, auth: true },
   { path: "/notes/:id", page: notesPage, auth: true },

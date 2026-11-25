@@ -521,7 +521,7 @@ export function createNoteEditor(options: EditorOptions) {
     const target = event.target;
     if (
       target instanceof Element &&
-      target.closest("[data-voice-input-toggle], [data-add-block]")
+      target.closest("[data-voice-input-toggle], [data-add-block], [data-note-menu-toggle]")
     ) {
       event.preventDefault();
     }
@@ -650,7 +650,7 @@ export function createNoteEditor(options: EditorOptions) {
   mainRegion.addEventListener("input", onNoteInput, { signal });
   mainRegion.addEventListener("change", onNoteChange, { signal });
   mainRegion.addEventListener("keydown", onNoteKeyDown, { signal });
-  mainRegion.addEventListener("mousedown", onMainMouseDown, { signal });
+  mainRegion.addEventListener("pointerdown", onMainMouseDown, { signal });
   mainRegion.addEventListener("scroll", onSelectionChange, { signal, capture: true });
   document.addEventListener("selectionchange", onSelectionChange, { signal });
   document.addEventListener("pointerdown", onEditorPointerDown, { signal });
@@ -659,7 +659,7 @@ export function createNoteEditor(options: EditorOptions) {
   document.addEventListener("pointercancel", onEditorPointerUp, { signal });
   mainRegion.addEventListener("copy", onEditorCopy, { signal });
   mainRegion.addEventListener("cut", onEditorCopy, { signal });
-  formatBar?.addEventListener("mousedown", onFormatMouseDown, { signal });
+  formatBar?.addEventListener("pointerdown", onFormatMouseDown, { signal });
   window.addEventListener("beforeunload", onBeforeUnload, { signal });
   window.addEventListener("paste", onPaste, { signal });
   window.addEventListener("dragover", onDragOver, { signal });

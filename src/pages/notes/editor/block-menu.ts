@@ -51,9 +51,11 @@ export function createBlockMenu(options: {
     const blockRect = block.getBoundingClientRect();
     const menuHeight = menu.getBoundingClientRect().height;
 
-    const visibleTop = Math.max(0, contentTop) + edgePadding;
-    const visibleBottom =
-      Math.min(window.innerHeight, contentTop + content.clientHeight) - edgePadding;
+    const viewport = window.visualViewport;
+    const topEdge = viewport?.offsetTop ?? 0;
+    const bottomEdge = topEdge + (viewport?.height ?? window.innerHeight);
+    const visibleTop = Math.max(topEdge, contentTop) + edgePadding;
+    const visibleBottom = Math.min(bottomEdge, contentTop + content.clientHeight) - edgePadding;
 
     const spaceBelow = Math.max(0, visibleBottom - blockRect.bottom - gap);
     const spaceAbove = Math.max(0, blockRect.top - visibleTop - gap);

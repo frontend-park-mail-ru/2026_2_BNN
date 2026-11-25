@@ -12,9 +12,9 @@
         <div class="notebook__toolbar">
             <span class="skeleton skeleton_line skeleton_crumbs"></span>
             <div class="notebook__actions notebook__actions_disabled">
-                {{> icon name="heart"}}
+                {{> icon name="folder-heart"}}
                 {{> icon name="share"}}
-                {{> icon name="menu"}}
+                {{> icon name="trash"}}
             </div>
         </div>
         <div class="notebook__content">
@@ -35,7 +35,7 @@
 {{else if isFavoritesOverview}}
     <article class="notebook notebook_centered">
         <div class="notebook__message">
-            <span class="notebook__status">{{> icon name="heart" size="l"}}</span>
+            <span class="notebook__status">{{> icon name="folder-heart" size="l"}}</span>
             {{#if hasFavorites}}
                 <h2 class="notebook__message-title">Избранное</h2>
                 <p class="notebook__message-text">Выберите заметку в списке</p>

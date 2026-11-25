@@ -24,20 +24,25 @@ interface Section {
   title: string;
 }
 
+/**
+ * Проверяет, открыт ли раздел избранного.
+ *
+ * @param path Текущий путь без query и hash.
+ * @returns `true` для `/notes/favorites` и вложенных адресов.
+ */
 export function isFavoritesPath(path: string): boolean {
   return path === "/notes/favorites" || path.startsWith("/notes/favorites/");
 }
 
 const SECTIONS: Section[] = [
   { href: "/notes/all", icon: "file", title: "Все заметки", enabled: true },
-  { href: "/notes/favorites", icon: "heart", title: "Избранное", enabled: true },
-  { href: "/notes/trash", icon: "trash", title: "Корзина", enabled: false },
+  { href: "/notes/favorites", icon: "folder-heart", title: "Избранное", enabled: true },
 ];
 
 const NOTIFICATIONS_SECTION: Section = {
   enabled: false,
   href: "/notes/notifications",
-  icon: "bell",
+  icon: "message",
   title: "Уведомления",
 };
 

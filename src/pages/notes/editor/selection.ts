@@ -394,7 +394,7 @@ export function createEditorSelection(options: {
    * @param event Нажатие указателя.
    */
   function onEditorPointerDown(event: PointerEvent): void {
-    if (event.button !== 0) {
+    if (event.pointerType === "touch" || event.button !== 0) {
       return;
     }
     const target = event.target;
@@ -694,10 +694,16 @@ export function createEditorSelection(options: {
     if (!content) return;
 
     const bounds = content.getBoundingClientRect();
-    const visibleTop = Math.max(0, bounds.top);
-    const visibleBottom = Math.min(window.innerHeight, bounds.bottom);
-    const visibleLeft = Math.max(0, bounds.left);
-    const visibleRight = Math.min(window.innerWidth, bounds.right);
+    const viewport = window.visualViewport;
+    const topEdge = viewport?.offsetTop ?? 0;
+    const leftEdge = viewport?.offsetLeft ?? 0;
+    const visibleTop = Math.max(topEdge, bounds.top);
+    const visibleBottom = Math.min(
+      topEdge + (viewport?.height ?? window.innerHeight),
+      bounds.bottom
+    );
+    const visibleLeft = Math.max(leftEdge, bounds.left);
+    const visibleRight = Math.min(leftEdge + (viewport?.width ?? window.innerWidth), bounds.right);
 
     const rects = multiple
       ? marked.map((block) => block.getBoundingClientRect())

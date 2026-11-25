@@ -15,17 +15,19 @@
                 </button>
             {{/if}}
             <button class="icon-button icon-button_favorite" type="button" aria-label="Избранное" aria-pressed="false" data-note-favorite disabled>
-                {{> icon name="heart"}}
+                {{> icon name="folder-heart"}}
             </button>
             <button class="icon-button icon-button_disabled" type="button" aria-label="Поделиться" disabled>
                 {{> icon name="share"}}
+            </button>
+            <button class="icon-button" type="button" aria-label="Удалить" title="Удалить заметку" data-delete-open>
+                {{> icon name="trash"}}
             </button>
             <div class="note-menu" data-note-menu>
                 <button class="icon-button" type="button" aria-label="Действия с заметкой" aria-haspopup="menu" aria-expanded="false" data-note-menu-toggle>
                     {{> icon name="menu"}}
                 </button>
                 <div class="note-menu__panel" role="menu" data-note-menu-panel hidden>
-                    <button class="note-menu__item note-menu__item_danger" type="button" role="menuitem" data-delete-open>Удалить</button>
                 </div>
             </div>
         </div>

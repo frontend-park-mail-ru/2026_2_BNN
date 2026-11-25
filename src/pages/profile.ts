@@ -1,7 +1,6 @@
 import { authStore } from "@/flux/auth/auth-store";
 import * as profileActions from "@/flux/profile/profile-actions";
 import { profileStore } from "@/flux/profile/profile-store";
-import { notesStore } from "@/flux/notes/note-store";
 import { mountAvatarForm } from "@/pages/profile/avatar-form";
 import { mountPasswordForm } from "@/pages/profile/password-form";
 import { mountTwoFactorForm } from "@/pages/profile/two-factor-form";
@@ -9,7 +8,6 @@ import { fillProfile, showProfileView } from "@/pages/profile/view";
 
 /** Данные страницы, которые диалогу профиля сам store не отдаёт. */
 export interface ProfileOptions {
-  notesCount: () => number;
   onLogout: () => void;
 }
 
@@ -27,19 +25,16 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   let opened = false;
   let openFrame = 0;
   let closeTimer: number | undefined;
-  let previousUser = authStore.getState().user;
-  let previousCount = -1;
+  let previousUser: ReturnType<typeof authStore.getState>["user"] | undefined;
 
-  /** Обновляет данные пользователя, счётчик заметок и открытую форму диалога. */
+  /** Обновляет данные пользователя и открытую форму диалога. */
   function render(): void {
     if (disposed) return;
     const state = profileStore.getState();
     const auth = authStore.getState();
-    const count = options.notesCount();
-    if (auth.user && (auth.user !== previousUser || count !== previousCount)) {
-      fillProfile(page, dialog, auth.user, count);
+    if (auth.user && auth.user !== previousUser) {
+      fillProfile(page, dialog, auth.user);
       previousUser = auth.user;
-      previousCount = count;
     }
     if (state.open !== opened) {
       opened = state.open;
@@ -78,9 +73,6 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   }
   const unsubscribeProfile = profileStore.subscribe(schedule);
   const unsubscribeAuth = authStore.subscribe(schedule);
-  const unsubscribeNotes = notesStore.subscribe(() => {
-    if (options.notesCount() !== previousCount) schedule();
-  });
   page.addEventListener(
     "click",
     (event) => {
@@ -128,7 +120,6 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     events.abort();
     unsubscribeProfile();
     unsubscribeAuth();
-    unsubscribeNotes();
     window.clearTimeout(closeTimer);
     window.cancelAnimationFrame(openFrame);
     password.destroy();
