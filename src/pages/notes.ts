@@ -17,6 +17,11 @@ import { mountNotesList } from "@/pages/notes/list";
 import { mountNotesSearch } from "@/pages/notes/search-controller";
 import { createTagPicker } from "@/pages/notes/tag-picker";
 import { mountProfile } from "@/pages/profile";
+import { connectNoteSocket } from "@/pages/notes/collaboration/socket";
+import { mountCollaborationDialog } from "@/pages/notes/collaboration/dialog";
+import { createRemoteCursors } from "@/pages/notes/collaboration/cursors";
+import { mountShareMenu } from "@/pages/notes/collaboration/share-menu";
+import { rememberNotePath } from "@/utils/auth-return";
 
 /** Смонтированная страница заметок. Нужна, чтобы отличать устаревший ответ от текущего экрана. */
 interface NotesInstance {
@@ -80,9 +85,15 @@ export class NotesPage {
     let frame = 0;
     let redirecting = false;
     let childToDelete: string | null = null;
+    let noteSocket: ReturnType<typeof connectNoteSocket> | null = null;
+    let socketNoteId: string | undefined;
+    let cursorTimer: number | undefined;
+    let remotePending = false;
+    let remoteLoading = false;
+    let remoteVersion = 0;
     const events = new AbortController();
+    const remoteCursors = createRemoteCursors(mainRegion);
 
-    // Измеряем полную цепочку даже тогда, когда пользователю показано меню.
     const pathObserver = new ResizeObserver(syncBreadcrumbWidth);
 
     function syncBreadcrumbWidth(): void {
@@ -145,6 +156,19 @@ export class NotesPage {
         list.replaceDraft(id);
       },
     });
+    const shareMenu = mountShareMenu({
+      page,
+      getNoteId: () => editor.noteId,
+      getTitle: () => mainRegion.querySelector<HTMLElement>("[data-note-title]")?.textContent ?? "",
+      showToast,
+    });
+    const collaboration = mountCollaborationDialog({
+      page,
+      getNoteId: () => editor.noteId,
+      isActive,
+      showToast,
+      onUnauthorized: goToLogin,
+    });
     const destroyProfile = mountProfile(page, {
       notesCount: () => notesStore.getState().notes.length,
       onLogout: () => {
@@ -181,7 +205,6 @@ export class NotesPage {
       isDeletingChild: () => instance.deleting && childToDelete !== null,
 
       updateRoute(next) {
-        // Другие разделы и открытые диалоги имеют собственный жизненный цикл.
         if (
           isFavoritesPath(next.path) !== isFavoritesPath(context.path) ||
           !next.params.id ||
@@ -192,6 +215,9 @@ export class NotesPage {
         )
           return false;
 
+        shareMenu.close();
+        collaboration?.close();
+        closeNoteSocket();
         context = next;
         instance.path = next.path;
         editor.clearSave();
@@ -226,6 +252,7 @@ export class NotesPage {
         }
 
         list.render();
+        syncNoteSocket();
         return true;
       },
 
@@ -233,6 +260,10 @@ export class NotesPage {
 
       /** Снимает обработчики страницы и вложенных модулей. */
       dispose() {
+        shareMenu.destroy();
+        collaboration?.destroy();
+        closeNoteSocket();
+        remoteCursors.destroy();
         events.abort();
         pathObserver.disconnect();
         window.cancelAnimationFrame(frame);
@@ -247,6 +278,217 @@ export class NotesPage {
       },
     };
     mounted = instance;
+
+    function closeNoteSocket(): void {
+      remoteVersion += 1;
+      remotePending = false;
+      remoteLoading = false;
+      remoteCursors.clear();
+      window.clearTimeout(cursorTimer);
+      cursorTimer = undefined;
+      noteSocket?.close();
+      noteSocket = null;
+      socketNoteId = undefined;
+    }
+
+    function sendCursor(): void {
+      if (!isActive() || !noteSocket || socketNoteId !== editor.noteId) return;
+
+      const active = document.activeElement;
+      if (
+        !(active instanceof HTMLElement) ||
+        !active.matches("[data-block-text]") ||
+        !mainRegion.contains(active)
+      )
+        return;
+
+      const selection = window.getSelection();
+      const node = selection?.focusNode;
+      if (!selection || !node || selection.rangeCount === 0) return;
+
+      const element = node instanceof Element ? node : node.parentElement;
+      const text = element?.closest<HTMLElement>("[data-block-text]");
+      const blockId = text?.closest<HTMLElement>("[data-block]")?.dataset.blockId;
+      if (!text || !mainRegion.contains(text) || !blockId) return;
+
+      const offsetAt = (target: Node, offset: number): number => {
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        range.setEnd(target, offset);
+        return range.toString().length;
+      };
+
+      const offset = offsetAt(node, selection.focusOffset);
+      let selected: { start: number; end: number } | undefined;
+
+      if (!selection.isCollapsed && selection.anchorNode && text.contains(selection.anchorNode)) {
+        const anchor = offsetAt(selection.anchorNode, selection.anchorOffset);
+        selected = { start: Math.min(anchor, offset), end: Math.max(anchor, offset) };
+      }
+
+      noteSocket.sendCursor({
+        block_id: blockId,
+        offset,
+        selection: selected,
+        user_name: authStore.getState().user?.login ?? "",
+      });
+    }
+
+    function scheduleCursor(): void {
+      if (cursorTimer !== undefined) return;
+
+      cursorTimer = window.setTimeout(() => {
+        cursorTimer = undefined;
+        sendCursor();
+      }, 100);
+    }
+
+    function canRefreshRemote(): boolean {
+      const id = editor.noteId;
+      const selection = window.getSelection();
+      return (
+        isActive() &&
+        !redirecting &&
+        !instance.deleting &&
+        editorRendered &&
+        !!id &&
+        id !== "new" &&
+        !!getNote(id)?.isLoaded &&
+        authStore.getState().status === "authenticated" &&
+        !editor.hasPendingChanges() &&
+        !tagPicker.isBusy() &&
+        !page.querySelector(".modal:not([hidden]), dialog[open]") &&
+        !mainRegion.querySelector(
+          '[data-note-title]:focus, [data-block-text]:focus, [data-tag-picker], [data-voice-input-toggle][aria-pressed="true"]'
+        ) &&
+        !(selection && !selection.isCollapsed && mainRegion.contains(selection.anchorNode))
+      );
+    }
+
+    function requestRemoteRefresh(): void {
+      remotePending = true;
+      void refreshRemoteNote();
+    }
+
+    async function refreshRemoteNote(): Promise<void> {
+      const id = editor.noteId;
+      if (!remotePending || remoteLoading || !id || !canRefreshRemote()) return;
+
+      const version = remoteVersion;
+      const isCurrent = () => isActive() && remoteVersion === version && editor.noteId === id;
+      remotePending = false;
+      remoteLoading = true;
+
+      try {
+        const result = await noteActions.refreshNote(id, () => isCurrent() && canRefreshRemote());
+        if (!isCurrent()) return;
+
+        if (result === "deferred") {
+          remotePending = true;
+          if (canRefreshRemote()) schedulePage();
+          return;
+        }
+
+        if (result === "updated") {
+          const content = mainRegion.querySelector<HTMLElement>(".notebook__content");
+          const nav = mainRegion.querySelector<HTMLElement>(".notebook__nav");
+          if (content && nav) {
+            const scrollTop = content.scrollTop;
+            const view = buildNotesView(context, id);
+            editor.resetSelection();
+            content.innerHTML = Handlebars.partials["note-content"](view);
+            nav.innerHTML = Handlebars.partials["note-path"](view);
+            content.scrollTop = scrollTop;
+            observeBreadcrumbs();
+          }
+        }
+
+        if (remotePending) schedulePage();
+      } catch (error) {
+        if (!isCurrent()) return;
+
+        if (error instanceof ApiError && error.status === 401) {
+          void goToLogin();
+        } else if (error instanceof ApiError && [403, 404].includes(error.status)) {
+          closeNoteSocket();
+          showToast("Заметка удалена или доступ к ней закрыт", true);
+        } else {
+          remotePending = true;
+          showToast("Не удалось загрузить изменения заметки", true);
+        }
+      } finally {
+        if (isCurrent()) remoteLoading = false;
+      }
+    }
+
+    function syncNoteSocket(): void {
+      const id = editor.noteId;
+
+      if (
+        !isActive() ||
+        authStore.getState().status !== "authenticated" ||
+        !id ||
+        id === "new" ||
+        !getNote(id)?.isLoaded
+      ) {
+        closeNoteSocket();
+        return;
+      }
+
+      if (socketNoteId === id) return;
+
+      closeNoteSocket();
+      socketNoteId = id;
+
+      noteSocket = connectNoteSocket(id, {
+        onOpen: () => {
+          scheduleCursor();
+          requestRemoteRefresh();
+        },
+        onDisconnect: remoteCursors.clear,
+        onMessage(message) {
+          if (!isActive() || editor.noteId !== id) return;
+
+          if (message.type === "note_updated") {
+            requestRemoteRefresh();
+            return;
+          }
+
+          if (message.type === "cursor_move" && message.user_id) {
+            if (message.user_id !== authStore.getState().user?.id) {
+              remoteCursors.update(message.user_id, message.payload);
+            }
+            return;
+          }
+
+          if (message.type === "user_joined") {
+            showToast("Участник подключился к заметке");
+            scheduleCursor();
+          }
+
+          if (message.type === "user_left") {
+            if (message.user_id) remoteCursors.remove(message.user_id);
+            showToast("Участник отключился от заметки");
+          }
+        },
+        onUnavailable(status) {
+          if (!isActive() || editor.noteId !== id) return;
+          remoteCursors.clear();
+
+          if (status === 401) {
+            void goToLogin();
+            return;
+          }
+
+          showToast(
+            status === 403
+              ? "Нет доступа к совместной работе с этой заметкой"
+              : "Заметка удалена или доступ к ней закрыт",
+            true
+          );
+        },
+      });
+    }
 
     function syncFavoriteButton(): void {
       const button = mainRegion.querySelector<HTMLButtonElement>("[data-note-favorite]");
@@ -348,6 +590,9 @@ export class NotesPage {
       }
 
       syncFavoriteButton();
+
+      syncNoteSocket();
+      void refreshRemoteNote();
       if (
         state.status === "ready" &&
         id &&
@@ -407,6 +652,9 @@ export class NotesPage {
 
     const unsubscribeUi = uiStore.subscribe(renderUi);
     page.addEventListener("click", onPageClick, { signal: events.signal });
+    page.addEventListener("focusout", schedulePage, { signal: events.signal });
+    document.addEventListener("selectionchange", scheduleCursor, { signal: events.signal });
+    mainRegion.addEventListener("input", scheduleCursor, { signal: events.signal });
 
     document.addEventListener(
       "pointerdown",
@@ -439,10 +687,14 @@ export class NotesPage {
      */
     async function goToLogin(): Promise<void> {
       if (!isActive() || redirecting) return;
+
       redirecting = true;
+      rememberNotePath(editor.noteId ? `/notes/${editor.noteId}` : "");
+
       if (authStore.getState().status !== "unauthenticated") {
         authActions.resetAuth("unauthenticated");
       }
+
       history.replaceState(null, "", "/login");
       await router();
     }

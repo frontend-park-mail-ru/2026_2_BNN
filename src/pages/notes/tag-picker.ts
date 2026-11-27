@@ -317,6 +317,7 @@ export function createTagPicker(options: {
   );
   return {
     getTagIds: getNoteTagIds,
+    isBusy: () => pending !== null,
     handleClick,
     close: closeTagPicker,
     finish: async () => {

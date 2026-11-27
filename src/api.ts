@@ -375,6 +375,42 @@ class Api {
     return notes ?? [];
   }
 
+  async addCollaborator(
+    noteId: string,
+    login: string,
+    role: "viewer" | "editor" = "viewer"
+  ): Promise<void> {
+    await this.request(
+      `/api/notes/${encodeURIComponent(noteId)}/collaborators`,
+      {
+        method: "POST",
+        body: JSON.stringify({ login: login.trim(), role }),
+      },
+      {
+        400: "Проверьте логин и выбранные права. Пригласить себя нельзя.",
+        403: "Предоставлять доступ может только владелец заметки",
+        404: "Заметка или пользователь не найдены",
+      }
+    );
+  }
+
+  async removeCollaborator(noteId: string, userId: string): Promise<void> {
+    await this.request(
+      `/api/notes/${encodeURIComponent(noteId)}/collaborators/${encodeURIComponent(userId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  openNoteSocket(noteId: string): WebSocket {
+    const url = new URL(
+      `${this.baseUrl}/api/ws/notes/${encodeURIComponent(noteId)}`,
+      window.location.origin
+    );
+
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+
+    return new WebSocket(url);
+  }
   async getFavorites(): Promise<Note[]> {
     return (await this.request<Note[]>("/api/notes/favorites")) ?? [];
   }

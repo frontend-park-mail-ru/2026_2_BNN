@@ -686,6 +686,11 @@ export function createNoteEditor(options: EditorOptions) {
     scheduleSave: timerSave,
     retrySave: () => autosave.run(),
     clearSave: () => autosave.clear(),
+    hasPendingChanges: () =>
+      autosave.hasPending() ||
+      autosave.isSaving() ||
+      pendingSubnote !== null ||
+      attachments.hasPending(),
 
     /**
      * Останавливает диктовку, дожидается загрузок и сохраняет заметку.

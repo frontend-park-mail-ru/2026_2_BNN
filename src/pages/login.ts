@@ -16,6 +16,7 @@ import {
   getLoginError,
   getPasswordError,
 } from "@/components/forms/auth-form";
+import { takeNotePath } from "@/utils/auth-return";
 
 /**
  * SPA-страница авторизации.
@@ -119,7 +120,7 @@ export class LoginPage implements AuthPage {
         await navigate("/login/2fa");
         return;
       }
-      await navigate("/notes");
+      await navigate(takeNotePath());
     } catch (error) {
       if (!this.form) {
         return;

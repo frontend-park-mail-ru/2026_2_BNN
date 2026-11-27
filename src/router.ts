@@ -4,6 +4,7 @@ import { LoginTwoFactorPage } from "@/pages/login-2fa";
 import { SignupPage } from "@/pages/signup";
 import { NotFoundPage } from "@/pages/notfound";
 import { ensureAuth } from "@/flux/auth/auth-actions";
+import { rememberNotePath, takeNotePath } from "@/utils/auth-return";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
@@ -119,17 +120,28 @@ export async function router(): Promise<void> {
   if (matchedRoute?.auth) {
     const ok = await ensureAuth();
     if (thisRender !== renderId) return;
+
     if (!ok) {
+      rememberNotePath(path);
       await navigate("/login");
       return;
+    }
+
+    if (path === "/" || path === "/notes") {
+      const target = takeNotePath();
+      if (target !== "/notes") {
+        await navigate(target);
+        return;
+      }
     }
   }
 
   if (matchedRoute?.guest) {
     const ok = await ensureAuth();
     if (thisRender !== renderId) return;
+
     if (ok) {
-      await navigate("/notes");
+      await navigate(takeNotePath());
       return;
     }
   }

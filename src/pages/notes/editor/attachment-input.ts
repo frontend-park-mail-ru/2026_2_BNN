@@ -283,5 +283,6 @@ export function createAttachmentInput(options: {
     onDragLeave,
     onDrop,
     finish,
+    hasPending: () => pending.size > 0,
   };
 }

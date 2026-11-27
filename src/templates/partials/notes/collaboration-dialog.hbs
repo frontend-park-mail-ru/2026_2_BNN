@@ -1,0 +1,40 @@
+<dialog class="collaboration-dialog" data-collaboration-dialog aria-labelledby="collaboration-title">
+    <div class="collaboration-dialog__header">
+        <h2 class="collaboration-dialog__title" id="collaboration-title">
+            Совместный доступ
+        </h2>
+
+        <button class="collaboration-dialog__close" type="button" data-collaboration-close aria-label="Закрыть">
+            {{> icon name="close" size="s"}}
+        </button>
+    </div>
+
+    <form class="collaboration-dialog__form" data-collaboration-form>
+        <label class="collaboration-dialog__field">
+            {{> icon name="search" size="s"}}
+
+            <input class="collaboration-dialog__input" type="text" name="login" placeholder="Логин, кого пригласить" aria-label="Логин пользователя" autocomplete="off" required data-collaboration-login>
+        </label>
+
+        <button class="modal__button" type="submit" data-collaboration-submit>
+            Отправить
+        </button>
+        <label class="collaboration-dialog__permission">
+            <span>Доступ:</span>
+
+            <select class="collaboration-dialog__role" name="role" data-collaboration-role>
+                <option value="viewer" selected>Просмотр</option>
+                <option value="editor">Редактирование</option>
+            </select>
+        </label>
+    </form>
+    <section class="collaboration-dialog__link-section" aria-labelledby="collaboration-link-title">
+        <h3 class="collaboration-dialog__section-title" id="collaboration-link-title">Ссылка на заметку</h3>
+        <div class="collaboration-dialog__link-row">
+            <a class="collaboration-dialog__link" href="#" target="_blank" rel="noopener noreferrer" data-collaboration-link></a>
+            <button class="modal__button collaboration-dialog__copy" type="button" data-collaboration-copy>Скопировать</button>
+        </div>
+    </section>
+
+    <p class="modal__error" role="alert" data-collaboration-error hidden></p>
+</dialog>

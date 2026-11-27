@@ -189,14 +189,14 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      "/api": "http://localhost:5458",
+      "/api": { target: "http://localhost:5458", ws: true },
       "/avatars": "http://localhost:9002",
     },
   },
   preview: {
     port: 3000,
     proxy: {
-      "/api": "http://localhost:5458",
+      "/api": { target: "http://localhost:5458", ws: true },
       "/avatars": "http://localhost:9002",
     },
   },

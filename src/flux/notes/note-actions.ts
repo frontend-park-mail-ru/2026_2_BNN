@@ -388,3 +388,31 @@ export function setSaveStatus(status: SaveStatus): void {
 function putNote(note: NoteStateItem): void {
   dispatcher.dispatch({ type: "notes/updated", note });
 }
+
+export async function refreshNote(
+  id: string,
+  canApply: () => boolean
+): Promise<"updated" | "unchanged" | "deferred"> {
+  if (!canApply()) return "deferred";
+
+  const version = sessionVersion;
+  const revision = revisions.get(id) ?? 0;
+  const loaded = await api.getNote(id);
+
+  if (version !== sessionVersion || revision !== (revisions.get(id) ?? 0) || !canApply())
+    return "deferred";
+
+  const note = normalizeLoadedNote(loaded);
+  const previous = notesStore.getState().notes.find((item) => item.id === id);
+  if (
+    previous &&
+    previous.title === note.title &&
+    previous.parentId === note.parentId &&
+    JSON.stringify(previous.blocks) === JSON.stringify(note.blocks) &&
+    JSON.stringify(previous.tags) === JSON.stringify(note.tags)
+  )
+    return "unchanged";
+
+  putNote(note);
+  return "updated";
+}

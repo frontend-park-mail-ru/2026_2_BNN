@@ -17,9 +17,30 @@
             <button class="icon-button icon-button_favorite" type="button" aria-label="Избранное" aria-pressed="false" data-note-favorite disabled>
                 {{> icon name="heart"}}
             </button>
-            <button class="icon-button icon-button_disabled" type="button" aria-label="Поделиться" disabled>
-                {{> icon name="share"}}
-            </button>
+            <details class="share-menu" data-share-menu>
+                <summary class="icon-button share-menu__toggle" aria-label="Поделиться">
+                    {{> icon name="share"}}
+                </summary>
+                <div class="note-menu__panel share-menu__panel">
+                    <p class="share-menu__title">Поделиться</p>
+                    <button class="note-menu__item" type="button" data-share-provider="telegram">
+                        {{> icon name="telegram" size="s"}}
+                        Telegram
+                    </button>
+                    <button class="note-menu__item" type="button" data-share-provider="vk">
+                        {{> icon name="vk" size="s"}}
+                        VK
+                    </button>
+                    <button class="note-menu__item" type="button" data-share-provider="whatsapp">
+                        {{> icon name="whatsapp" size="s"}}
+                        WhatsApp
+                    </button>
+                    <button class="note-menu__item share-menu__access" type="button" data-collaboration-open>
+                        {{> icon name="collaboration" size="s"}}
+                        Совместный доступ
+                    </button>
+                </div>
+            </details>
             <div class="note-menu" data-note-menu>
                 <button class="icon-button" type="button" aria-label="Действия с заметкой" aria-haspopup="menu" aria-expanded="false" data-note-menu-toggle>
                     {{> icon name="menu"}}
