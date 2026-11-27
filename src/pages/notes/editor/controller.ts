@@ -17,6 +17,7 @@ import { createEditorSelection } from "@/pages/notes/editor/selection";
 import { getNoteDepth, MAX_NOTE_DEPTH } from "@/pages/notes/note-tree";
 import { toBlockView } from "@/pages/notes/editor/block-view";
 import * as noteActions from "@/flux/notes/note-actions";
+import { mountBlockReorder } from "@/pages/notes/editor/block-reorder";
 
 /** Узлы страницы и колбэки, которые редактор не берёт из store. */
 export interface EditorOptions {
@@ -601,6 +602,7 @@ export function createNoteEditor(options: EditorOptions) {
 
   /** Сбрасывает выделение, панель и меню перед перерисовкой заметки. */
   function resetSelection(): void {
+    cancelBlockReorder();
     voiceInput.abort();
     clearMarked();
     parkFormatBar();
@@ -637,6 +639,7 @@ export function createNoteEditor(options: EditorOptions) {
 
   const events = new AbortController();
   const signal = events.signal;
+  const cancelBlockReorder = mountBlockReorder(mainRegion, timerSave, signal);
   mainRegion.addEventListener(
     "focusin",
     (event) => {
