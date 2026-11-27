@@ -1,5 +1,33 @@
-<div class="notebook__block notebook__block_{{type}}{{#if isFileCard}} notebook__block_file-card{{/if}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
-    {{#if isAttachment}}
+<div class="notebook__block notebook__block_{{type}}{{#if isFileCard}} notebook__block_file-card{{else if isSubnote}} notebook__block_file-card{{/if}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
+    {{#if isCard}}
+        <button class="notebook__insert-paragraph" type="button" data-insert-paragraph
+                aria-label="Вставить абзац между карточками">
+            <span aria-hidden="true">+</span>
+        </button>
+    {{/if}}
+        {{#if isSubnote}}
+            <a
+                class="notebook__file"
+                href="{{childNoteHref}}"
+                data-link
+                data-child-note-id="{{childNoteId}}"
+                contenteditable="false"
+            >
+                <span class="notebook__file-icon" aria-hidden="true">
+                    {{> icon name="file"}}
+                </span>
+                <span class="notebook__child-note-title">{{childNoteTitle}}</span>
+            </a>
+
+            <button
+                class="notebook__attachment-remove"
+                type="button"
+                data-subnote-remove="{{childNoteId}}"
+                aria-label="Удалить подзаметку «{{childNoteTitle}}»"
+            >
+                {{> icon name="close" size="s"}}
+            </button>
+        {{else if isAttachment}}     
         {{#if isUploading}}
             <span class="notebook__attachment-status">
                 <span class="notebook__attachment-spinner" aria-hidden="true"></span>

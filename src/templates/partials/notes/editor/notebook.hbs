@@ -1,0 +1,57 @@
+<article class="notebook">
+    <div class="notebook__toolbar">
+        <nav class="notebook__nav" aria-label="Путь к заметке">
+            {{> note-path}}
+        </nav>
+        <span class="notebook__voice-input-status" data-voice-input-status aria-live="polite" hidden></span>
+        <span class="notebook__save-status" data-save-status>{{saveStatus}}</span>
+        <div class="notebook__actions">
+            <button class="icon-button" type="button" data-add-block aria-label="Добавить блок" title="Добавить блок">
+                {{> icon name="plus"}}
+            </button>
+            {{#if canUseVoiceInput}}
+                <button class="icon-button" type="button" aria-label="Голосовой ввод" aria-pressed="false" title="Голосовой ввод" data-voice-input-toggle>
+                    {{> icon name="mic"}}
+                </button>
+            {{/if}}
+            <button class="icon-button icon-button_favorite" type="button" aria-label="Избранное" aria-pressed="false" data-note-favorite disabled>
+                {{> icon name="heart"}}
+            </button>
+            <details class="share-menu" data-share-menu>
+                <summary class="icon-button share-menu__toggle" aria-label="Поделиться">
+                    {{> icon name="share"}}
+                </summary>
+                <div class="note-menu__panel share-menu__panel">
+                    <p class="share-menu__title">Поделиться</p>
+                    <button class="note-menu__item" type="button" data-share-provider="telegram">
+                        {{> icon name="telegram" size="s"}}
+                        Telegram
+                    </button>
+                    <button class="note-menu__item" type="button" data-share-provider="vk">
+                        {{> icon name="vk" size="s"}}
+                        VK
+                    </button>
+                    <button class="note-menu__item" type="button" data-share-provider="whatsapp">
+                        {{> icon name="whatsapp" size="s"}}
+                        WhatsApp
+                    </button>
+                    <button class="note-menu__item share-menu__access" type="button" data-collaboration-open>
+                        {{> icon name="collaboration" size="s"}}
+                        Совместный доступ
+                    </button>
+                </div>
+            </details>
+            <div class="note-menu" data-note-menu>
+                <button class="icon-button" type="button" aria-label="Действия с заметкой" aria-haspopup="menu" aria-expanded="false" data-note-menu-toggle>
+                    {{> icon name="menu"}}
+                </button>
+                <div class="note-menu__panel" role="menu" data-note-menu-panel hidden>
+                    <button class="note-menu__item note-menu__item_danger" type="button" role="menuitem" data-delete-open>Удалить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="notebook__content">
+        {{> note-content}}
+    </div>
+</article>

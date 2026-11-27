@@ -4,6 +4,7 @@ import { LoginTwoFactorPage } from "@/pages/login-2fa";
 import { SignupPage } from "@/pages/signup";
 import { NotFoundPage } from "@/pages/notfound";
 import { ensureAuth } from "@/flux/auth/auth-actions";
+import { rememberNotePath, takeNotePath } from "@/utils/auth-return";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
 export interface PageContext {
@@ -18,6 +19,7 @@ interface Page {
   /** Проверяет сохранение перед уходом. При false текущая страница остаётся открыта. */
   beforeLeave?(): Promise<boolean>;
   getUrl?(): string;
+  updateRoute?(context: PageContext): boolean;
   /** Возвращает HTML страницы. */
   render(context: PageContext): Promise<string>;
   /** Подключает обработчики после вставки разметки в DOM. */
@@ -47,9 +49,11 @@ const signupPage = new SignupPage();
 const routes: RouteRecord[] = [
   { path: "/", page: notesPage, auth: true },
   { path: "/notes", page: notesPage, auth: true },
-  { path: "/notes/favourites", page: notesPage, auth: true },
+  { path: "/notes/favorites/:id", page: notesPage, auth: true },
+  { path: "/notes/favorites", page: notesPage, auth: true },
   { path: "/notes/trash", page: notesPage, auth: true },
   { path: "/notes/notifications", page: notesPage, auth: true },
+  { path: "/notes/all", page: notesPage, auth: true },
   { path: "/notes/:id", page: notesPage, auth: true },
   { path: "/login", page: loginPage, guest: true },
   { path: "/login/2fa", page: loginTwoFactorPage, guest: true },
@@ -116,17 +120,28 @@ export async function router(): Promise<void> {
   if (matchedRoute?.auth) {
     const ok = await ensureAuth();
     if (thisRender !== renderId) return;
+
     if (!ok) {
+      rememberNotePath(path);
       await navigate("/login");
       return;
+    }
+
+    if (path === "/" || path === "/notes") {
+      const target = takeNotePath();
+      if (target !== "/notes") {
+        await navigate(target);
+        return;
+      }
     }
   }
 
   if (matchedRoute?.guest) {
     const ok = await ensureAuth();
     if (thisRender !== renderId) return;
+
     if (ok) {
-      await navigate("/notes");
+      await navigate(takeNotePath());
       return;
     }
   }
@@ -140,11 +155,15 @@ export async function router(): Promise<void> {
       return;
     }
   }
+  const context: PageContext = { path, params };
+  if (leaving === page && page.updateRoute?.(context)) {
+    currentUrl = path;
+    return;
+  }
   currentPage = null;
   await leaving?.destroy?.();
   if (thisRender !== renderId) return;
 
-  const context: PageContext = { path, params };
   const root = document.querySelector("#app");
   if (!root) {
     return;

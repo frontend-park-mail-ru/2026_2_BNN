@@ -14,11 +14,17 @@ const outputFile = path.join(__dirname, "../public/templates.compiled.js");
  * @returns Список JS-строк присваивания скомпилированных шаблонов.
  */
 function compileDir(dir: string, namespace: string): string[] {
+  const names = new Set<string>();
   return fs
-    .readdirSync(dir)
+    .readdirSync(dir, { recursive: true, encoding: "utf8" })
     .filter((file) => file.endsWith(".hbs"))
+    .sort()
     .map((file) => {
       const name = path.basename(file, ".hbs");
+      if (names.has(name)) {
+        throw new Error(`Повторяется имя шаблона в ${namespace}: ${file}`);
+      }
+      names.add(name);
       const source = fs.readFileSync(path.join(dir, file), "utf-8");
       const precompiled = Handlebars.precompile(source);
 
@@ -26,7 +32,7 @@ function compileDir(dir: string, namespace: string): string[] {
     });
 }
 
-const templates = compileDir(templatesDir, "Handlebars.templates");
+const templates = compileDir(path.join(templatesDir, "pages"), "Handlebars.templates");
 const partials = compileDir(partialsDir, "Handlebars.partials");
 
 const output = `(function () {

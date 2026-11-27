@@ -127,6 +127,7 @@ export function mountNotesSearch(options: {
 
   return {
     ensureDetails,
+    clear,
     hide: () => {
       results.hidden = true;
     },

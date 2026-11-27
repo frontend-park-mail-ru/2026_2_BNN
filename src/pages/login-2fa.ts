@@ -13,6 +13,7 @@ import {
   handleTwoFactorKeyDown,
   twoFactorCode,
 } from "@/components/forms/two-factor-input";
+import { takeNotePath } from "@/utils/auth-return";
 
 /**
  * Страница ввода TOTP после signin/OAuth (кука `bnn_2fa`, маршрут `/login/2fa`).
@@ -120,7 +121,7 @@ export class LoginTwoFactorPage {
 
     try {
       await authActions.verifyTwoFactor(code);
-      await navigate("/notes");
+      await navigate(takeNotePath());
     } catch (error) {
       if (!this.form) {
         return;

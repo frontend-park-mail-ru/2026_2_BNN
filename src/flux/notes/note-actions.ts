@@ -12,6 +12,8 @@ const NOTES_LIMIT = 100;
 const DETAILS_CONCURRENCY = 4;
 let sessionVersion = 0;
 let notesRequest: Promise<void> | null = null;
+let favoritesRequest: Promise<void> | null = null;
+const deletedDuringFavoritesLoad = new Set<string>();
 let detailsRequest: Promise<void> | null = null;
 const noteRequests = new Map<string, Promise<void>>();
 const revisions = new Map<string, number>();
@@ -21,6 +23,8 @@ dispatcher.register((action) => {
   if (action.type === "auth/data-cleared") {
     sessionVersion += 1;
     notesRequest = null;
+    favoritesRequest = null;
+    deletedDuringFavoritesLoad.clear();
     detailsRequest = null;
     noteRequests.clear();
     revisions.clear();
@@ -35,8 +39,55 @@ dispatcher.register((action) => {
     revisions.set(id, (revisions.get(id) ?? 0) + 1);
   }
   if (action.type === "tags/saved") tagOverrides.set(action.tag.id, action.tag);
+  if (action.type === "notes/deleted" && favoritesRequest)
+    deletedDuringFavoritesLoad.add(action.id);
   if (action.type === "tags/deleted") tagOverrides.set(action.id, null);
 });
+
+/** Загружает отметки один раз за сессию. После ошибки вызов можно повторить. */
+export function loadFavorites(): Promise<void> {
+  if (favoritesRequest) return favoritesRequest;
+  if (notesStore.getState().favoritesStatus === "ready") return Promise.resolve();
+  const version = sessionVersion;
+  const request = api
+    .getFavorites()
+    .then((notes) => {
+      if (version !== sessionVersion) return;
+      const ids = notes.map((note) => note.id).filter((id) => !deletedDuringFavoritesLoad.has(id));
+      dispatcher.dispatch({ type: "notes/favorites-loaded", ids });
+    })
+    .catch(() => {
+      if (version === sessionVersion) dispatcher.dispatch({ type: "notes/favorites-failed" });
+    })
+    .finally(() => {
+      if (version === sessionVersion) {
+        favoritesRequest = null;
+        deletedDuringFavoritesLoad.clear();
+      }
+    });
+  favoritesRequest = request;
+  dispatcher.dispatch({ type: "notes/favorites-loading" });
+  return request;
+}
+
+/** Меняет отметку только после подтверждения сервера. */
+export async function toggleFavorite(id: string): Promise<void> {
+  const state = notesStore.getState();
+  if (state.favoritesStatus !== "ready" || id === "new" || state.pendingFavoriteIds.includes(id))
+    return;
+  const version = sessionVersion;
+  const favorite = !state.favoriteIds.includes(id);
+  dispatcher.dispatch({ type: "notes/favorite-pending", id });
+  try {
+    await api.setFavorite(id, favorite);
+  } catch (error) {
+    if (version !== sessionVersion) return;
+    dispatcher.dispatch({ type: "notes/favorite-finished", id });
+    throw error;
+  }
+  if (version === sessionVersion)
+    dispatcher.dispatch({ type: "notes/favorite-finished", id, favorite });
+}
 
 /**
  * Ждёт запрос и отклоняет его, если за это время вышли или сменили пользователя.
@@ -196,13 +247,19 @@ export function loadNote(id: string, options: { retry?: boolean } = {}): Promise
  *
  * @param options `retry` повторяет догрузку после ошибки.
  */
-export function loadMissingDetails(options: { retry?: boolean } = {}): Promise<void> {
+export function loadMissingDetails(
+  options: { retry?: boolean; tagsOnly?: boolean; ids?: ReadonlySet<string> } = {}
+): Promise<void> {
   if (detailsRequest) return detailsRequest;
   const state = notesStore.getState();
   if (state.status !== "ready" || (!options.retry && state.detailsStatus === "error"))
     return Promise.resolve();
   const queue = state.notes
-    .filter((note) => !note.isLoaded || !note.tagsLoaded)
+    .filter(
+      (note) =>
+        (!options.ids || options.ids.has(note.id)) &&
+        (!note.tagsLoaded || (!options.tagsOnly && !note.isLoaded))
+    )
     .map((note) => note.id);
   if (!queue.length) return Promise.resolve();
   const version = sessionVersion;
@@ -330,4 +387,32 @@ export function setSaveStatus(status: SaveStatus): void {
  */
 function putNote(note: NoteStateItem): void {
   dispatcher.dispatch({ type: "notes/updated", note });
+}
+
+export async function refreshNote(
+  id: string,
+  canApply: () => boolean
+): Promise<"updated" | "unchanged" | "deferred"> {
+  if (!canApply()) return "deferred";
+
+  const version = sessionVersion;
+  const revision = revisions.get(id) ?? 0;
+  const loaded = await api.getNote(id);
+
+  if (version !== sessionVersion || revision !== (revisions.get(id) ?? 0) || !canApply())
+    return "deferred";
+
+  const note = normalizeLoadedNote(loaded);
+  const previous = notesStore.getState().notes.find((item) => item.id === id);
+  if (
+    previous &&
+    previous.title === note.title &&
+    previous.parentId === note.parentId &&
+    JSON.stringify(previous.blocks) === JSON.stringify(note.blocks) &&
+    JSON.stringify(previous.tags) === JSON.stringify(note.tags)
+  )
+    return "unchanged";
+
+  putNote(note);
+  return "updated";
 }

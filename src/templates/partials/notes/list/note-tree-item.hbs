@@ -1,0 +1,27 @@
+<li class="note-tree__item">
+    <div class="note-tree__row{{#if isActive}} note-tree__row_active{{/if}}">
+        {{#if children.length}}
+            <button
+                type="button"
+                class="note-tree__toggle"
+                data-note-tree-toggle="{{id}}"
+                aria-expanded="true"
+                aria-label="Свернуть вложенные заметки"
+            >
+                {{> icon name="file"}}<span class="note-tree__arrow" aria-hidden="true"></span>
+            </button>
+        {{else}}
+            <span class="note-tree__leaf" aria-hidden="true">{{> icon name="file"}}</span>
+        {{/if}}
+
+        {{> notecard}}
+    </div>
+
+    {{#if children.length}}
+        <ul class="note-tree__children" data-note-tree-children>
+            {{#each children}}
+                {{> note-tree-item}}
+            {{/each}}
+        </ul>
+    {{/if}}
+</li>

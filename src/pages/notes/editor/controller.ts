@@ -14,6 +14,9 @@ import {
 } from "@/pages/notes/editor/inline-format";
 import { createEditorPersistence } from "@/pages/notes/editor/persistence";
 import { createEditorSelection } from "@/pages/notes/editor/selection";
+import { getNoteDepth, MAX_NOTE_DEPTH } from "@/pages/notes/note-tree";
+import { toBlockView } from "@/pages/notes/editor/block-view";
+import * as noteActions from "@/flux/notes/note-actions";
 
 /** Узлы страницы и колбэки, которые редактор не берёт из store. */
 export interface EditorOptions {
@@ -32,6 +35,8 @@ export interface EditorOptions {
 export function createNoteEditor(options: EditorOptions) {
   const { page, mainRegion, showTitleInList } = options;
   let noteId = options.noteId;
+  let focusedBlock: HTMLElement | null = null;
+  let pendingSubnote: Promise<void> | null = null;
   let active = true;
   const isActive = () => active && options.isActive();
   const formatBar = page.querySelector<HTMLElement>("[data-format-bar]");
@@ -69,12 +74,14 @@ export function createNoteEditor(options: EditorOptions) {
     document: editorDocument,
     timerSave,
     attachFile: (block, requested) => attachments.attachFile(block, requested),
+    createSubnote: startSubnote,
   });
   const { openBlockMenu, closeBlockMenu, moveBlockMenu, chooseBlockType } = menu;
   const persistence = createEditorPersistence({
     mainRegion,
     document: editorDocument,
     getNoteId: () => noteId,
+    needsParent: () => pendingSubnote !== null,
     setNoteId: (id) => {
       noteId = id;
       if (isActive()) options.onCreated(id);
@@ -103,6 +110,7 @@ export function createNoteEditor(options: EditorOptions) {
     onError: (message) => options.showToast(message, true),
     onActiveChange: voiceInputView.setVoiceInputActive,
   });
+
   /**
    * Убирает панель форматирования из блока, который сейчас заменят.
    *
@@ -111,9 +119,89 @@ export function createNoteEditor(options: EditorOptions) {
   function beforeReplace(block: HTMLElement): void {
     if (formatBar && block.contains(formatBar)) selection.parkFormatBar();
   }
+
   /** Планирует автосохранение после изменения в редакторе. */
   function timerSave(): void {
     autosave.schedule();
+  }
+
+  /** Планирует создание подзаметки после `/`. */
+  function startSubnote(block: HTMLElement): void {
+    if (pendingSubnote) return;
+
+    pendingSubnote = createSubnote(block)
+      .catch(() => {
+        if (isActive()) {
+          options.showToast("Не удалось создать подзаметку", true);
+        }
+      })
+      .finally(() => {
+        pendingSubnote = null;
+      });
+  }
+
+  /** Создаёт подзаметку после `/`. */
+  async function createSubnote(block: HTMLElement): Promise<void> {
+    const text = block.querySelector<HTMLElement>("[data-block-text]");
+    if (!text) return;
+    const command = text.innerText.trim();
+    if (command !== "/" && command !== "") return;
+
+    if (!noteId) return;
+
+    const depth = noteId === "new" ? 0 : getNoteDepth(notesStore.getState().notes, noteId);
+
+    if (depth === null) {
+      options.showToast("Не удалось определить уровень вложенности заметки", true);
+      return;
+    }
+
+    if (depth >= MAX_NOTE_DEPTH) {
+      options.showToast(`Достигнут предел вложенности — ${MAX_NOTE_DEPTH} уровней`, true);
+      return;
+    }
+
+    // Для черновика persistence создаст родителя и обновит noteId.
+    timerSave();
+    if (!(await autosave.flush())) {
+      options.showToast("Не удалось сохранить родительскую заметку", true);
+      return;
+    }
+
+    const parentId = noteId;
+    if (!parentId || parentId === "new" || !isActive()) return;
+    if (!mainRegion.contains(block) || text.innerText.trim() !== command) return;
+
+    const child = await noteActions.createNote({ parent_note_id: parentId });
+
+    if (!isActive() || noteId !== parentId) return;
+
+    // Пользователь мог изменить строку, пока шёл запрос.
+    if (!mainRegion.contains(block) || text.innerText.trim() !== command) {
+      options.showToast("Подзаметка создана. Её можно открыть в списке заметок.");
+      return;
+    }
+
+    const view = toBlockView({
+      id: block.dataset.blockId ?? "",
+      content: { type: "subnote", text: "", childNoteId: child.id },
+    });
+
+    const inserted = editorDocument.replaceBlock(block, view);
+
+    let following = inserted.nextElementSibling;
+    while (following && !following.querySelector("[data-block-text]")) {
+      following = following.nextElementSibling;
+    }
+    const nextText =
+      following?.querySelector<HTMLElement>("[data-block-text]") ??
+      insertBlockAfter(inserted, "text");
+    if (nextText) placeCaret(nextText, false);
+
+    timerSave();
+    if (!(await autosave.flush()) && isActive()) {
+      options.showToast("Подзаметка создана, но ссылку пока не удалось сохранить", true);
+    }
   }
 
   /**
@@ -192,6 +280,7 @@ export function createNoteEditor(options: EditorOptions) {
         timerSave();
         return;
       }
+
       if (event.key.length === 1) {
         event.preventDefault();
         const host = deleteMarked();
@@ -430,10 +519,14 @@ export function createNoteEditor(options: EditorOptions) {
   /** Не даёт кнопке голосового ввода забрать фокус и каретку из текста заметки. */
   function onMainMouseDown(event: MouseEvent): void {
     const target = event.target;
-    if (target instanceof Element && target.closest("[data-voice-input-toggle]")) {
+    if (
+      target instanceof Element &&
+      target.closest("[data-voice-input-toggle], [data-add-block]")
+    ) {
       event.preventDefault();
     }
   }
+
   /**
    * Обрабатывает клики панели формата, меню блока, удаления вложения и микрофона.
    *
@@ -441,6 +534,33 @@ export function createNoteEditor(options: EditorOptions) {
    * @returns `true`, если клик относится к редактору.
    */
   function handleClick(target: Element): boolean {
+    if (target.closest("[data-add-block]")) {
+      if (mainRegion.querySelector("[data-block-menu]")) {
+        closeBlockMenu();
+        return true;
+      }
+      const block =
+        focusedBlock && mainRegion.contains(focusedBlock)
+          ? focusedBlock
+          : mainRegion.querySelector<HTMLElement>("[data-note-body] > [data-block]");
+      if (block) {
+        block.scrollIntoView({ block: "nearest" });
+        openBlockMenu(block, true);
+      }
+      return true;
+    }
+    const insert = target.closest("[data-insert-paragraph]");
+    if (insert) {
+      const previous = insert.closest("[data-block]")?.previousElementSibling;
+      if (previous instanceof HTMLElement && previous.querySelector("[data-insert-paragraph]")) {
+        const text = insertBlockAfter(previous, "text");
+        if (text) {
+          placeCaret(text, false);
+          timerSave();
+        }
+      }
+      return true;
+    }
     if (target.closest("[data-selection-type-toggle]")) {
       toggleSelectionTypeMenu();
       return true;
@@ -478,6 +598,7 @@ export function createNoteEditor(options: EditorOptions) {
     }
     return false;
   }
+
   /** Сбрасывает выделение, панель и меню перед перерисовкой заметки. */
   function resetSelection(): void {
     voiceInput.abort();
@@ -485,6 +606,7 @@ export function createNoteEditor(options: EditorOptions) {
     parkFormatBar();
     closeBlockMenu();
   }
+
   /** По Escape останавливает диктовку и закрывает меню редактора. */
   function escape(): void {
     voiceInput.stop();
@@ -492,7 +614,9 @@ export function createNoteEditor(options: EditorOptions) {
     closeSelectionTypeMenu();
     closeBlockMenu();
   }
+
   let lastStatus = notesStore.getState().saveStatus;
+
   /** Обновляет подпись «Сохраняется…», «Сохранено» или «Не сохранено». */
   function renderSaveStatus(): void {
     const status = notesStore.getState().saveStatus;
@@ -502,6 +626,7 @@ export function createNoteEditor(options: EditorOptions) {
       label.classList.toggle("notebook__save-status_error", status === "error");
     }
   }
+
   const unsubscribe = notesStore.subscribe(() => {
     const status = notesStore.getState().saveStatus;
     if (status !== lastStatus) {
@@ -509,8 +634,19 @@ export function createNoteEditor(options: EditorOptions) {
       renderSaveStatus();
     }
   });
+
   const events = new AbortController();
   const signal = events.signal;
+  mainRegion.addEventListener(
+    "focusin",
+    (event) => {
+      if (event.target instanceof Element) {
+        const block = event.target.closest<HTMLElement>("[data-block]");
+        if (block || event.target.matches("[data-note-title]")) focusedBlock = block;
+      }
+    },
+    { signal }
+  );
   mainRegion.addEventListener("input", onNoteInput, { signal });
   mainRegion.addEventListener("change", onNoteChange, { signal });
   mainRegion.addEventListener("keydown", onNoteKeyDown, { signal });
@@ -529,11 +665,13 @@ export function createNoteEditor(options: EditorOptions) {
   window.addEventListener("dragover", onDragOver, { signal });
   window.addEventListener("drop", onDrop, { signal });
   window.addEventListener("dragleave", onDragLeave, { signal });
+
   return {
     /** Идентификатор открытой заметки. `new` означает ещё не созданный черновик. */
     get noteId() {
       return noteId;
     },
+
     /**
      * Запоминает id после создания черновика или перехода к другой заметке.
      *
@@ -548,6 +686,12 @@ export function createNoteEditor(options: EditorOptions) {
     scheduleSave: timerSave,
     retrySave: () => autosave.run(),
     clearSave: () => autosave.clear(),
+    hasPendingChanges: () =>
+      autosave.hasPending() ||
+      autosave.isSaving() ||
+      pendingSubnote !== null ||
+      attachments.hasPending(),
+
     /**
      * Останавливает диктовку, дожидается загрузок и сохраняет заметку.
      *
@@ -556,8 +700,10 @@ export function createNoteEditor(options: EditorOptions) {
     async beforeLeave(): Promise<boolean> {
       voiceInput.abort();
       await attachments.finish();
+      await pendingSubnote;
       return autosave.flush();
     },
+
     /** Снимает обработчики редактора и отменяет незапущенное сохранение. */
     destroy(): void {
       active = false;
@@ -568,5 +714,6 @@ export function createNoteEditor(options: EditorOptions) {
     },
   };
 }
+
 /** Редактор одной заметки: идентификатор, сохранение и снятие обработчиков. */
 export type NoteEditor = ReturnType<typeof createNoteEditor>;

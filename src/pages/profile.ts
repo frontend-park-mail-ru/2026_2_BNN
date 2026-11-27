@@ -78,7 +78,9 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   }
   const unsubscribeProfile = profileStore.subscribe(schedule);
   const unsubscribeAuth = authStore.subscribe(schedule);
-  const unsubscribeNotes = notesStore.subscribe(schedule);
+  const unsubscribeNotes = notesStore.subscribe(() => {
+    if (options.notesCount() !== previousCount) schedule();
+  });
   page.addEventListener(
     "click",
     (event) => {

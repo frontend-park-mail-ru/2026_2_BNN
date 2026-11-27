@@ -29,6 +29,11 @@ export type DetailsStatus = "idle" | "loading" | "ready" | "error";
 
 /** Действия списка, одной заметки, сохранения и догрузки деталей. */
 export type NoteAction =
+  | { type: "notes/favorites-loading" }
+  | { type: "notes/favorites-loaded"; ids: string[] }
+  | { type: "notes/favorites-failed" }
+  | { type: "notes/favorite-pending"; id: string }
+  | { type: "notes/favorite-finished"; id: string; favorite?: boolean }
   | { type: "notes/save-status-changed"; status: SaveStatus }
   | { type: "notes/loading" }
   | { type: "notes/loaded"; notes: NoteStateItem[] }

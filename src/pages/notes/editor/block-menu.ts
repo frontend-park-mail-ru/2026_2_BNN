@@ -15,6 +15,7 @@ export function createBlockMenu(options: {
   document: EditorDocument;
   timerSave: () => void;
   attachFile: (block: HTMLElement, requested: AttachmentRequest) => Promise<void>;
+  createSubnote: (block: HTMLElement) => void;
 }) {
   const { mainRegion, timerSave, attachFile } = options;
   const { replaceBlock } = options.document;
@@ -24,7 +25,7 @@ export function createBlockMenu(options: {
    *
    * @param block Блок, в котором ввели `/`.
    */
-  function openBlockMenu(block: HTMLElement): void {
+  function openBlockMenu(block: HTMLElement, fromToolbar = false): void {
     closeBlockMenu();
     block.insertAdjacentHTML(
       "beforeend",
@@ -32,21 +33,27 @@ export function createBlockMenu(options: {
     );
 
     const menu = block.querySelector<HTMLElement>("[data-block-menu]");
-    const notebook = block.closest<HTMLElement>(".notebook");
-    if (!menu || !notebook) {
+    const content = block.closest<HTMLElement>(".notebook__content");
+    if (!menu || !content) {
       return;
     }
+    menu.toggleAttribute("data-from-toolbar", fromToolbar);
+    menu.addEventListener("focusin", (event) => {
+      if (!(event.target instanceof HTMLElement) || !event.target.matches("[data-block-option]"))
+        return;
+      menu.querySelector(".block-menu__item_active")?.classList.remove("block-menu__item_active");
+      event.target.classList.add("block-menu__item_active");
+    });
 
     const gap = 6;
     const edgePadding = 8;
-    const notebookRect = notebook.getBoundingClientRect();
+    const contentTop = content.getBoundingClientRect().top + content.clientTop;
     const blockRect = block.getBoundingClientRect();
     const menuHeight = menu.getBoundingClientRect().height;
 
-    const visibleTop = Math.max(0, notebookRect.top + notebook.clientTop) + edgePadding;
+    const visibleTop = Math.max(0, contentTop) + edgePadding;
     const visibleBottom =
-      Math.min(window.innerHeight, notebookRect.top + notebook.clientTop + notebook.clientHeight) -
-      edgePadding;
+      Math.min(window.innerHeight, contentTop + content.clientHeight) - edgePadding;
 
     const spaceBelow = Math.max(0, visibleBottom - blockRect.bottom - gap);
     const spaceAbove = Math.max(0, blockRect.top - visibleTop - gap);
@@ -59,6 +66,7 @@ export function createBlockMenu(options: {
       menu.style.top = "auto";
       menu.style.bottom = `calc(100% + ${gap}px)`;
     }
+    if (fromToolbar) menu.focus({ preventScroll: true });
   }
 
   /**
@@ -82,6 +90,9 @@ export function createBlockMenu(options: {
     const next = items[(current + step + items.length) % items.length];
     items[current]?.classList.remove("block-menu__item_active");
     next.classList.add("block-menu__item_active");
+    if (menu.contains(document.activeElement) && menu !== document.activeElement) {
+      next.focus({ preventScroll: true });
+    }
     next.scrollIntoView({ block: "nearest" });
   }
 
@@ -92,7 +103,22 @@ export function createBlockMenu(options: {
    * @param type Новый тип.
    */
   function chooseBlockType(block: HTMLElement, type: BlockType): void {
+    const fromToolbar = !!block.querySelector("[data-block-menu][data-from-toolbar]");
     closeBlockMenu();
+    if (fromToolbar) {
+      const text = block.querySelector<HTMLElement>("[data-block-text]");
+      if (block.dataset.blockType !== "text" || text?.textContent) {
+        const inserted = options.document.insertBlockAfter(block, "text");
+        const newBlock = inserted?.closest<HTMLElement>("[data-block]");
+        if (!newBlock) return;
+        block = newBlock;
+      }
+    }
+
+    if (type === "subnote") {
+      options.createSubnote(block);
+      return;
+    }
 
     if (type === "file" || type === "image") {
       void attachFile(block, type);
