@@ -14,7 +14,7 @@
             <div class="notebook__actions notebook__actions_disabled">
                 {{> icon name="heart"}}
                 {{> icon name="share"}}
-                {{> icon name="menu"}}
+                {{> icon name="trash"}}
             </div>
         </div>
         <div class="notebook__content">
@@ -32,6 +32,19 @@
             <button class="notebook__action notebook__action_secondary" type="button" data-retry>Повторить</button>
         </div>
     </article>
+{{else if isFavoritesOverview}}
+    <article class="notebook notebook_centered">
+        <div class="notebook__message">
+            <span class="notebook__status">{{> icon name="folder-heart" size="l"}}</span>
+            {{#if hasFavorites}}
+                <h2 class="notebook__message-title">Избранное</h2>
+                <p class="notebook__message-text">Выберите заметку в списке</p>
+            {{else}}
+                <h2 class="notebook__message-title">Пока нет избранных заметок</h2>
+                <p class="notebook__message-text">Нажмите на сердечко в заметке, чтобы добавить её сюда</p>
+            {{/if}}
+        </div>
+    </article>
 {{else if isEmpty}}
     <article class="notebook notebook_centered">
         <div class="notebook__message">
@@ -45,7 +58,9 @@
     <article class="notebook notebook_centered">
         <div class="notebook__message">
             <span class="notebook__status">{{> icon name="file" size="l"}}</span>
-            <h2 class="notebook__message-title">Добро пожаловать</h2>
+            <h2 class="notebook__message-title">
+                {{#if isAllNotes}}Все заметки{{else}}Добро пожаловать{{/if}}
+            </h2>
             <p class="notebook__message-text">Выберите заметку<br>или создайте новую</p>
             <button class="notebook__action" type="button" data-new-note>Создать заметку</button>
         </div>

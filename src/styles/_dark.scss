@@ -67,16 +67,6 @@
     }
   }
 
-  .note-menu__item_danger {
-    color: var(--danger);
-    background-color: var(--danger-bg);
-
-    &:hover,
-    &:focus-visible {
-      background-color: var(--danger-bg-hover);
-    }
-  }
-
   .toast__icon_ok {
     color: var(--success);
   }
@@ -194,7 +184,6 @@
   .profile__button:disabled,
   .tag-form__submit:disabled,
   .tag-form__cancel:disabled,
-  .note-menu__item:disabled,
   input:disabled,
   [aria-disabled="true"] {
     color: var(--disabled);

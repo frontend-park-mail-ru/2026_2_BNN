@@ -2,6 +2,7 @@ import type { SaveStatus } from "@/flux/notes/note-action-types";
 import type { BlockType } from "@/types/note";
 /** Пауза после ввода, через которую заметка сохраняется, в миллисекундах. */
 export const SAVE_DELAY = 1000;
+
 /** Максимальная длина заголовка заметки. */
 export const TITLE_MAX_LENGTH = 255;
 
@@ -10,6 +11,7 @@ export const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "checklist"];
 
 /** Пункты меню выбора типа блока. */
 export const BLOCK_OPTIONS: Array<{ type: BlockType; label: string }> = [
+  { type: "subnote", label: "Подзаметка" },
   { type: "text", label: "Текст" },
   { type: "heading", label: "Заголовок" },
   { type: "subtitle", label: "Подзаголовок" },

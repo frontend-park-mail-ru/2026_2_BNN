@@ -41,19 +41,13 @@ export function syncProfileMenu(dialog: HTMLElement, profile: User): void {
 }
 
 /**
- * Обновляет логин, дату регистрации, счётчик заметок и аватар на странице и в модалке.
+ * Обновляет логин, дату регистрации и аватар на странице и в модалке.
  *
  * @param page Корень `.notes`.
  * @param dialog Корневой элемент `[data-profile-dialog]`.
  * @param profile Профиль пользователя.
- * @param notesCount Число заметок для статистики.
  */
-export function fillProfile(
-  page: HTMLElement,
-  dialog: HTMLElement,
-  profile: User,
-  notesCount: number
-): void {
+export function fillProfile(page: HTMLElement, dialog: HTMLElement, profile: User): void {
   page.querySelectorAll("[data-user-login]").forEach((node) => {
     node.textContent = profile.login;
   });
@@ -63,16 +57,11 @@ export function fillProfile(
     since.textContent = formatJoined(profile.created_at);
   }
 
-  const notes = page.querySelector("[data-stat='notes']");
-  if (notes) {
-    notes.textContent = String(notesCount);
-  }
-
   const src = api.avatarUrl(profile.avatar) || themeAsset("avatar");
   page
     .querySelectorAll<HTMLImageElement>(".profile__avatar-image, .user-menu__image")
     .forEach((image) => {
-      image.src = src;
+      if (image.getAttribute("src") !== src) image.src = src;
     });
 
   syncProfileMenu(dialog, profile);

@@ -12,7 +12,7 @@
                             {{> icon name="pencil" size="s"}}
                         </button>
                         <button class="tags-list__button tags-list__button_danger{{#if isConfirming}} tags-list__button_confirm{{/if}}" type="button" aria-label="Удалить тег {{name}}" data-tag-delete="{{id}}">
-                            {{#if isConfirming}}Удалить?{{else}}{{> icon name="trash" size="s"}}{{/if}}
+                            {{#if isConfirming}}Удалить?{{else}}{{> icon name="close" size="s"}}{{/if}}
                         </button>
                     </div>
                 {{/if}}

@@ -1,10 +1,13 @@
 <header class="header">
+    <button class="header__drawer" type="button" aria-label="Открыть список заметок" aria-controls="notes-sidebar" aria-expanded="false">
+        {{> icon name="menu" size="s"}}<span>BNN</span>
+    </button>
     <a href="/" class="header__logo" aria-label="На главную" data-link>
         <img class="header__logo-image" src="{{logoSrc}}" alt="Brand New Notes">
     </a>
     <search class="search">
         {{> icon name="search"}}
-        <input class="search__field" type="search" placeholder="Поиск по заметкам" aria-label="Поиск по заметкам" data-search>
+        <input class="search__field" type="search" placeholder="Поиск" aria-label="Поиск" data-search>
         <button class="search__clear" type="button" aria-label="Очистить поиск" data-search-clear>
             {{> icon name="close" size="s"}}
         </button>

@@ -11,7 +11,8 @@ import { uiStore } from "@/flux/ui/ui-store";
 import { router, navigate, type PageContext } from "@/router";
 import { createNoteEditor, type NoteEditor } from "@/pages/notes/editor/controller";
 import { getNotesElements } from "@/pages/notes/elements";
-import { buildNotesView, noteIdFor } from "@/pages/notes/view";
+import { mountMobileSidebar } from "@/pages/notes/mobile-sidebar";
+import { buildNotesView, isFavoritesPath, noteIdFor } from "@/pages/notes/view";
 import { getNote } from "@/pages/notes/selectors";
 import { mountNotesList } from "@/pages/notes/list";
 import { mountNotesSearch } from "@/pages/notes/search-controller";
@@ -26,13 +27,26 @@ interface NotesInstance {
   deleting: boolean;
   finishEditing: () => Promise<boolean>;
   dispose: () => void;
+  isDeletingChild: () => boolean;
+  updateRoute: (context: PageContext) => boolean;
 }
+
 let mounted: NotesInstance | null = null;
 let pendingFocusNoteId: string | null = null;
 let pendingToast = "";
 
 /** Собирает модули страницы; состояние запросов и данные принадлежат Flux. */
 export class NotesPage {
+  /**
+   * Меняет открытую заметку внутри уже смонтированной страницы.
+   *
+   * @param context Новый путь и параметры маршрута.
+   * @returns `false`, если страницу нужно перемонтировать целиком.
+   */
+  updateRoute(context: PageContext): boolean {
+    return mounted?.updateRoute(context) ?? false;
+  }
+
   /**
    * Рендерит страницу заметок по текущему маршруту.
    *
@@ -42,6 +56,7 @@ export class NotesPage {
   async render(context: PageContext): Promise<string> {
     return Handlebars.templates["notes"](buildNotesView(context, noteIdFor(context)));
   }
+
   /**
    * Подключает список, поиск, редактор и диалоги и запускает загрузку заметок.
    *
@@ -71,10 +86,95 @@ export class NotesPage {
     let mainKey = mainRenderKey(openedNoteId);
     let frame = 0;
     let redirecting = false;
+    let childToDelete: string | null = null;
     const events = new AbortController();
+    mountMobileSidebar(page, events.signal);
+
+    // Измеряем полную цепочку даже тогда, когда пользователю показано меню.
+    const pathObserver = new ResizeObserver(syncBreadcrumbWidth);
+
+    /** Прячет длинную цепочку пути в меню, если она не помещается в шапку заметки. */
+    function syncBreadcrumbWidth(): void {
+      const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
+      const nav = trail?.closest<HTMLElement>(".notebook__nav");
+      if (!nav || !trail) return;
+      const fits = trail.getBoundingClientRect().width <= nav.getBoundingClientRect().width;
+      nav.toggleAttribute("data-path-fits", fits);
+      if (fits) nav.querySelector("details")?.removeAttribute("open");
+    }
+
+    const compactEditor = window.matchMedia("(max-width: 800px)");
+
+    /**
+     * На узком экране переносит кнопки заметки в меню, на широком возвращает их в шапку.
+     */
+    function syncEditorActions(): void {
+      const actions = mainRegion.querySelector(".notebook__actions");
+      const menu = actions?.querySelector("[data-note-menu]");
+      const panel = menu?.querySelector("[data-note-menu-panel]");
+      if (!actions || !menu || !panel) return;
+      const source = compactEditor.matches ? actions : panel;
+      const destination = compactEditor.matches ? panel : actions;
+      const before = compactEditor.matches ? null : menu;
+      for (const button of source.querySelectorAll(":scope > .icon-button")) {
+        destination.insertBefore(button, before);
+        if (compactEditor.matches) button.setAttribute("role", "menuitem");
+        else button.removeAttribute("role");
+      }
+      setNoteMenu(false);
+    }
+
+    compactEditor.addEventListener("change", syncEditorActions, { signal: events.signal });
+
+    /** Следит за шириной пути и раскладкой кнопок после перерисовки заметки. */
+    function syncScrollHints(): void {
+      const area = mainRegion.querySelector(".notebook__scroll-area");
+      const content = area?.firstElementChild;
+      if (!area || !content) return;
+      area.toggleAttribute("data-scroll-up", content.scrollTop > 1);
+      area.toggleAttribute(
+        "data-scroll-down",
+        content.scrollTop + content.clientHeight < content.scrollHeight - 1
+      );
+    }
+
+    const scrollObserver = new ResizeObserver(syncScrollHints);
+    mainRegion.addEventListener(
+      "scroll",
+      (event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.matches(".notebook__scroll-area > .notebook__content")
+        )
+          syncScrollHints();
+      },
+      { capture: true, signal: events.signal }
+    );
+
+    function observeBreadcrumbs(): void {
+      scrollObserver.disconnect();
+      for (const element of mainRegion.querySelectorAll(
+        ".notebook__scroll-area > .notebook__content, .notebook__scroll-area > .notebook__content > *"
+      )) {
+        scrollObserver.observe(element);
+      }
+      syncScrollHints();
+      syncEditorActions();
+      pathObserver.disconnect();
+      const trail = mainRegion.querySelector<HTMLElement>(".note-path__trail");
+      const nav = trail?.closest<HTMLElement>(".notebook__nav");
+      if (!nav || !trail) return;
+      pathObserver.observe(nav);
+      pathObserver.observe(trail);
+      syncBreadcrumbWidth();
+    }
+
+    observeBreadcrumbs();
     const list = mountNotesList({
       region: listRegion,
-      context,
+      get context() {
+        return context;
+      },
       getNoteId: () => editor.noteId,
       getTitle: () =>
         mainRegion.querySelector<HTMLElement>("[data-note-title]")?.textContent?.trim(),
@@ -111,11 +211,11 @@ export class NotesPage {
       },
     });
     const destroyProfile = mountProfile(page, {
-      notesCount: () => notesStore.getState().notes.length,
       onLogout: () => {
         logoutDialog.hidden = false;
       },
     });
+
     /**
      * Дожидается создания тега и сохраняет заметку перед уходом.
      *
@@ -141,10 +241,70 @@ export class NotesPage {
         editor.noteId = id;
       },
       deleting: false,
+
+      isDeletingChild: () => instance.deleting && childToDelete !== null,
+
+      /**
+       * Открывает другую заметку того же раздела, не уничтожая страницу.
+       *
+       * @param next Новый маршрут.
+       * @returns `false`, если раздел сменился или открыт диалог и нужен полный переход.
+       */
+      updateRoute(next) {
+        // Другие разделы и открытые диалоги имеют собственный жизненный цикл.
+        if (
+          isFavoritesPath(next.path) !== isFavoritesPath(context.path) ||
+          !next.params.id ||
+          redirecting ||
+          instance.deleting ||
+          page.querySelector(".modal:not([hidden])")
+        )
+          return false;
+
+        context = next;
+        instance.path = next.path;
+        editor.clearSave();
+        editor.noteId = next.params.id;
+        noteActions.setSaveStatus("idle");
+        searchView.clear();
+        tagPicker.close();
+        editor.resetSelection();
+        setNoteMenu(false);
+        const view = buildNotesView(context, editor.noteId);
+        const content = mainRegion.querySelector<HTMLElement>(".notebook__content");
+        const nav = mainRegion.querySelector<HTMLElement>(".notebook__nav");
+
+        if (
+          editorRendered &&
+          content &&
+          nav &&
+          view.hasNote &&
+          !view.isLoading &&
+          !view.isMainError
+        ) {
+          nav.innerHTML = Handlebars.partials["note-path"](view);
+          content.innerHTML = Handlebars.partials["note-content"](view);
+          content.scrollTop = 0;
+          syncFavoriteButton();
+          observeBreadcrumbs();
+          focusPendingTitle();
+        } else {
+          editorRendered = false;
+          mainKey = "";
+          syncPage();
+        }
+
+        list.render();
+        return true;
+      },
+
       finishEditing,
+
       /** Снимает обработчики страницы и вложенных модулей. */
       dispose() {
         events.abort();
+        scrollObserver.disconnect();
+        pathObserver.disconnect();
         window.cancelAnimationFrame(frame);
         unsubscribeNotes();
         unsubscribeAuth();
@@ -158,6 +318,49 @@ export class NotesPage {
     };
     mounted = instance;
 
+    /** Обновляет кнопку избранного по store: нажата, недоступна или ждёт повторной загрузки. */
+    function syncFavoriteButton(): void {
+      const button = mainRegion.querySelector<HTMLButtonElement>("[data-note-favorite]");
+      if (!button) return;
+      const id = editor.noteId;
+      const { favoriteIds, favoritesStatus, pendingFavoriteIds } = notesStore.getState();
+      const saved = !!id && id !== "new";
+      const pressed = saved && favoriteIds.includes(id);
+      const retry = favoritesStatus === "error";
+      button.disabled =
+        !saved || (!retry && favoritesStatus !== "ready") || pendingFavoriteIds.includes(id ?? "");
+      button.setAttribute("aria-pressed", String(pressed));
+      button.title = !saved
+        ? "Сначала сохраните заметку"
+        : retry
+          ? "Повторить загрузку избранного"
+          : pressed
+            ? "Убрать из избранного"
+            : "Добавить в избранное";
+      button.setAttribute("aria-label", retry ? button.title : "Избранное");
+    }
+
+    /**
+     * Переключает избранное у открытой заметки.
+     * Если список избранного не загрузился, сначала повторяет его загрузку.
+     */
+    async function toggleOpenedFavorite(): Promise<void> {
+      const id = editor.noteId;
+      if (!id || id === "new") return;
+      if (notesStore.getState().favoritesStatus === "error") {
+        await noteActions.loadFavorites();
+        if (isActive() && notesStore.getState().favoritesStatus === "error")
+          showToast("Не удалось загрузить избранное", true);
+        return;
+      }
+      try {
+        await noteActions.toggleFavorite(id);
+      } catch {
+        if (isActive() && editor.noteId === id)
+          showToast("Не удалось изменить отметку избранного", true);
+      }
+    }
+
     /** Ключ состояния основной области до появления редактора. Совпадение позволяет сохранить её DOM. */
     function mainRenderKey(id: string | undefined): string {
       const state = notesStore.getState();
@@ -169,6 +372,8 @@ export class NotesPage {
         state.loadError,
         getNote(id)?.isLoaded,
         load?.error,
+        context.path === "/notes/favorites" ? state.favoritesStatus : "",
+        context.path === "/notes/favorites" && state.favoriteIds.length > 0,
       ].join(":");
     }
 
@@ -187,12 +392,14 @@ export class NotesPage {
         void goToLogin();
         return;
       }
+
       const openedId = noteIdFor(context);
       if (openedId && !instance.noteId) {
         instance.noteId = openedId;
         history.replaceState(null, "", "/notes/" + openedId);
         list.render();
       }
+
       const id = instance.noteId;
       const note = getNote(id);
       const load = id ? state.noteLoads[id] : undefined;
@@ -202,16 +409,20 @@ export class NotesPage {
         void router();
         return;
       }
+
       if (!editorRendered) {
         const key = mainRenderKey(id);
         if (key !== mainKey) {
           mainKey = key;
           editor.resetSelection();
           mainRegion.innerHTML = Handlebars.partials["notes-main"](buildNotesView(context, id));
+          observeBreadcrumbs();
           editorRendered = mainRegion.querySelector("[data-note-title]") !== null;
           focusPendingTitle();
         }
       }
+
+      syncFavoriteButton();
       if (
         state.status === "ready" &&
         id &&
@@ -222,6 +433,7 @@ export class NotesPage {
       )
         void noteActions.loadNote(id);
     }
+
     /** Откладывает синхронизацию страницы на следующий кадр. */
     function schedulePage(): void {
       if (frame || !isActive()) return;
@@ -230,10 +442,13 @@ export class NotesPage {
         syncPage();
       });
     }
+
     const unsubscribeNotes = notesStore.subscribe(schedulePage);
     const unsubscribeAuth = authStore.subscribe(schedulePage);
+
     /** Повторяет загрузку списка, открытой заметки и догрузку для поиска. */
     function retryLoad(): void {
+      void noteActions.loadFavorites();
       const state = notesStore.getState();
       if (state.status !== "ready" || state.loadError) void noteActions.loadNotes({ retry: true });
       if (instance.noteId && instance.noteId !== "new")
@@ -241,6 +456,7 @@ export class NotesPage {
       list.ensureDetails(true);
       searchView.ensureDetails(true);
     }
+
     /** После возвращения сети прячет тост, досохраняет заметку и повторяет загрузку. */
     function onOnline(): void {
       hideToast();
@@ -248,6 +464,7 @@ export class NotesPage {
       retryLoad();
     }
     let online = uiStore.getState().online;
+
     /** Показывает тост из UiStore и реагирует на потерю или появление сети. */
     function renderUi(): void {
       const ui = uiStore.getState();
@@ -262,19 +479,32 @@ export class NotesPage {
       toast.hidden = state === null;
       toast.classList.toggle("toast_error", state?.isError ?? false);
     }
+
     const unsubscribeUi = uiStore.subscribe(renderUi);
     page.addEventListener("click", onPageClick, { signal: events.signal });
+
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        const path = page.querySelector<HTMLDetailsElement>(".note-path__details[open]");
+        if (path && event.target instanceof Node && !path.contains(event.target)) path.open = false;
+      },
+      { signal: events.signal }
+    );
+
     page.addEventListener("keydown", onPageKeyDown, { signal: events.signal });
     renderUi();
     if (pendingToast) {
       showToast(pendingToast);
       pendingToast = "";
     }
+
     if (!online) onOffline();
     syncPage();
     focusPendingTitle();
     list.ensureDetails();
     void noteActions.loadNotes();
+    void noteActions.loadFavorites();
     void tagActions.loadTags().catch((error) => {
       if (isActive() && error instanceof ApiError && error.status === 401) void goToLogin();
     });
@@ -351,23 +581,38 @@ export class NotesPage {
     /**
      * Показывает подтверждение удаления заметки.
      */
-    function openDeleteDialog(): void {
+    function openDeleteDialog(childId: string | null = null): void {
+      if (instance.deleting) return;
+
+      childToDelete = childId;
       setNoteMenu(false);
-      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
-      if (error) {
-        error.hidden = true;
+
+      const targetId = childId ?? instance.noteId;
+      const note = notesStore.getState().notes.find((item) => item.id === targetId);
+      const title = note?.title || "Без названия";
+
+      const message = deleteDialog.querySelector<HTMLElement>("[data-delete-message]");
+      if (message) {
+        message.textContent = childId
+          ? `Удалить вложенную заметку «${title}»?`
+          : `Удалить заметку «${title}»?`;
       }
+
+      const error = deleteDialog.querySelector<HTMLElement>("[data-delete-error]");
+      if (error) error.hidden = true;
+
       deleteDialog.hidden = false;
-      deleteDialog.querySelector<HTMLElement>("[data-delete-cancel]")?.focus();
+      deleteDialog.querySelector<HTMLButtonElement>("[data-delete-cancel]")?.focus();
     }
 
     /**
      * Прячет подтверждение удаления.
      */
     function closeDeleteDialog(): void {
-      if (!instance.deleting) {
-        deleteDialog.hidden = true;
-      }
+      if (instance.deleting) return;
+
+      deleteDialog.hidden = true;
+      childToDelete = null;
     }
 
     /**
@@ -415,7 +660,8 @@ export class NotesPage {
         return;
       }
 
-      const id = instance.noteId;
+      const childId = childToDelete;
+      const id = childId ?? instance.noteId;
       const index = notesStore.getState().notes.findIndex((note) => note.id === id);
       try {
         if (id && id !== "new") {
@@ -436,6 +682,32 @@ export class NotesPage {
           );
           return;
         }
+      }
+
+      if (childId) {
+        if (mounted !== instance) return;
+
+        const links = mainRegion.querySelectorAll<HTMLElement>("[data-child-note-id]");
+        for (const link of links) {
+          if (link.dataset.childNoteId === childId) {
+            link.closest<HTMLElement>("[data-block]")?.remove();
+          }
+        }
+
+        editor.scheduleSave();
+        const saved = await finishEditing();
+
+        if (mounted !== instance) return;
+
+        setDeleting(false);
+        closeDeleteDialog();
+
+        if (saved) {
+          showToast("Подзаметка удалена");
+        } else {
+          showToast("Подзаметка удалена, но изменение родительской заметки ещё не сохранено", true);
+        }
+        return;
       }
 
       editor.clearSave();
@@ -491,11 +763,10 @@ export class NotesPage {
     function showTitleInList(title: string): void {
       const text = title || "Без названия";
       list.updateTitle(title);
-      const crumbs = mainRegion.querySelectorAll<HTMLElement>(".notebook__crumb");
-      const last = crumbs[crumbs.length - 1];
-      if (last) {
-        last.textContent = text;
-      }
+
+      mainRegion.querySelectorAll<HTMLElement>("[data-current-crumb]").forEach((crumb) => {
+        crumb.textContent = text;
+      });
     }
 
     /**
@@ -510,6 +781,15 @@ export class NotesPage {
         return;
       }
 
+      const removeSubnote = target.closest<HTMLButtonElement>("[data-subnote-remove]");
+      const childId = removeSubnote?.dataset.subnoteRemove;
+
+      if (childId) {
+        openDeleteDialog(childId);
+        return;
+      }
+
+      if (target.closest("[data-note-menu-panel] button")) setNoteMenu(false);
       if (editor.handleClick(target)) return;
       if (
         tagPicker.handleClick(target) ||
@@ -520,6 +800,11 @@ export class NotesPage {
 
       if (!target.closest("[data-note-menu]")) {
         setNoteMenu(false);
+      }
+
+      if (target.closest("[data-note-favorite]")) {
+        void toggleOpenedFavorite();
+        return;
       }
 
       if (target.closest("[data-note-menu-toggle]")) {
@@ -584,6 +869,12 @@ export class NotesPage {
         return;
       }
 
+      const path = page.querySelector<HTMLDetailsElement>(".note-path__details[open]");
+      if (path) {
+        path.open = false;
+        path.querySelector("summary")?.focus();
+        return;
+      }
       editor.escape();
       searchView.hide();
       closeLogoutDialog();
@@ -599,14 +890,17 @@ export class NotesPage {
       uiActions.showToast("Потеря соединения", true, 0);
     }
   }
+
   /**
    * Адрес, который нужно вернуть в историю, если пользователь ушёл с черновика или профиля.
    *
    * @returns Путь открытой заметки или раздела.
    */
   getUrl(): string {
+    if (mounted && isFavoritesPath(mounted.path)) return mounted.path;
     return mounted?.noteId ? "/notes/" + mounted.noteId : (mounted?.path ?? "/notes");
   }
+
   /**
    * Сохраняет открытую заметку перед уходом с маршрута.
    *
@@ -615,11 +909,13 @@ export class NotesPage {
   async beforeLeave(): Promise<boolean> {
     const leaving = mounted;
     if (!leaving || authStore.getState().status !== "authenticated") return true;
+    if (leaving.isDeletingChild()) return false;
     const saved = await leaving.finishEditing();
     if (!saved && mounted === leaving)
       uiActions.showToast("Не удалось сохранить заметку. Правки остались в редакторе.", true);
     return saved;
   }
+
   /** Снимает обработчики страницы и скрывает тост. */
   async destroy(): Promise<void> {
     const leaving = mounted;

@@ -1,11 +1,13 @@
-<div class="sidebar">
+<div class="sidebar-backdrop" hidden></div>
+<div class="sidebar" id="notes-sidebar">
     <nav class="sidebar__nav">
         {{#each sections}}
             <a
                 href="{{href}}"
-                class="icon-button{{#if isActive}} icon-button_active{{/if}}{{#unless @first}} icon-button_disabled{{/unless}}"
+                class="icon-button{{#if isActive}} icon-button_active{{/if}}{{#unless enabled}} icon-button_disabled{{/unless}}"
                 aria-label="{{title}}"
-                {{#if @first}}data-link{{else}}aria-disabled="true" tabindex="-1"{{/if}}
+                {{#if isActive}}aria-current="page"{{/if}}
+                {{#if enabled}}data-link{{else}}aria-disabled="true" tabindex="-1"{{/if}}
             >
                 {{> icon name=icon}}
             </a>
@@ -33,9 +35,13 @@
         </div>
     </nav>
     <section class="sidebar__library">
-        <h2 class="sidebar__title">{{sectionTitle}}</h2>
+        <div class="sidebar__heading">
+            <h2 class="sidebar__title" id="sidebar-title">{{sectionTitle}}</h2>
+            <button type="button" class="icon-button sidebar__close" aria-label="Закрыть список заметок">{{> icon name="close" size="s"}}</button>
+        </div>
         <div class="sidebar__body" data-notes-list>
             {{> notes-list}}
         </div>
+        <button class="header__create sidebar__create" type="button" data-new-note>+ Новая заметка</button>
     </section>
 </div>

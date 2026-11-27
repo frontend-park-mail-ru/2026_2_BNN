@@ -2,6 +2,7 @@ import type { Tag } from "@/types/tag";
 
 /** Тип содержимого блока заметки. */
 export type BlockType =
+  | "subnote"
   | "text"
   | "heading"
   | "subtitle"
@@ -20,6 +21,7 @@ export interface BlockContent {
   attachmentId?: string;
   url?: string;
   size?: number;
+  childNoteId?: string;
 }
 
 /** Блок заметки с идентификатором. */

@@ -376,6 +376,27 @@ class Api {
   }
 
   /**
+   * Запрашивает заметки, отмеченные избранными.
+   *
+   * @returns Список избранных заметок.
+   */
+  async getFavorites(): Promise<Note[]> {
+    return (await this.request<Note[]>("/api/notes/favorites")) ?? [];
+  }
+
+  /**
+   * Ставит или снимает отметку избранного у заметки.
+   *
+   * @param id Идентификатор заметки.
+   * @param favorite `true` добавляет в избранное, `false` убирает.
+   */
+  async setFavorite(id: string, favorite: boolean): Promise<void> {
+    await this.request(`/api/notes/${encodeURIComponent(id)}/favorite`, {
+      method: favorite ? "POST" : "DELETE",
+    });
+  }
+
+  /**
    * Отправляет запрос на создание новой заметки.
    *
    * @param input Начальные данные заметки - название и идентификатор родительской заметки.

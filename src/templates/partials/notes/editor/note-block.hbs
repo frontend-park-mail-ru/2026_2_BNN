@@ -1,0 +1,70 @@
+<div class="notebook__block notebook__block_{{type}}{{#if isFileCard}} notebook__block_file-card{{else if isSubnote}} notebook__block_file-card{{/if}}" data-block data-block-id="{{id}}" data-block-type="{{type}}"{{#if isAttachment}} data-content="{{contentJson}}"{{/if}}>
+    <button
+        type="button"
+        class="notebook__drag-handle"
+        data-block-handle
+        aria-label="Переместить блок"
+        title="Переместить блок"
+        contenteditable="false"
+    ></button>
+    {{#if isCard}}
+        <button class="notebook__insert-paragraph" type="button" data-insert-paragraph
+                aria-label="Вставить абзац между карточками">
+            <span aria-hidden="true">+</span>
+        </button>
+    {{/if}}
+        {{#if isSubnote}}
+            <a
+                class="notebook__file"
+                href="{{childNoteHref}}"
+                data-link
+                data-child-note-id="{{childNoteId}}"
+                contenteditable="false"
+            >
+                <span class="notebook__file-icon" aria-hidden="true">
+                    {{> icon name="file"}}
+                </span>
+                <span class="notebook__child-note-title">{{childNoteTitle}}</span>
+            </a>
+
+            <button
+                class="notebook__attachment-remove"
+                type="button"
+                data-subnote-remove="{{childNoteId}}"
+                aria-label="Удалить подзаметку «{{childNoteTitle}}»"
+            >
+                {{> icon name="close" size="s"}}
+            </button>
+        {{else if isAttachment}}     
+        {{#if isUploading}}
+            <span class="notebook__attachment-status">
+                <span class="notebook__attachment-spinner" aria-hidden="true"></span>
+                Загрузка: {{text}}…
+            </span>
+        {{else if url}}
+            {{#if isImage}}
+                <img class="notebook__image" src="{{url}}" alt="{{text}}" loading="lazy">
+            {{else}}
+                <a class="notebook__file" href="{{url}}" target="_blank" rel="noopener" download="{{text}}">
+                    <span class="notebook__file-icon">
+                        {{> icon name="file"}}
+                    </span>
+                    <span class="notebook__file-details">
+                        <span class="notebook__file-name">{{text}}</span>
+                        <span class="notebook__file-meta">{{fileMeta}}</span>
+                    </span>
+                </a>
+            {{/if}}
+        {{else}}
+            <span class="notebook__attachment-status notebook__attachment-status_error">{{uploadError}}: {{text}}</span>
+        {{/if}}
+        {{#unless isUploading}}
+            <button class="notebook__attachment-remove" type="button" aria-label="Удалить файл" data-attachment-remove>
+                {{> icon name="close" size="s"}}
+            </button>
+        {{/unless}}
+    {{else}}
+        {{#if isChecklist}}<input class="notebook__check" type="checkbox" data-block-check {{#if checked}}checked{{/if}}>{{/if}}
+        <div class="notebook__text" contenteditable="true" data-block-text>{{inline text}}</div>
+    {{/if}}
+</div>

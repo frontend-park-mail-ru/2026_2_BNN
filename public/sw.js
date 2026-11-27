@@ -1,4 +1,4 @@
-const STATIC_CACHE = "bnn-static-v2";
+const STATIC_CACHE = "bnn-static-__BUILD_ID__";
 const API_CACHE = "bnn-api";
 
 const SHELL_FILES = [
@@ -107,7 +107,7 @@ async function putPaths(cache, paths) {
   await Promise.all(
     paths.map(async (path) => {
       try {
-        await cache.add(path);
+        await cache.add(new Request(path, { cache: "reload" }));
       } catch {
         // Один битый файл не должен срывать установку всего кэша.
       }
