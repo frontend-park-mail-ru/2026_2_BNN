@@ -5,6 +5,7 @@ import { mountAvatarForm } from "@/pages/profile/avatar-form";
 import { mountPasswordForm } from "@/pages/profile/password-form";
 import { mountTwoFactorForm } from "@/pages/profile/two-factor-form";
 import { fillProfile, showProfileView } from "@/pages/profile/view";
+import { api } from "@/api";
 
 /** Данные страницы, которые диалогу профиля сам store не отдаёт. */
 export interface ProfileOptions {
@@ -27,11 +28,54 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   let closeTimer: number | undefined;
   let previousUser: ReturnType<typeof authStore.getState>["user"] | undefined;
 
+  const onlineconfButton = dialog.querySelector<HTMLButtonElement>("[data-profile-onlineconf]");
+  let onlineconfUserId: string | null = null;
+  let onlineconfRequest: AbortController | undefined;
+
+  function syncOnlineconfAccess(userId: string | null): void {
+    if (!onlineconfButton || onlineconfUserId === userId) return;
+
+    onlineconfRequest?.abort();
+    onlineconfRequest = undefined;
+    onlineconfUserId = userId;
+    onlineconfButton.hidden = true;
+
+    if (!userId) return;
+
+    const request = new AbortController();
+    onlineconfRequest = request;
+
+    void api
+      .request<{ id: string; login: string }>("/api/onlineconf/admin/session", {
+        signal: request.signal,
+        cache: "no-store",
+      })
+      .then((session) => {
+        const auth = authStore.getState();
+        if (
+          onlineconfRequest === request &&
+          !request.signal.aborted &&
+          profileStore.getState().open &&
+          auth.status === "authenticated" &&
+          auth.user?.id === userId &&
+          session?.id === userId
+        ) {
+          onlineconfButton.hidden = false;
+        }
+      })
+      .catch(() => {
+        // Кнопка остаётся скрытой, если доступ не подтверждён.
+      });
+  }
+
   /** Обновляет данные пользователя и открытую форму диалога. */
   function render(): void {
     if (disposed) return;
     const state = profileStore.getState();
     const auth = authStore.getState();
+    syncOnlineconfAccess(
+      state.open && auth.status === "authenticated" ? (auth.user?.id ?? null) : null
+    );
     if (auth.user && auth.user !== previousUser) {
       fillProfile(page, dialog, auth.user);
       previousUser = auth.user;
@@ -91,6 +135,10 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         profileActions.showView("menu");
         return;
       }
+      if (onlineconfButton && !onlineconfButton.hidden && onlineconfButton.contains(target)) {
+        window.location.assign("/onlineconf/");
+        return;
+      }
       if (target.closest("[data-profile-password]")) {
         profileActions.showView("password");
         return;
@@ -117,6 +165,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
   render();
   return () => {
     disposed = true;
+    onlineconfRequest?.abort();
     events.abort();
     unsubscribeProfile();
     unsubscribeAuth();
