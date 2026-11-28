@@ -3,7 +3,13 @@ import catalog from "../templates/catalog.hbs";
 import results from "../templates/catalog-results.hbs";
 import sidebarKeys from "../templates/sidebar-keys.hbs";
 import type { Route } from "../router";
-import type { KeyFilters, KeyKind, KeyListItem, Scope } from "../types/onlineconf";
+import {
+  scopeLabel,
+  type KeyFilters,
+  type KeyKind,
+  type KeyListItem,
+  type Scope,
+} from "../types/onlineconf";
 
 export function mountCatalog(
   panel: HTMLElement,
@@ -43,6 +49,7 @@ export function mountCatalog(
         const draftName = draft?.scope === scope ? draft.name : undefined;
         return {
           scope,
+          label: scopeLabel(scope),
           href: `/onlineconf/?scope=${encodeURIComponent(scope)}`,
           keys: children,
           draft: draftName,
@@ -55,7 +62,7 @@ export function mountCatalog(
   }
 
   function selectScope(): void {
-    const scope = new URLSearchParams(location.search).get("scope");
+    const scope = new URLSearchParams(location.search).get("scope")?.toLowerCase();
     filters.scope = scopes?.find((item) => item === scope);
   }
 
@@ -114,6 +121,7 @@ export function mountCatalog(
           const date = new Date(key.updated_at);
           return {
             ...key,
+            scopeLabel: scopeLabel(key.scope),
             href: `/onlineconf/keys/${encodeURIComponent(key.id)}`,
             value:
               key.kind === "flag"

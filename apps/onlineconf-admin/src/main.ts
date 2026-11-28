@@ -234,7 +234,7 @@ const render = (route: Route): void => {
   catalog.show(route);
   const scope =
     route.name === "catalog" || route.name === "new-key"
-      ? new URLSearchParams(window.location.search).get("scope")
+      ? new URLSearchParams(window.location.search).get("scope")?.toLowerCase()
       : catalog.selectedScope();
   create.search = scope ? new URLSearchParams({ scope }).toString() : "";
 
