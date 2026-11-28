@@ -15,15 +15,19 @@
   "type": "commonjs",
   "scripts": {
     "build:templates": "tsx scripts/precompile-templates.ts",
-    "build": "npm run build:templates && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "npm run build:templates && vite build && npm run build:onlineconf",
+    "typecheck": "tsc --noEmit && npm run typecheck:onlineconf",
     "predev": "npm run build:templates",
     "dev": "vite",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "build:onlineconf": "vite build --config apps/onlineconf-admin/vite.config.mjs",
+    "dev:onlineconf": "vite --config apps/onlineconf-admin/vite.config.mjs",
+    "preview:onlineconf": "vite preview --config apps/onlineconf-admin/vite.config.mjs",
+    "typecheck:onlineconf": "tsc --noEmit -p apps/onlineconf-admin/tsconfig.json"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

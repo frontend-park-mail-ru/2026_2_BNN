@@ -36,7 +36,7 @@ module.exports = [
   },
 
   {
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "apps/onlineconf-admin/src/**/*.ts"],
     languageOptions: {
       globals: {
         ...globals.browser,

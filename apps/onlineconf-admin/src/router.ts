@@ -1,0 +1,54 @@
+export type Route =
+  { name: "catalog" } | { name: "new-key" } | { name: "key"; id: string } | { name: "not-found" };
+
+const KEY_PATH =
+  /^\/onlineconf\/keys\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+
+function resolveRoute(path: string): Route {
+  if (path === "/onlineconf" || path === "/onlineconf/") return { name: "catalog" };
+  if (path === "/onlineconf/keys/new") return { name: "new-key" };
+
+  const match = path.match(KEY_PATH);
+  return match ? { name: "key", id: match[1] } : { name: "not-found" };
+}
+
+export function startRouter(render: (route: Route) => void): () => void {
+  const events = new AbortController();
+  const show = () => render(resolveRoute(window.location.pathname));
+
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        !(event.target instanceof Element)
+      )
+        return;
+
+      const link = event.target.closest<HTMLAnchorElement>("a[data-onlineconf-link]");
+      if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self"))
+        return;
+
+      const url = new URL(link.href);
+      if (
+        url.origin !== window.location.origin ||
+        (url.pathname !== "/onlineconf" && !url.pathname.startsWith("/onlineconf/"))
+      )
+        return;
+
+      event.preventDefault();
+      history.pushState(null, "", url.pathname + url.search + url.hash);
+      show();
+    },
+    { signal: events.signal }
+  );
+
+  window.addEventListener("popstate", show, { signal: events.signal });
+  show();
+  return () => events.abort();
+}

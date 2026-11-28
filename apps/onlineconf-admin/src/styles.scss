@@ -1,0 +1,175 @@
+@font-face {
+  font-family: Comfortaa;
+  src: url("../../../public/assets/fonts/Comfortaa/static/Comfortaa-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Comfortaa;
+  src: url("../../../public/assets/fonts/Comfortaa/static/Comfortaa-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #f2f7fd;
+  --page-bg: #e8eef6;
+  --accent: #73b0ff;
+  --text: #0f2140;
+  --muted: #596c88;
+  font-family: Comfortaa, sans-serif;
+  font-synthesis: none;
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b3243;
+  --surface: #0c4158;
+  --page-bg: #071f2a;
+  --accent: #70acc6;
+  --text: #d7e3e7;
+  --muted: #97c4cc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.onlineconf {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: 24px;
+
+  &__header,
+  &__sidebar,
+  &__panel {
+    background: var(--bg);
+    border-radius: 24px;
+    padding: 24px;
+  }
+
+  &__header,
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__header {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  &__brand {
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  &__logo {
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 20px;
+    background: var(--accent);
+    color: #0f2140;
+  }
+
+  &__theme {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--text);
+  }
+
+  &__layout {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  &__sidebar a {
+    display: block;
+    padding: 12px 16px;
+    border-radius: 16px;
+    text-decoration: none;
+
+    &:hover,
+    &[aria-current="page"] {
+      background: var(--surface);
+    }
+  }
+
+  &__main {
+    display: flex;
+    min-width: 0;
+  }
+
+  &__panel {
+    flex: 1;
+    min-width: 0;
+    min-height: 360px;
+    overflow-wrap: anywhere;
+
+    h1 {
+      margin: 0 0 20px;
+      font-size: 24px;
+      line-height: 1.4;
+    }
+  }
+
+  &__description {
+    color: var(--muted);
+    line-height: 1.6;
+  }
+}
+
+@media (max-width: 720px) {
+  .onlineconf {
+    padding: 16px;
+
+    &__header,
+    &__sidebar,
+    &__panel {
+      padding: 16px;
+    }
+
+    &__layout {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+    }
+  }
+}
