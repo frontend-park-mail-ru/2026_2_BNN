@@ -1,4 +1,8 @@
+import type { ApiError } from "./api/api";
 import faviconUrl from "../../../public/assets/icons/logo-auth.svg";
+import lightLogoUrl from "../../../public/assets/icons/logo-shape.svg";
+import darkLogoUrl from "../../../public/assets/icons/logo-shape-dark.svg";
+import { transitionTheme } from "../../../src/components/theme/transition";
 import spriteUrl from "../../../public/assets/icons/ui/sprite.svg";
 import layout from "./templates/layout.hbs";
 import page from "./templates/page.hbs";
@@ -19,23 +23,64 @@ document.head.append(favicon);
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("OnlineConf root not found");
 
-root.innerHTML = layout({});
+root.innerHTML = layout({ spriteUrl, logoUrl: lightLogoUrl });
 const main = root.querySelector<HTMLElement>("#onlineconf-main");
 if (!main) throw new Error("OnlineConf main not found");
 const adminLogin = root.querySelector<HTMLElement>("[data-admin-login]")!;
 
 const events = new AbortController();
-const themeButton = root.querySelector<HTMLButtonElement>("[data-theme-toggle]");
+const themeButton = root.querySelector<HTMLButtonElement>("[data-theme-toggle]")!;
+const logo = root.querySelector<HTMLImageElement>("[data-brand-logo]")!;
+const sidebar = root.querySelector<HTMLElement>("#onlineconf-sidebar")!;
+const drawer = root.querySelector<HTMLButtonElement>("[data-sidebar-open]")!;
+const backdrop = root.querySelector<HTMLElement>(".onlineconf__backdrop")!;
+const create = root.querySelector<HTMLAnchorElement>("[data-create-key]")!;
+const catalogView = root.querySelector<HTMLElement>("[data-catalog]")!;
+const keyNav = root.querySelector<HTMLElement>("[data-keys]")!;
+const keyList = root.querySelector<HTMLElement>("[data-key-list]")!;
+const catalogLink = root.querySelector<HTMLAnchorElement>("[data-catalog-link]")!;
+const draft = root.querySelector<HTMLElement>("[data-draft-key]")!;
+const mobile = window.matchMedia("(max-width: 800px)");
+
+function setSidebar(open: boolean): void {
+  sidebar.classList.toggle("onlineconf__sidebar_open", open);
+  drawer.setAttribute("aria-expanded", String(open));
+  backdrop.hidden = !open;
+}
+
+function closeSidebar(): void {
+  if (backdrop.hidden) return;
+  setSidebar(false);
+  drawer.focus();
+}
+
+drawer.addEventListener(
+  "click",
+  () => {
+    setSidebar(true);
+    sidebar.querySelector<HTMLButtonElement>("button[data-sidebar-close]")?.focus();
+  },
+  { signal: events.signal }
+);
+
+mobile.addEventListener("change", () => setSidebar(false), { signal: events.signal });
+
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key === "Escape" && !event.defaultPrevented) closeSidebar();
+  },
+  { signal: events.signal }
+);
 
 /** Применяет тему к админке и обновляет кнопку переключения. */
 function applyTheme(dark: boolean): void {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
-  if (themeButton) {
-    themeButton
-      .querySelector("use")
-      ?.setAttribute("href", `${spriteUrl}#${dark ? "sunset" : "sunrise"}`);
-    themeButton.setAttribute("aria-pressed", String(dark));
-  }
+  logo.src = dark ? darkLogoUrl : lightLogoUrl;
+  themeButton
+    .querySelector("use")
+    ?.setAttribute("href", `${spriteUrl}#${dark ? "sunset" : "sunrise"}`);
+  themeButton.setAttribute("aria-pressed", String(dark));
 }
 
 try {
@@ -44,16 +89,19 @@ try {
   applyTheme(false);
 }
 
-themeButton?.addEventListener(
+themeButton.addEventListener(
   "click",
   () => {
     const dark = document.documentElement.dataset.theme !== "dark";
-    applyTheme(dark);
-    try {
-      localStorage.setItem("theme", dark ? "dark" : "light");
-    } catch {
-      return;
-    }
+    const theme = dark ? "dark" : "light";
+    void transitionTheme(themeButton, theme, () => {
+      applyTheme(dark);
+      try {
+        localStorage.setItem("theme", theme);
+      } catch {
+        return;
+      }
+    });
   },
   { signal: events.signal }
 );
@@ -70,17 +118,32 @@ type AccessState = "loading" | "ready" | "unavailable" | "error" | "storage-erro
 let access: AccessState = "loading";
 let currentRoute: Route = { name: "catalog" };
 let sessionRequest: AbortController | null = null;
-let stopPage: (() => void) | undefined;
+let catalog: ReturnType<typeof mountCatalog> | undefined;
+let stopHistory: (() => void) | undefined;
 let editor: ReturnType<typeof mountKeyEditor> | undefined;
 
 /** Освобождает предыдущий экран и отображает маршрут с учётом состояния доступа. */
 const render = (route: Route): void => {
   editor?.destroy();
   editor = undefined;
-  stopPage?.();
-  stopPage = undefined;
+  stopHistory?.();
+  stopHistory = undefined;
 
-  if (access !== "ready") {
+  setSidebar(false);
+  const canManage = access === "ready";
+  const search = canManage && route.name === "catalog";
+  catalogView.hidden = !search;
+  main.hidden = search;
+  create.hidden = !canManage;
+  keyNav.hidden = !canManage;
+  draft.hidden = !canManage || route.name !== "new-key";
+  draft.textContent = "Новый ключ";
+  if (search) catalogLink.setAttribute("aria-current", "page");
+  else catalogLink.removeAttribute("aria-current");
+
+  if (!canManage) {
+    catalog?.destroy();
+    catalog = undefined;
     const title =
       access === "loading"
         ? "Проверяем доступ"
@@ -101,10 +164,8 @@ const render = (route: Route): void => {
       description,
       loading: access === "loading",
       retry: access === "error",
-      bnn: access === "unavailable",
       login: access === "storage-error",
     });
-    root.querySelector("[data-catalog-link]")?.removeAttribute("aria-current");
     return;
   }
 
@@ -118,16 +179,27 @@ const render = (route: Route): void => {
   const title = titles[route.name];
   document.title = `${title} | OnlineConf BNN`;
 
-  if (route.name === "catalog") {
-    stopPage = mountCatalog(main, root.querySelector<HTMLElement>("[data-scopes]")!, onAccessError);
+  catalog ??= mountCatalog(catalogView, keyList, handleAccessError);
+  catalog.show(route);
+
+  if (search) {
+    main.replaceChildren();
   } else if (route.name === "history") {
-    stopPage = mountKeyHistory(main, route.id, onAccessError);
+    stopHistory = mountKeyHistory(main, route.id, handleAccessError);
   } else if (route.name === "key" || route.name === "new-key") {
     editor = mountKeyEditor(
       main,
       route.name === "key" ? route.id : undefined,
-      onAccessError,
-      (path, replace) => router.navigate(path, replace)
+      handleAccessError,
+      (path, replace) => {
+        if (route.name === "new-key" && replace) catalog?.reset();
+        router.navigate(path, replace);
+      },
+      route.name === "new-key"
+        ? (name) => {
+            draft.textContent = name.trim() || "Новый ключ";
+          }
+        : undefined
     );
   } else {
     main.innerHTML = page({
@@ -137,21 +209,17 @@ const render = (route: Route): void => {
     });
   }
 
-  const catalogLink = root.querySelector<HTMLElement>("[data-catalog-link]");
-  if (route.name === "not-found") catalogLink?.removeAttribute("aria-current");
-  else catalogLink?.setAttribute("aria-current", "page");
-  main.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
+  (search ? catalogView : main).querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
 };
 
 /** Обрабатывает потерю сессии и закрытый доступ одинаково для всех экранов. */
-function onAccessError(error: { status: number }): void {
+function handleAccessError(error: ApiError): void {
   if (error.status === 401) {
     redirectToLogin();
-    return;
+  } else {
+    access = "unavailable";
+    render(currentRoute);
   }
-
-  access = "unavailable";
-  render(currentRoute);
 }
 
 /** Запоминает маршрут админки перед переходом к входу в BNN. */
@@ -206,7 +274,9 @@ async function checkSession(): Promise<void> {
 root.addEventListener(
   "click",
   (event) => {
-    if (event.target instanceof Element && event.target.closest("[data-session-retry]")) {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("[data-sidebar-close]")) closeSidebar();
+    if (event.target.closest("[data-session-retry]")) {
       void checkSession();
     }
   },
@@ -226,7 +296,8 @@ void checkSession();
 import.meta.hot?.dispose(() => {
   events.abort();
   sessionRequest?.abort();
-  stopPage?.();
+  catalog?.destroy();
+  stopHistory?.();
   editor?.destroy();
   router.destroy();
 });

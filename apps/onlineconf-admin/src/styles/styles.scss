@@ -1,3 +1,6 @@
+@use "../../../../src/styles/base";
+@use "../../../../src/styles/theme-transition";
+
 @font-face {
   font-family: Comfortaa;
   src: url("../../../../public/assets/fonts/Comfortaa/static/Comfortaa-Regular.woff2")
@@ -16,37 +19,31 @@
 }
 
 :root {
-  color-scheme: light;
-  --bg: #ffffff;
-  --surface: #f2f7fd;
-  --page-bg: #e8eef6;
-  --accent: #73b0ff;
-  --text: #0f2140;
+  --surface: var(--dark-bg);
   --muted: #596c88;
   --focus: #245db3;
-  font-family: Comfortaa, sans-serif;
-  font-synthesis: none;
-  color: var(--text);
-  background: var(--page-bg);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0b3243;
-  --surface: #0c4158;
-  --page-bg: #071f2a;
+  --dark-bg: #0f4e68;
+  --surface-bg: #0c4158;
   --accent: #70acc6;
+  --accent-soft: #7da3b3;
   --text: #d7e3e7;
-  --muted: #97c4cc;
-  --focus: #97c4cc;
-}
+  --light-text: #97c4cc;
+  --muted: var(--light-text);
+  --focus: var(--light-text);
+  background-color: var(--bg);
 
-* {
-  box-sizing: border-box;
-}
+  .onlineconf {
+    background-color: var(--bg);
 
-body {
-  margin: 0;
+    &::after {
+      opacity: 1;
+    }
+  }
 }
 
 a {
@@ -54,105 +51,208 @@ a {
 }
 
 button {
-  font: inherit;
   cursor: pointer;
 }
 
 :focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 4px;
+  outline-offset: -2px;
 }
 
 .onlineconf {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  padding: 24px;
+  height: 100dvh;
+  min-height: 600px;
+  padding: var(--space-l);
+  gap: var(--space-l);
+  background-color: var(--dark-bg);
+
+  &::before,
+  &::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: center / cover no-repeat;
+  }
+
+  &::before {
+    background-image: url("../../../../public/assets/images/background_v1.svg");
+    opacity: 0.1;
+  }
+
+  &::after {
+    background-color: #0b3243;
+    background-image: url("../../../../public/assets/images/background-dark.webp");
+    opacity: 0;
+  }
 
   &__header,
   &__sidebar,
   &__panel {
     background: var(--bg);
-    border-radius: 24px;
-    padding: 24px;
-  }
-
-  &__header,
-  &__brand {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  &__account {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-left: auto;
-    overflow-wrap: anywhere;
+    border-radius: var(--card-rad);
   }
 
   &__header {
-    justify-content: space-between;
-    flex-wrap: wrap;
-    margin-bottom: 24px;
+    display: grid;
+    flex: 0 0 70px;
+    grid-template-columns: minmax(max-content, 1fr) minmax(0, 412px) minmax(max-content, 1fr);
+    gap: var(--space-s);
+    align-items: center;
+    padding-inline: 12px;
   }
 
-  &__brand {
-    text-decoration: none;
-    font-weight: 700;
+  &__brand,
+  &__account {
+    display: flex;
+    align-items: center;
+  }
+
+  &__account {
+    justify-content: end;
+    gap: var(--space-m);
+  }
+
+  &__account span {
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__product {
+    text-align: center;
   }
 
   &__logo {
-    padding: 12px 16px;
-    border: 0;
-    border-radius: 20px;
-    background: var(--accent);
-    color: #0f2140;
+    display: flex;
+    border-radius: var(--button-rad);
   }
 
-  &__theme {
+  &__logo:hover {
+    opacity: 0.85;
+  }
+
+  &__create {
     display: grid;
     place-items: center;
-    flex-shrink: 0;
+    width: 184px;
+    height: 45px;
+    border-radius: var(--button-rad);
+    background: var(--accent);
+    color: var(--text);
+    text-decoration: none;
+    transition: background-color 0.7s ease;
+
+    &:hover {
+      background-color: var(--accent-soft);
+    }
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
     width: 45px;
     height: 45px;
     padding: 0;
     border: 0;
     border-radius: 50%;
     background: none;
-    color: var(--text);
+    color: inherit;
+  }
+
+  &__drawer,
+  &__backdrop {
+    display: none;
+  }
+
+  &__layout,
+  &__main,
+  &__view {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
   }
 
   &__layout {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: 24px;
+    gap: var(--space-l);
   }
 
-  &__sidebar a {
-    display: block;
-    padding: 12px 16px;
-    border-radius: 16px;
-    text-decoration: none;
+  &__sidebar {
+    display: flex;
+    width: 400px;
+    overflow: hidden;
+  }
 
-    &:hover,
-    &[aria-current="page"] {
-      background: var(--surface);
+  &__rail {
+    display: flex;
+    flex: 0 0 75px;
+    justify-content: center;
+    align-items: end;
+    padding-block: var(--space-l);
+    background-color: var(--surface-bg, var(--dark-bg));
+  }
+
+  &__library,
+  &__keys {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__library {
+    padding-inline: var(--space-m);
+  }
+
+  &__heading h2 {
+    margin: 0;
+    padding: var(--space-l) var(--space-m) var(--space-s) 9.5px;
+    font-size: 20px;
+  }
+
+  &__key-list {
+    overflow-y: auto;
+    padding-bottom: var(--space-m);
+
+    ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
     }
   }
 
-  &__main {
-    display: flex;
-    min-width: 0;
+  &__key {
+    display: block;
+    flex-shrink: 0;
+    padding: var(--space-s) var(--space-m);
+    border-radius: var(--button-rad);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+
+    &:hover,
+    &[aria-current="page"] {
+      background-color: var(--dark-bg);
+    }
   }
 
   &__panel {
     flex: 1;
     min-width: 0;
-    min-height: 360px;
+    min-height: 0;
+    padding: var(--space-m);
+    overflow: auto;
     overflow-wrap: anywhere;
 
     h1 {
@@ -166,124 +266,143 @@ button {
     color: var(--muted);
     line-height: 1.6;
   }
+
+  [hidden] {
+    display: none !important;
+  }
 }
 
+:root[data-theme="dark"] .onlineconf__create {
+  color: var(--bg);
+}
+
+@include theme-transition.circle(".onlineconf");
+
 .catalog {
-  &__scopes {
-    display: grid;
-    gap: 4px;
-    margin-top: 12px;
-
-    button {
-      padding: 12px 16px;
-      border: 0;
-      border-radius: 16px;
-      text-align: left;
-      background: none;
-      color: var(--text);
-
-      &:hover,
-      &[aria-pressed="true"] {
-        background: var(--surface);
-      }
-    }
-  }
-
   &__filters {
     display: flex;
     flex-wrap: wrap;
-    align-items: end;
     gap: 12px;
     margin-bottom: 24px;
-
-    label,
-    .catalog__field {
-      display: grid;
-      gap: 8px;
-      min-width: 0;
-    }
   }
 
   &__search {
     flex: 1 1 240px;
+    min-width: 0;
   }
 
   input,
   select,
   button {
-    min-height: 44px;
-    padding: 10px 14px;
+    height: 44px;
+    max-width: 100%;
+    padding: 0 14px;
     border: 1px solid var(--muted);
     border-radius: 12px;
-    font: inherit;
     color: var(--text);
     background: var(--bg);
-  }
-
-  input {
-    width: 100%;
   }
 
   button:hover {
     background: var(--surface);
   }
-
-  &__table-scroll {
-    overflow-x: auto;
-  }
-
-  &__table {
-    width: 100%;
-    min-width: 900px;
-    border-collapse: collapse;
-    text-align: left;
-    overflow-wrap: normal;
-    font-size: 14px;
-    line-height: 1.6;
-
-    th,
-    td {
-      padding: 12px;
-      border-bottom: 1px solid var(--surface);
-      vertical-align: top;
-    }
-
-    th {
-      background: var(--surface);
-    }
-  }
-
-  &__caption {
-    text-align: left;
-    padding-bottom: 12px;
-    color: var(--muted);
-  }
-
-  &__key,
-  &__value,
-  &__author {
-    display: block;
-    max-width: 240px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 800px) {
   .onlineconf {
-    padding: 16px;
+    min-height: 0;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    gap: 8px;
 
-    &__header,
-    &__sidebar,
-    &__panel {
-      padding: 16px;
+    &__header {
+      flex-basis: 52px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      padding-inline: 8px;
     }
 
-    &__layout {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto 1fr;
-      gap: 16px;
+    &__product,
+    &__account span {
+      display: none;
+    }
+
+    &__create {
+      width: auto;
+      height: 40px;
+      padding-inline: 10px;
+    }
+
+    &__logo img {
+      width: 80px;
+      height: 40px;
+    }
+
+    &__drawer {
+      display: grid;
+      width: 40px;
+      height: 40px;
+    }
+
+    &__backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 11;
+      background: rgb(15 33 64 / 40%);
+    }
+
+    &__sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 12;
+      width: min(320px, 80vw);
+      flex-direction: column-reverse;
+      border-radius: 0 20px 20px 0;
+      padding-top: env(safe-area-inset-top);
+      visibility: hidden;
+      transform: translateX(-100%);
+      transition:
+        transform 180ms ease,
+        visibility 180ms;
+
+      &_open {
+        visibility: visible;
+        transform: translateX(0);
+      }
+    }
+
+    &__heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      h2 {
+        padding: 10px 0 10px 9.5px;
+      }
+    }
+
+    &__library {
+      padding-inline: 8px;
+    }
+
+    &__rail {
+      flex: 0 0 auto;
+      padding: 4px 0 max(4px, env(safe-area-inset-bottom));
+    }
+
+    &__rail button {
+      width: 44px;
+      height: 44px;
+    }
+
+    &__panel {
+      padding: 12px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .onlineconf__sidebar {
+      transition: none;
     }
   }
 }

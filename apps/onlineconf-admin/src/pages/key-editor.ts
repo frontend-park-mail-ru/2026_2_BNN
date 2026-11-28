@@ -9,7 +9,8 @@ export function mountKeyEditor(
   main: HTMLElement,
   id: string | undefined,
   onAccessError: (error: ApiError) => void,
-  navigate: (path: string, replace?: boolean) => void
+  navigate: (path: string, replace?: boolean) => void,
+  onNameChange?: (name: string) => void
 ): { destroy: () => void; canLeave: () => boolean } {
   main.innerHTML = template({
     title: id ? "Карточка ключа" : "Создание ключа",
@@ -139,6 +140,7 @@ export function mountKeyEditor(
     scope.replaceChildren(...scopes.map((item) => new Option(item, item)));
     scope.value = saved?.scope ?? scopes[0] ?? "";
     name.value = saved?.key ?? "";
+    onNameChange?.(name.value);
     kind.value = saved?.kind ?? "config";
     description.value = saved?.description ?? "";
     isPublic.checked = saved?.is_public ?? false;
@@ -316,6 +318,7 @@ export function mountKeyEditor(
   }
 
   form.addEventListener("input", updateDirty, { signal: events.signal });
+  name.addEventListener("input", () => onNameChange?.(name.value), { signal: events.signal });
   form.addEventListener("change", updateDirty, { signal: events.signal });
   kind.addEventListener("change", showKind, { signal: events.signal });
   valueType.addEventListener("change", showValue, { signal: events.signal });
