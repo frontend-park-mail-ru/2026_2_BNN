@@ -312,6 +312,11 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     setDisabled(disabled: boolean): void {
       fieldset.disabled = disabled;
     },
+    /** Блокирует ручное изменение процента, пока флаг управляется регламентом. */
+    setRolloutManaged(managed: boolean): void {
+      range.disabled = managed;
+      percent.disabled = managed;
+    },
     destroy(): void {
       clearSearch();
       events.abort();

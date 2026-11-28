@@ -11,6 +11,8 @@ export function onlineconfReturnPath(value: string): string | null {
     if (value === "/onlineconf" || value === "/onlineconf/") return "/onlineconf/";
     if (value === "/onlineconf/admins" || value === "/onlineconf/admins/")
       return "/onlineconf/admins";
+    if (value === "/onlineconf/rollout-plans" || value === "/onlineconf/rollout-plans/")
+      return "/onlineconf/rollout-plans";
     return value === "/onlineconf/keys/new" || KEY_PATH.test(value) ? value : null;
   } catch {
     return null;

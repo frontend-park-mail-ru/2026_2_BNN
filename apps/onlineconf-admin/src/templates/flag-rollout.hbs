@@ -1,0 +1,19 @@
+<section class="rollout-editor" aria-labelledby="flag-rollout-title">
+  <h2 id="flag-rollout-title">Плавная раскатка</h2>
+  <p class="onlineconf__description">Сервер определяет, когда можно подтвердить следующий этап.</p>
+  <p data-rollout-state></p>
+  <p role="status" data-rollout-message></p>
+  <p class="onlineconf__description" data-rollout-lock-hint hidden>Сначала сохраните изменения в карточке или загрузите актуальную версию.</p>
+  <fieldset disabled>
+    <label for="flag-rollout-plan">Регламент</label>
+    <select id="flag-rollout-plan"></select>
+    <div class="rollout-editor__actions">
+      <button type="button" data-rollout-bind>Привязать регламент</button>
+      <button type="button" data-rollout-unbind hidden>Отвязать</button>
+      <button type="button" data-rollout-approve hidden>Подтвердить следующий этап</button>
+      <button type="button" data-rollout-rollback hidden>Откатить этап</button>
+    </div>
+  </fieldset>
+  <button type="button" data-rollout-reload>Обновить состояние</button>
+  <a href="/onlineconf/rollout-plans" data-onlineconf-link>Управление регламентами</a>
+</section>

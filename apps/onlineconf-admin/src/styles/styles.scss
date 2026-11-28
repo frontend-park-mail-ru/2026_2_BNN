@@ -903,3 +903,35 @@ button {
     max-inline-size: 100%;
   }
 }
+.rollout-editor {
+  &[aria-labelledby="flag-rollout-title"] {
+    margin-top: 24px;
+    padding: 16px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+  }
+
+  h2 {
+    margin-top: 0;
+  }
+
+  fieldset {
+    display: grid;
+    gap: 8px;
+    min-inline-size: 0;
+    margin: 12px 0;
+    padding: 0;
+    border: 0;
+  }
+
+  input,
+  select {
+    max-inline-size: 100%;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

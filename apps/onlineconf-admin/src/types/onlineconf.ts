@@ -2,6 +2,15 @@ export type Scope = "Frontend" | "Backend" | "Auth" | "Notes";
 export type KeyKind = "config" | "flag";
 export type AdminUser = { id: string; login: string };
 export type AdminSession = { login: string };
+export type RolloutPlanInput = { name: string; steps: number[]; interval_min: number };
+export type RolloutPlan = RolloutPlanInput & { id: string };
+export type RolloutState = {
+  plan_id: string;
+  status: "waiting" | "pending_approval" | "done";
+  current_step?: number | null;
+  next_step?: number | null;
+  step_ready_at?: string | null;
+};
 export type FlagEvaluation = {
   result: boolean;
   reason: "disabled" | "excluded" | "included" | "rollout";

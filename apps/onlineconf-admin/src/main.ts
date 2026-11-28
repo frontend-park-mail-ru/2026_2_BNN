@@ -16,6 +16,7 @@ import { mountCatalog } from "./pages/catalog";
 import { mountKeyEditor } from "./pages/key-editor";
 import { mountKeyHistory } from "./pages/key-history";
 import { mountAdmins } from "./pages/admins";
+import { mountRolloutPlans } from "./pages/rollout-plans";
 import "./styles/styles.scss";
 
 const favicon = document.createElement("link");
@@ -193,6 +194,9 @@ const render = (route: Route): void => {
   const adminsLink = keyNav.querySelector("[data-admins-link]");
   if (canManage && route.name === "admins") adminsLink?.setAttribute("aria-current", "page");
   else adminsLink?.removeAttribute("aria-current");
+  const plansLink = keyNav.querySelector("[data-rollout-plans-link]");
+  if (canManage && route.name === "rollout-plans") plansLink?.setAttribute("aria-current", "page");
+  else plansLink?.removeAttribute("aria-current");
 
   if (!canManage) {
     if (profile.open) profile.close();
@@ -230,6 +234,7 @@ const render = (route: Route): void => {
     key: "Карточка ключа",
     history: "История изменений",
     admins: "Администраторы",
+    "rollout-plans": "Регламенты раскатки",
     "not-found": "Страница не найдена",
   };
   const title = titles[route.name];
@@ -249,6 +254,8 @@ const render = (route: Route): void => {
     stopDetailPage = mountKeyHistory(main, route.id, handleAccessError);
   } else if (route.name === "admins") {
     stopDetailPage = mountAdmins(main, adminLogin.textContent ?? "", handleAccessError);
+  } else if (route.name === "rollout-plans") {
+    stopDetailPage = mountRolloutPlans(main, handleAccessError);
   } else if (route.name === "key" || route.name === "new-key") {
     editor = mountKeyEditor(
       main,
