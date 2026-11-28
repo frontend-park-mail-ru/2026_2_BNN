@@ -4,6 +4,7 @@ import { readConfig } from "../utils/config-value";
 import template from "../templates/key-editor.hbs";
 import type { CreateKeyInput, OnlineconfKey, Scope } from "../types/onlineconf";
 
+/** Подключает создание и редактирование ключа и управляет жизненным циклом формы. */
 export function mountKeyEditor(
   main: HTMLElement,
   id: string | undefined,
@@ -45,6 +46,7 @@ export function mountKeyEditor(
   let pendingInput: CreateKeyInput | undefined;
   let errorFocus: HTMLElement | undefined;
 
+  /** Снимает состояние общих полей и конфига для сравнения с сохранёнными данными. */
   function snapshot(): string {
     return JSON.stringify([
       scope.value,
@@ -57,6 +59,8 @@ export function mountKeyEditor(
       booleanValue.checked,
     ]);
   }
+
+  /** Запрашивает подтверждение ухода, если на экране есть черновик. */
   function canLeave(): boolean {
     if (busy)
       return window.confirm(
@@ -126,6 +130,8 @@ export function mountKeyEditor(
     valueType.disabled = flag;
     booleanValue.disabled = flag;
   }
+
+  /** Заполняет форму сохранёнными данными и сбрасывает признаки изменений. */
   function populate(): void {
     scope.replaceChildren(...scopes.map((item) => new Option(item, item)));
     scope.value = saved?.scope ?? scopes[0] ?? "";
@@ -205,6 +211,8 @@ export function mountKeyEditor(
     errorFocus?.focus();
     errorFocus = undefined;
   }
+
+  /** Выполняет одну операцию карточки с блокировкой формы и таймаутом. */
   async function run(action: (signal: AbortSignal) => Promise<void>): Promise<void> {
     if (busy) return;
     busy = true;
@@ -237,6 +245,8 @@ export function mountKeyEditor(
       }
     }
   }
+
+  /** Ищет созданный ключ по точному имени и области, если сервер не вернул ID. */
   async function resolveCreated(signal: AbortSignal): Promise<string> {
     if (id) return id;
     if (!pendingInput) throw new Error("No pending creation");
@@ -253,6 +263,8 @@ export function mountKeyEditor(
     if (exact.length !== 1) throw new Error("Created key not found");
     return exact[0].id;
   }
+
+  /** Перечитывает карточку после принятой сервером записи. */
   async function readBack(signal: AbortSignal): Promise<void> {
     const target = await resolveCreated(signal);
     const key = await getKey(target, signal);
@@ -270,6 +282,8 @@ export function mountKeyEditor(
     populate();
     status.textContent = "Сохранено. Загружена актуальная версия.";
   }
+
+  /** Загружает доступные области и полную карточку существующего ключа. */
   function load(): void {
     void run(async (signal) => {
       status.textContent = "Загружаем карточку…";
@@ -292,22 +306,17 @@ export function mountKeyEditor(
       }
     });
   }
-  form.addEventListener(
-    "input",
-    () => {
-      dirty = flagDirty || snapshot() !== baseline;
-    },
-    { signal: events.signal }
-  );
-  form.addEventListener(
-    "change",
-    () => {
-      dirty = flagDirty || snapshot() !== baseline;
-    },
-    { signal: events.signal }
-  );
+
+  /** Отмечает изменения общих полей, конфига или флага. */
+  function updateDirty(): void {
+    dirty = flagDirty || snapshot() !== baseline;
+  }
+
+  form.addEventListener("input", updateDirty, { signal: events.signal });
+  form.addEventListener("change", updateDirty, { signal: events.signal });
   kind.addEventListener("change", showKind, { signal: events.signal });
   valueType.addEventListener("change", showValue, { signal: events.signal });
+
   form.addEventListener(
     "submit",
     (event) => {

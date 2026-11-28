@@ -3,6 +3,7 @@ import catalog from "../templates/catalog.hbs";
 import results from "../templates/catalog-results.hbs";
 import type { KeyFilters, KeyKind, KeyListItem, Scope } from "../types/onlineconf";
 
+/** Подключает каталог и возвращает функцию очистки запросов и обработчиков. */
 export function mountCatalog(
   main: HTMLElement,
   navigation: HTMLElement,
@@ -30,6 +31,7 @@ export function mountCatalog(
     }
   }
 
+  /** Загружает фильтры и ключи. Ответ предыдущего запроса не меняет текущую выдачу. */
   async function load(): Promise<void> {
     request?.abort();
     const current = new AbortController();
@@ -86,6 +88,7 @@ export function mountCatalog(
     }
   }
 
+  /** Применяет введённое имя к фильтрам каталога. */
   function search(): void {
     filters.query = query.value.trim() || undefined;
     void load();
@@ -150,6 +153,7 @@ export function mountCatalog(
   };
 }
 
+/** Формирует краткое значение конфига или состояние флага для таблицы. */
 function briefValue(key: KeyListItem): string {
   if (key.kind === "flag") {
     return `${key.flag.enabled ? "Включён" : "Выключен"} · rollout ${key.flag.rollout_percent}%`;

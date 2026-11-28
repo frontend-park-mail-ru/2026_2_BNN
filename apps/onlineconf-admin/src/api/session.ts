@@ -6,6 +6,7 @@ export type SessionResult =
   | { status: "unauthenticated" }
   | { status: "unavailable" };
 
+/** Преобразует ответ API в состояние доступа для экрана админки. */
 export async function getAdminSession(signal: AbortSignal): Promise<SessionResult> {
   try {
     return { status: "authenticated", user: await getSession(signal) };

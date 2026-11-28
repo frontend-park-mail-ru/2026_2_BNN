@@ -4,6 +4,7 @@ export type Route =
 const KEY_PATH =
   /^\/onlineconf\/keys\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 
+/** Сопоставляет адрес админки с маршрутом карточки или каталога. */
 function resolveRoute(path: string): Route {
   if (path === "/onlineconf" || path === "/onlineconf/") return { name: "catalog" };
   if (path === "/onlineconf/keys/new") return { name: "new-key" };
@@ -12,18 +13,23 @@ function resolveRoute(path: string): Route {
   return match ? { name: "key", id: match[1] } : { name: "not-found" };
 }
 
+/** Связывает маршруты админки с History API и учитывает запрет ухода с черновика. */
 export function startRouter(render: (route: Route) => void, canLeave: () => boolean = () => true) {
   const events = new AbortController();
   let index = 0;
   let restoring = false;
+
   history.replaceState({ ...history.state, onlineconfIndex: index }, "");
   const show = () => render(resolveRoute(window.location.pathname));
+
+  /** Записывает адрес в историю и открывает соответствующий экран. */
   function navigate(path: string, replace = false): void {
     if (!canLeave()) return;
     if (replace) history.replaceState({ ...history.state, onlineconfIndex: index }, "", path);
     else history.pushState({ onlineconfIndex: ++index }, "", path);
     show();
   }
+
   document.addEventListener(
     "click",
     (event) => {
@@ -51,6 +57,7 @@ export function startRouter(render: (route: Route) => void, canLeave: () => bool
     },
     { signal: events.signal }
   );
+
   window.addEventListener(
     "popstate",
     () => {
@@ -71,6 +78,7 @@ export function startRouter(render: (route: Route) => void, canLeave: () => bool
     },
     { signal: events.signal }
   );
+
   show();
   return { navigate, destroy: () => events.abort() };
 }

@@ -24,6 +24,7 @@ function makeButton(text: string): HTMLButtonElement {
   return button;
 }
 
+/** Подключает поля флага к общей форме и возвращает интерфейс чтения и очистки. */
 export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = {}) {
   host.innerHTML = template({});
 
@@ -62,6 +63,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
   percent.value = String(initial?.rollout_percent ?? 0);
   range.value = percent.value;
 
+  /** Проверяет лимит списка и уникальность пользователя среди обоих правил. */
   function canAdd(rule: Rule, userId: string): boolean {
     return (
       selected[rule].size < MAX_USERS &&
@@ -136,6 +138,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     }
   }
 
+  /** Отменяет текущий поиск и очищает его результаты. */
   function clearSearch(): void {
     pending?.abort();
     pending = undefined;
@@ -145,6 +148,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     searchStatus.textContent = "";
   }
 
+  /** Ищет пользователей по логину и применяет результат последнего запроса. */
   async function runSearch(): Promise<void> {
     clearSearch();
     const login = query.value.trim();
@@ -225,6 +229,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
 
   percent.addEventListener("invalid", () => showPercentError(), { signal });
 
+  /** Проверяет поля флага и собирает модель записи с ID пользователей. */
   function read(): FlagWrite | null {
     const value = percent.valueAsNumber;
     if (!Number.isInteger(value) || value < 0 || value > 100) {
@@ -292,7 +297,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     (event) => {
       if (event.key !== "Enter" || event.isComposing) return;
       event.preventDefault();
-      void runSearch();
+      if (!event.repeat) searchButton.click();
     },
     { signal }
   );

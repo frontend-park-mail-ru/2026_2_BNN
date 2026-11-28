@@ -8,6 +8,7 @@ function finiteJson(value: JsonValue): boolean {
     : true;
 }
 
+/** Преобразует поля формы в типизированное значение и проверяет JSON. */
 export function readConfig(type: string, text: string, checked: boolean): ConfigValue {
   if (type === "string") return { value_type: "string", value: text };
   if (type === "boolean") return { value_type: "boolean", value: checked };

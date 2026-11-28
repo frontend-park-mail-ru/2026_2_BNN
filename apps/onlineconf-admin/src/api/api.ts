@@ -56,6 +56,7 @@ async function send(url: string, { method = "GET", signal }: Options, body?: str
   }
 }
 
+/** Запускает одно общее обновление сессии для параллельных запросов. */
 async function refreshSession(): Promise<void> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -79,6 +80,7 @@ async function refreshSession(): Promise<void> {
   }
 }
 
+/** Ожидает обновления сессии с учётом отмены отдельного запроса. */
 async function waitForRefresh(signal?: AbortSignal): Promise<void> {
   signal?.throwIfAborted();
   const refresh = (refreshing ??= refreshSession());
@@ -95,6 +97,7 @@ async function waitForRefresh(signal?: AbortSignal): Promise<void> {
   }
 }
 
+/** Выполняет запрос к админке и повторяет его после успешного обновления сессии. */
 export async function request(path: string, options: Options & { body?: object } = {}) {
   const url = `/api/onlineconf/admin${path}`;
   const body = JSON.stringify(options.body);
@@ -122,6 +125,7 @@ export async function request(path: string, options: Options & { body?: object }
   throw new ApiError(status, code, message || "Не удалось выполнить запрос");
 }
 
+/** Читает JSON и проверяет форму ответа перед возвратом данных. */
 async function read<T>(
   path: string,
   signal: AbortSignal | undefined,
@@ -143,6 +147,7 @@ export async function getSession(signal?: AbortSignal): Promise<AdminUser> {
   return { id, login };
 }
 
+/** Ищет до десяти пользователей по логину для персональных правил флага. */
 export function searchUsers(query: string, signal?: AbortSignal): Promise<AdminUser[]> {
   const login = query.trim();
   if (!login) return Promise.resolve([]);
@@ -207,6 +212,7 @@ export async function getKey(id: string, signal?: AbortSignal) {
   });
 }
 
+/** Собирает тело записи из полей ключа без серверных метаданных. */
 function keyBody(input: CreateKeyInput): object {
   const { scope, key, description, is_public } = input;
   const base = { scope, key, description, is_public };

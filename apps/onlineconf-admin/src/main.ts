@@ -26,6 +26,7 @@ const adminLogin = root.querySelector<HTMLElement>("[data-admin-login]")!;
 const events = new AbortController();
 const themeButton = root.querySelector<HTMLButtonElement>("[data-theme-toggle]");
 
+/** Применяет тему к админке и обновляет кнопку переключения. */
 function applyTheme(dark: boolean): void {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
   if (themeButton) {
@@ -71,11 +72,13 @@ let sessionRequest: AbortController | null = null;
 let stopCatalog: (() => void) | undefined;
 let editor: ReturnType<typeof mountKeyEditor> | undefined;
 
+/** Освобождает предыдущий экран и отображает маршрут с учётом состояния доступа. */
 const render = (route: Route): void => {
   editor?.destroy();
   editor = undefined;
   stopCatalog?.();
   stopCatalog = undefined;
+
   if (access !== "ready") {
     const title =
       access === "loading"
@@ -103,6 +106,7 @@ const render = (route: Route): void => {
     root.querySelector("[data-catalog-link]")?.removeAttribute("aria-current");
     return;
   }
+
   const titles = {
     catalog: "Конфигурации и feature flags",
     "new-key": "Создание ключа",
@@ -111,6 +115,7 @@ const render = (route: Route): void => {
   };
   const title = titles[route.name];
   document.title = `${title} | OnlineConf BNN`;
+
   if (route.name === "catalog") {
     stopCatalog = mountCatalog(main, root.querySelector<HTMLElement>("[data-scopes]")!, (error) => {
       if (error.status === 401) {
@@ -147,6 +152,7 @@ const render = (route: Route): void => {
   main.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
 };
 
+/** Запоминает маршрут админки перед переходом к входу в BNN. */
 function redirectToLogin(): void {
   const saved = saveOnlineconfReturn(window.location.pathname);
   access = saved ? "loading" : "storage-error";
@@ -162,14 +168,17 @@ const router = startRouter(
   () => editor?.canLeave() ?? true
 );
 
+/** Проверяет административную сессию и выбирает состояние экрана. */
 async function checkSession(): Promise<void> {
   if (sessionRequest) return;
+
   const request = new AbortController();
   sessionRequest = request;
   const timeout = window.setTimeout(() => request.abort(), 10_000);
   access = "loading";
   adminLogin.textContent = "";
   render(currentRoute);
+
   try {
     const result = await getAdminSession(request.signal);
     if (events.signal.aborted) return;
