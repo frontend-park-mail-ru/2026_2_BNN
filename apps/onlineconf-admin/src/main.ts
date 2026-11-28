@@ -5,6 +5,7 @@ import page from "./page.hbs";
 import { saveOnlineconfReturn } from "../../../src/utils/onlineconf-return";
 import { startRouter, type Route } from "./router";
 import { getAdminSession } from "./session";
+import { mountCatalog } from "./catalog";
 import "./styles.scss";
 
 const favicon = document.createElement("link");
@@ -19,6 +20,7 @@ if (!root) throw new Error("OnlineConf root not found");
 root.innerHTML = layout({});
 const main = root.querySelector<HTMLElement>("#onlineconf-main");
 if (!main) throw new Error("OnlineConf main not found");
+const adminLogin = root.querySelector<HTMLElement>("[data-admin-login]")!;
 
 const events = new AbortController();
 const themeButton = root.querySelector<HTMLButtonElement>("[data-theme-toggle]");
@@ -65,8 +67,11 @@ type AccessState = "loading" | "ready" | "unavailable" | "error" | "storage-erro
 let access: AccessState = "loading";
 let currentRoute: Route = { name: "catalog" };
 let sessionRequest: AbortController | null = null;
+let stopCatalog: (() => void) | undefined;
 
 const render = (route: Route): void => {
+  stopCatalog?.();
+  stopCatalog = undefined;
   if (access !== "ready") {
     const title =
       access === "loading"
@@ -102,19 +107,36 @@ const render = (route: Route): void => {
   };
   const title = titles[route.name];
   document.title = `${title} | OnlineConf BNN`;
-  main.innerHTML = page({
-    title,
-    loading: false,
-    description: route.name === "catalog" ? "Управление параметрами и флагами BNN." : "",
-    id: route.name === "key" ? route.id : undefined,
-    notFound: route.name === "not-found",
-  });
+  if (route.name === "catalog") {
+    stopCatalog = mountCatalog(main, root.querySelector<HTMLElement>("[data-scopes]")!, (error) => {
+      if (error.status === 401) {
+        redirectToLogin();
+      } else {
+        access = "unavailable";
+        render(currentRoute);
+      }
+    });
+  } else {
+    main.innerHTML = page({
+      title,
+      loading: false,
+      id: route.name === "key" ? route.id : undefined,
+      notFound: route.name === "not-found",
+    });
+  }
 
   const catalogLink = root.querySelector<HTMLElement>("[data-catalog-link]");
   if (route.name === "not-found") catalogLink?.removeAttribute("aria-current");
   else catalogLink?.setAttribute("aria-current", "page");
   main.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
 };
+
+function redirectToLogin(): void {
+  const saved = saveOnlineconfReturn(window.location.pathname);
+  access = saved ? "loading" : "storage-error";
+  render(currentRoute);
+  if (saved) window.location.replace("/login");
+}
 
 const stopRouter = startRouter((route) => {
   currentRoute = route;
@@ -127,18 +149,19 @@ async function checkSession(): Promise<void> {
   sessionRequest = request;
   const timeout = window.setTimeout(() => request.abort(), 10_000);
   access = "loading";
+  adminLogin.textContent = "";
   render(currentRoute);
   try {
     const result = await getAdminSession(request.signal);
     if (events.signal.aborted) return;
     if (result.status === "unauthenticated") {
-      if (saveOnlineconfReturn(window.location.pathname)) {
-        window.location.replace("/login");
-        return;
-      }
-      access = "storage-error";
+      redirectToLogin();
+      return;
     } else {
       access = result.status === "authenticated" ? "ready" : "unavailable";
+      if (result.status === "authenticated") {
+        adminLogin.textContent = result.user.login;
+      }
     }
   } catch {
     if (events.signal.aborted) return;
@@ -173,5 +196,6 @@ void checkSession();
 import.meta.hot?.dispose(() => {
   events.abort();
   sessionRequest?.abort();
+  stopCatalog?.();
   stopRouter();
 });
