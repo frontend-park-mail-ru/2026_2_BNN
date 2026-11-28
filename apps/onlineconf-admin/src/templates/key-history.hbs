@@ -1,0 +1,28 @@
+<section class="onlineconf__panel key-history" aria-busy="{{#if loading}}true{{else}}false{{/if}}">
+  <h1 tabindex="-1">История изменений</h1>
+  <p><a href="{{keyHref}}" data-onlineconf-link>К карточке ключа</a></p>
+  {{#if message}}<p role="status">{{message}}</p>{{/if}}
+  {{#if retry}}<button type="button" data-history-retry>Повторить загрузку</button>{{/if}}
+
+  {{#if rows}}
+    <ol class="key-history__entries">
+      {{#each rows}}
+        <li>
+          <h2>{{action}}</h2>
+          <p>{{login}} · {{#if datetime}}<time datetime="{{datetime}}">{{time}}</time>{{else}}{{time}}{{/if}}</p>
+          {{#each changes}}
+            <details>
+              <summary>{{label}}</summary>
+              <div class="key-history__values">
+                <div><strong>До</strong><pre>{{previous}}</pre></div>
+                <div><strong>После</strong><pre>{{next}}</pre></div>
+              </div>
+            </details>
+          {{else}}
+            <p>Значения полей не изменились.</p>
+          {{/each}}
+        </li>
+      {{/each}}
+    </ol>
+  {{/if}}
+</section>

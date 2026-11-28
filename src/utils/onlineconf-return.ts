@@ -1,6 +1,6 @@
 const RETURN_KEY = "bnn:onlineconf:return_to";
 const KEY_PATH =
-  /^\/onlineconf\/keys\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i;
+  /^\/onlineconf\/keys\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/history)?\/?$/i;
 
 export function onlineconfReturnPath(value: string): string | null {
   if (!value.startsWith("/") || value.startsWith("//") || /[\\\s]/.test(value)) return null;

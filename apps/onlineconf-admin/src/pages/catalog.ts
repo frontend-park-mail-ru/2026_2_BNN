@@ -172,7 +172,7 @@ export function mountCatalog(
         selectScope();
         if (previous !== filters.scope) keys = [];
       }
-      activeId = route.name === "key" ? route.id : undefined;
+      activeId = route.name === "key" || route.name === "history" ? route.id : undefined;
       renderKeys();
       void load();
     },

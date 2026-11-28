@@ -716,3 +716,38 @@ button {
     overflow-wrap: anywhere;
   }
 }
+.key-history {
+  &__entries {
+    display: grid;
+    gap: 16px;
+    padding: 0;
+    list-style: none;
+
+    > li {
+      min-width: 0;
+      padding: 16px;
+      border-radius: 12px;
+      background: var(--surface);
+    }
+  }
+
+  summary {
+    cursor: pointer;
+    padding-block: 6px;
+  }
+
+  &__values {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 12px;
+
+    pre {
+      margin: 4px 0 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: var(--bg);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  }
+}

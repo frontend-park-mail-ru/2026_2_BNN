@@ -14,6 +14,7 @@ import { startRouter, type Route } from "./router";
 import { getAdminSession } from "./api/session";
 import { mountCatalog } from "./pages/catalog";
 import { mountKeyEditor } from "./pages/key-editor";
+import { mountKeyHistory } from "./pages/key-history";
 import "./styles/styles.scss";
 
 const favicon = document.createElement("link");
@@ -102,7 +103,7 @@ for (const image of avatarImages) {
   );
 }
 
-async function loadAvatar(userId: string): Promise<void> {
+async function loadAvatar(login: string): Promise<void> {
   const request = new AbortController();
   avatarRequest = request;
   const timeout = window.setTimeout(() => request.abort(), 10_000);
@@ -110,7 +111,7 @@ async function loadAvatar(userId: string): Promise<void> {
     const response = await fetch("/api/auth/me", { cache: "no-store", signal: request.signal });
     if (!response.ok) return;
     const user = await response.json();
-    if (request.signal.aborted || user?.id !== userId || typeof user.avatar !== "string") return;
+    if (request.signal.aborted || user?.login !== login || typeof user.avatar !== "string") return;
     const url = safeResourceUrl(user.avatar);
     if (url && new URL(url, location.origin).origin === location.origin) {
       avatarUrl = url;
@@ -171,12 +172,16 @@ let access: AccessState = "loading";
 let currentRoute: Route = { name: "catalog" };
 let sessionRequest: AbortController | null = null;
 let catalog: ReturnType<typeof mountCatalog> | undefined;
+let stopHistory: (() => void) | undefined;
 let editor: ReturnType<typeof mountKeyEditor> | undefined;
 
 /** Освобождает предыдущий экран и отображает маршрут с учётом состояния доступа. */
 const render = (route: Route): void => {
   editor?.destroy();
   editor = undefined;
+  stopHistory?.();
+  stopHistory = undefined;
+
   setSidebar(false);
   const canManage = access === "ready";
   const search = canManage && route.name === "catalog";
@@ -223,6 +228,7 @@ const render = (route: Route): void => {
     catalog: "Конфигурации и feature flags",
     "new-key": "Создание ключа",
     key: "Карточка ключа",
+    history: "История изменений",
     "not-found": "Страница не найдена",
   };
   const title = titles[route.name];
@@ -233,6 +239,8 @@ const render = (route: Route): void => {
 
   if (search) {
     main.replaceChildren();
+  } else if (route.name === "history") {
+    stopHistory = mountKeyHistory(main, route.id, handleAccessError);
   } else if (route.name === "key" || route.name === "new-key") {
     editor = mountKeyEditor(
       main,
@@ -259,6 +267,7 @@ const render = (route: Route): void => {
   (search ? catalogView : main).querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
 };
 
+/** Обрабатывает потерю сессии и закрытый доступ одинаково для всех экранов. */
 function handleAccessError(error: ApiError): void {
   if (error.status === 401) {
     redirectToLogin();
@@ -307,7 +316,7 @@ async function checkSession(): Promise<void> {
       access = result.status === "authenticated" ? "ready" : "unavailable";
       if (result.status === "authenticated") {
         adminLogin.textContent = result.user.login;
-        void loadAvatar(result.user.id);
+        void loadAvatar(result.user.login);
       }
     }
   } catch {
@@ -347,6 +356,7 @@ import.meta.hot?.dispose(() => {
   sessionRequest?.abort();
   avatarRequest?.abort();
   catalog?.destroy();
+  stopHistory?.();
   editor?.destroy();
   router.destroy();
 });

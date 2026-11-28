@@ -1,7 +1,9 @@
 import type {
+  AdminSession,
   AdminUser,
   CreateKeyInput,
   KeyFilters,
+  KeyHistoryEntry,
   KeyListItem,
   OnlineconfKey,
   Scope,
@@ -140,11 +142,11 @@ async function read<T>(
   return data;
 }
 
-export async function getSession(signal?: AbortSignal): Promise<AdminUser> {
-  const { id, login } = await read<AdminUser>("/session", signal, (user) =>
-    Boolean(typeof user.id === "string" && user.id && typeof user.login === "string" && user.login)
+export async function getSession(signal?: AbortSignal): Promise<AdminSession> {
+  const { login } = await read<AdminSession>("/session", signal, (session) =>
+    Boolean(typeof session.login === "string" && session.login.trim())
   );
-  return { id, login };
+  return { login };
 }
 
 /** Ищет до десяти пользователей по логину для персональных правил флага. */
@@ -198,6 +200,29 @@ function keyPath(id: string): string {
 
 function validVersion(version: number): boolean {
   return Number.isSafeInteger(version) && version > 0;
+}
+
+/** Загружает историю напрямую, в том числе для удалённого ключа, если API её возвращает. */
+export function getKeyHistory(id: string, signal?: AbortSignal): Promise<KeyHistoryEntry[]> {
+  const isSnapshot = (value: unknown) =>
+    value === null || (typeof value === "object" && !Array.isArray(value));
+
+  return read<KeyHistoryEntry[]>(
+    `${keyPath(id)}/history`,
+    signal,
+    (entries) =>
+      Array.isArray(entries) &&
+      entries.every(
+        (entry) =>
+          entry != null &&
+          typeof entry.id === "string" &&
+          typeof entry.action === "string" &&
+          typeof entry.user?.login === "string" &&
+          typeof entry.created_at === "string" &&
+          isSnapshot(entry.old_value) &&
+          isSnapshot(entry.new_value)
+      )
+  );
 }
 
 export async function getKey(id: string, signal?: AbortSignal) {
