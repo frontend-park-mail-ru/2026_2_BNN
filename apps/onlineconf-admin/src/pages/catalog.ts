@@ -1,7 +1,7 @@
-import { ApiError, getScopes, listKeys } from "./api";
-import catalog from "./catalog.hbs";
-import results from "./catalog-results.hbs";
-import type { KeyFilters, KeyKind, KeyListItem, Scope } from "./types";
+import { ApiError, getScopes, listKeys } from "../api/api";
+import catalog from "../templates/catalog.hbs";
+import results from "../templates/catalog-results.hbs";
+import type { KeyFilters, KeyKind, KeyListItem, Scope } from "../types/onlineconf";
 
 export function mountCatalog(
   main: HTMLElement,

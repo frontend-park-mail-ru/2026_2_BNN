@@ -14,20 +14,35 @@
         required
         maxlength="100"
         pattern="[a-zA-Z][a-zA-Z0-9_.\-]{0,99}"
-        aria-describedby="key-identity-error"
+        aria-describedby="key-name-hint key-identity-error"
       />
+      <p id="key-name-hint" class="onlineconf__description">От 1 до 100 символов: латинская буква в
+        начале, далее буквы, цифры, _, . и -.</p>
       <p id="key-identity-error" class="key-editor__error"></p>
       <label for="key-kind">Тип ключа</label>
       <select id="key-kind" name="kind"><option value="config">config</option><option
           value="flag"
         >flag</option></select>
       <label for="key-description">Описание</label>
-      <textarea id="key-description" name="description" rows="3"></textarea>
-      <label class="key-editor__check"><input name="is_public" type="checkbox" />
+      <textarea
+        id="key-description"
+        name="description"
+        rows="3"
+        aria-describedby="key-description-error"
+      ></textarea>
+      <p id="key-description-error" class="key-editor__error"></p>
+      <label class="key-editor__check"><input
+          name="is_public"
+          type="checkbox"
+          aria-describedby="key-public-hint key-public-error"
+        />
         Доступен продуктовому фронтенду</label>
+      <p id="key-public-hint" class="onlineconf__description">Для области frontend публичность
+        действует всегда. Не размещайте в ней секреты.</p>
+      <p id="key-public-error" class="key-editor__error"></p>
       <div data-config-fields>
         <label for="key-value-type">Тип значения</label>
-        <select id="key-value-type" name="value_type">
+        <select id="key-value-type" name="value_type" aria-describedby="key-value-error">
           <option value="string">string</option><option value="number">number</option><option
             value="boolean"
           >boolean</option><option value="object">object</option><option
@@ -44,6 +59,7 @@
         ></textarea>
         <label class="key-editor__check" data-boolean-field hidden><input
             name="boolean_value"
+            aria-describedby="key-value-error"
             type="checkbox"
           />
           Значение true</label>

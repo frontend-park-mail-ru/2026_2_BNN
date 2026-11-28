@@ -1,8 +1,8 @@
-import { ApiError, createKey, deleteKey, getKey, getScopes, listKeys, updateKey } from "./api";
-import { mountFlagEditor } from "./flag-editor";
-import { readConfig } from "./config-value";
-import template from "./key-editor.hbs";
-import type { CreateKeyInput, OnlineconfKey, Scope } from "./types";
+import { ApiError, createKey, deleteKey, getKey, getScopes, listKeys, updateKey } from "../api/api";
+import { mountFlagEditor } from "../components/flag-editor";
+import { readConfig } from "../utils/config-value";
+import template from "../templates/key-editor.hbs";
+import type { CreateKeyInput, OnlineconfKey, Scope } from "../types/onlineconf";
 
 export function mountKeyEditor(
   main: HTMLElement,
@@ -43,6 +43,7 @@ export function mountKeyEditor(
   let written = false;
   let baseline = "";
   let pendingInput: CreateKeyInput | undefined;
+  let errorFocus: HTMLElement | undefined;
 
   function snapshot(): string {
     return JSON.stringify([
@@ -75,6 +76,25 @@ export function mountKeyEditor(
     loadButton.disabled = busy;
     form.setAttribute("aria-busy", String(busy));
   }
+  function clearErrors(): void {
+    for (const error of form.querySelectorAll(".key-editor__error")) error.textContent = "";
+    for (const control of form.querySelectorAll("[aria-invalid]"))
+      control.removeAttribute("aria-invalid");
+  }
+  function markError(control: HTMLElement, error: HTMLElement, message: string): void {
+    error.textContent = message;
+    control.setAttribute("aria-invalid", "true");
+    errorFocus = control;
+  }
+  name.addEventListener(
+    "invalid",
+    () => {
+      identityError.textContent =
+        "Имя: от 1 до 100 символов, латинская буква в начале; далее буквы, цифры, _, . и -.";
+      name.setAttribute("aria-invalid", "true");
+    },
+    { signal: events.signal }
+  );
   function showValue(): void {
     const boolean = valueType.value === "boolean";
     value.hidden = boolean;
@@ -83,6 +103,8 @@ export function mountKeyEditor(
     find("[data-format-json]").hidden = !["object", "array"].includes(valueType.value);
     valueError.textContent = "";
     value.removeAttribute("aria-invalid");
+    valueType.removeAttribute("aria-invalid");
+    booleanValue.removeAttribute("aria-invalid");
   }
   function showKind(): void {
     flagEditor?.destroy();
@@ -124,9 +146,7 @@ export function mountKeyEditor(
       ? `ID: ${saved.id} · Версия: ${saved.version} · ${saved.updated_at} · ${saved.updated_by.login}`
       : "";
     deleteButton.hidden = !saved;
-    identityError.textContent = "";
-    name.removeAttribute("aria-invalid");
-    scope.removeAttribute("aria-invalid");
+    clearErrors();
     showValue();
     form.hidden = false;
     baseline = snapshot();
@@ -149,16 +169,29 @@ export function mountKeyEditor(
       name.setAttribute("aria-invalid", "true");
       scope.setAttribute("aria-invalid", "true");
       status.textContent = "Проверьте имя и область. Черновик сохранён.";
-      name.focus();
+      errorFocus = name;
     } else {
       if (error instanceof ApiError && error.code === "VALIDATION") {
-        if (/\b(key|scope)\b/i.test(error.message)) {
-          identityError.textContent = error.message;
-          name.setAttribute("aria-invalid", "true");
-          scope.setAttribute("aria-invalid", "true");
-        } else if (/\b(config|value|value_type)\b/i.test(error.message)) {
-          valueError.textContent = error.message;
-          value.setAttribute("aria-invalid", "true");
+        const message = error.message;
+        if (/\b(key|scope)\b/i.test(message)) {
+          markError(
+            /\bscope\b/i.test(message) && !scope.disabled ? scope : name,
+            identityError,
+            message
+          );
+        } else if (/\b(config|value|value_type)\b/i.test(message)) {
+          const target = /\bvalue_type\b/i.test(message)
+            ? valueType
+            : value.hidden
+              ? booleanValue
+              : value;
+          markError(target, valueError, message);
+        } else if (/\bdescription\b/i.test(message)) {
+          markError(description, find("#key-description-error"), message);
+        } else if (/\bis_public\b/i.test(message)) {
+          markError(isPublic, find("#key-public-error"), message);
+        } else {
+          errorFocus = flagEditor?.showError(message);
         }
       }
       status.textContent = timedOut
@@ -168,9 +201,14 @@ export function mountKeyEditor(
           : "Не удалось выполнить запрос. Черновик сохранён. Попробуйте ещё раз.";
     }
   }
+  function focusError(): void {
+    errorFocus?.focus();
+    errorFocus = undefined;
+  }
   async function run(action: (signal: AbortSignal) => Promise<void>): Promise<void> {
     if (busy) return;
     busy = true;
+    errorFocus = undefined;
     const current = new AbortController();
     request = current;
     const timer = window.setTimeout(() => current.abort(), 10_000);
@@ -195,6 +233,7 @@ export function mountKeyEditor(
       if (!events.signal.aborted && request === current) {
         busy = false;
         updateControls();
+        focusError();
       }
     }
   }
@@ -274,11 +313,7 @@ export function mountKeyEditor(
     (event) => {
       event.preventDefault();
       if (busy || written || form.hidden) return;
-      identityError.textContent = "";
-      valueError.textContent = "";
-      name.removeAttribute("aria-invalid");
-      scope.removeAttribute("aria-invalid");
-      value.removeAttribute("aria-invalid");
+      clearErrors();
       if (!form.reportValidity()) return;
       if (!scopes.includes(scope.value as Scope)) return;
       let input: CreateKeyInput;
@@ -307,8 +342,9 @@ export function mountKeyEditor(
             throw new Error("Лимит вложений: целое число от 1048576 до 10485760 байт.");
         } catch (error) {
           valueError.textContent = (error as Error).message;
-          value.setAttribute("aria-invalid", "true");
-          value.focus();
+          const target = value.hidden ? booleanValue : value;
+          target.setAttribute("aria-invalid", "true");
+          target.focus();
           return;
         }
         input = { ...common, kind: "config", config };
@@ -384,6 +420,7 @@ export function mountKeyEditor(
           const config = readConfig(valueType.value, value.value, booleanValue.checked);
           value.value = JSON.stringify(config.value, null, 2);
           valueError.textContent = "";
+          value.removeAttribute("aria-invalid");
           dirty = flagDirty || snapshot() !== baseline;
         } catch (error) {
           valueError.textContent = (error as Error).message;
