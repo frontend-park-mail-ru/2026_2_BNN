@@ -8,6 +8,7 @@ type Rule = "include" | "exclude";
 type FlagEditorOptions = {
   initial?: FlagRead;
   onChange?: () => void;
+  onAccessError?: (error: ApiError) => void;
 };
 
 function find<T extends Element>(root: HTMLElement, selector: string): T {
@@ -153,6 +154,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
 
     const request = new AbortController();
     pending = request;
+    const timeout = window.setTimeout(() => request.abort(), 10_000);
     searchButton.disabled = true;
     searchStatus.textContent = "Поиск…";
 
@@ -168,6 +170,10 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     } catch (error) {
       if (pending !== request) return;
 
+      if (error instanceof ApiError && (error.status === 401 || error.code === "NOT_FOUND")) {
+        options.onAccessError?.(error);
+        return;
+      }
       searchStatus.textContent =
         error instanceof ApiError && error.status === 401
           ? "Сессия истекла. Войдите снова."
@@ -175,6 +181,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
             ? "Поиск недоступен."
             : "Не удалось найти пользователей. Повторите поиск.";
     } finally {
+      clearTimeout(timeout);
       if (pending === request) {
         pending = undefined;
         searchButton.disabled = false;

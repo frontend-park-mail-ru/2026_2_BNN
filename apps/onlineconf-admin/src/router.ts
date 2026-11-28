@@ -12,10 +12,18 @@ function resolveRoute(path: string): Route {
   return match ? { name: "key", id: match[1] } : { name: "not-found" };
 }
 
-export function startRouter(render: (route: Route) => void): () => void {
+export function startRouter(render: (route: Route) => void, canLeave: () => boolean = () => true) {
   const events = new AbortController();
+  let index = 0;
+  let restoring = false;
+  history.replaceState({ ...history.state, onlineconfIndex: index }, "");
   const show = () => render(resolveRoute(window.location.pathname));
-
+  function navigate(path: string, replace = false): void {
+    if (!canLeave()) return;
+    if (replace) history.replaceState({ ...history.state, onlineconfIndex: index }, "", path);
+    else history.pushState({ onlineconfIndex: ++index }, "", path);
+    show();
+  }
   document.addEventListener(
     "click",
     (event) => {
@@ -29,26 +37,40 @@ export function startRouter(render: (route: Route) => void): () => void {
         !(event.target instanceof Element)
       )
         return;
-
       const link = event.target.closest<HTMLAnchorElement>("a[data-onlineconf-link]");
       if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self"))
         return;
-
       const url = new URL(link.href);
       if (
         url.origin !== window.location.origin ||
         (url.pathname !== "/onlineconf" && !url.pathname.startsWith("/onlineconf/"))
       )
         return;
-
       event.preventDefault();
-      history.pushState(null, "", url.pathname + url.search + url.hash);
+      navigate(url.pathname + url.search + url.hash);
+    },
+    { signal: events.signal }
+  );
+  window.addEventListener(
+    "popstate",
+    () => {
+      if (restoring) {
+        restoring = false;
+        return;
+      }
+      const next: number | undefined = history.state?.onlineconfIndex;
+      if (!canLeave()) {
+        if (typeof next === "number" && next !== index) {
+          restoring = true;
+          history.go(index - next);
+        }
+        return;
+      }
+      index = next ?? 0;
       show();
     },
     { signal: events.signal }
   );
-
-  window.addEventListener("popstate", show, { signal: events.signal });
   show();
-  return () => events.abort();
+  return { navigate, destroy: () => events.abort() };
 }

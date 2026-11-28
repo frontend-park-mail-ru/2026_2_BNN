@@ -6,6 +6,7 @@ import { saveOnlineconfReturn } from "../../../src/utils/onlineconf-return";
 import { startRouter, type Route } from "./router";
 import { getAdminSession } from "./session";
 import { mountCatalog } from "./catalog";
+import { mountKeyEditor } from "./key-editor";
 import "./styles.scss";
 
 const favicon = document.createElement("link");
@@ -68,8 +69,11 @@ let access: AccessState = "loading";
 let currentRoute: Route = { name: "catalog" };
 let sessionRequest: AbortController | null = null;
 let stopCatalog: (() => void) | undefined;
+let editor: ReturnType<typeof mountKeyEditor> | undefined;
 
 const render = (route: Route): void => {
+  editor?.destroy();
+  editor = undefined;
   stopCatalog?.();
   stopCatalog = undefined;
   if (access !== "ready") {
@@ -116,11 +120,23 @@ const render = (route: Route): void => {
         render(currentRoute);
       }
     });
+  } else if (route.name === "key" || route.name === "new-key") {
+    editor = mountKeyEditor(
+      main,
+      route.name === "key" ? route.id : undefined,
+      (error) => {
+        if (error.status === 401) redirectToLogin();
+        else {
+          access = "unavailable";
+          render(currentRoute);
+        }
+      },
+      (path, replace) => router.navigate(path, replace)
+    );
   } else {
     main.innerHTML = page({
       title,
       loading: false,
-      id: route.name === "key" ? route.id : undefined,
       notFound: route.name === "not-found",
     });
   }
@@ -138,10 +154,13 @@ function redirectToLogin(): void {
   if (saved) window.location.replace("/login");
 }
 
-const stopRouter = startRouter((route) => {
-  currentRoute = route;
-  render(route);
-});
+const router = startRouter(
+  (route) => {
+    currentRoute = route;
+    render(route);
+  },
+  () => editor?.canLeave() ?? true
+);
 
 async function checkSession(): Promise<void> {
   if (sessionRequest) return;
@@ -197,5 +216,6 @@ import.meta.hot?.dispose(() => {
   events.abort();
   sessionRequest?.abort();
   stopCatalog?.();
-  stopRouter();
+  editor?.destroy();
+  router.destroy();
 });

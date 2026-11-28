@@ -285,6 +285,78 @@ button {
   }
 }
 
+.key-editor {
+  fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+  }
+  label {
+    display: block;
+    margin: 16px 0 8px;
+    line-height: 1.6;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--muted);
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 44px;
+    max-width: 100%;
+  }
+  input:not([type="checkbox"]),
+  select,
+  textarea {
+    width: 100%;
+  }
+  textarea {
+    resize: vertical;
+    line-height: 1.6;
+  }
+  input[type="checkbox"] {
+    min-height: auto;
+  }
+  input[readonly],
+  :disabled {
+    opacity: 0.7;
+  }
+  button:disabled {
+    cursor: default;
+  }
+  &__check {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+  }
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  &__error {
+    color: var(--text);
+    font-weight: 700;
+    line-height: 1.6;
+  }
+  [aria-invalid="true"] {
+    border-width: 2px;
+  }
+  [data-flag-editor] {
+    margin-top: 20px;
+    line-height: 1.8;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
 .flag-editor {
   display: grid;
   gap: 12px;
