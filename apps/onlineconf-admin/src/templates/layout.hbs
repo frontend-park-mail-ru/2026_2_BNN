@@ -1,0 +1,73 @@
+<div class="onlineconf">
+  <header class="onlineconf__header">
+    <div class="onlineconf__brand">
+      <button class="onlineconf__icon onlineconf__drawer" type="button" aria-label="Открыть список ключей" aria-controls="onlineconf-sidebar" aria-expanded="false" data-sidebar-open>
+        <svg width="20" height="20" aria-hidden="true"><use href="{{spriteUrl}}#menu"></use></svg>
+      </button>
+      <a class="onlineconf__logo" href="/" aria-label="На главную">
+        <img src="{{logoUrl}}" width="96" height="45" alt="Brand New Notes" data-brand-logo />
+      </a>
+      <a class="onlineconf__product" href="/onlineconf/" data-onlineconf-link>OnlineConf</a>
+    </div>
+    <div class="onlineconf__account">
+      <a class="onlineconf__create" href="/onlineconf/keys/new" aria-label="Создать ключ" data-onlineconf-link data-create-key hidden>
+        <span>+ Создать ключ</span>
+        <svg width="24" height="24" aria-hidden="true"><use href="{{spriteUrl}}#plus"></use></svg>
+      </a>
+      <button class="onlineconf__avatar" type="button" data-profile-open aria-label="Профиль пользователя" aria-haspopup="dialog" hidden>
+        <img src="{{avatarUrl}}" alt="" data-avatar-image />
+      </button>
+    </div>
+  </header>
+  <div class="onlineconf__layout">
+    <div class="onlineconf__backdrop" data-sidebar-close hidden></div>
+    <aside class="onlineconf__sidebar" id="onlineconf-sidebar" aria-labelledby="onlineconf-sidebar-title">
+      <div class="onlineconf__rail">
+        <nav class="onlineconf__rail-nav" aria-label="Разделы OnlineConf" data-rail-nav hidden>
+          <a class="onlineconf__icon onlineconf__icon_active" href="/onlineconf/" aria-label="Все ключи" title="Все ключи" data-onlineconf-link>
+            <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#key"></use></svg>
+          </a>
+          <a class="onlineconf__icon" href="/onlineconf/admins" aria-label="Администраторы" title="Администраторы" data-onlineconf-link data-admins-link>
+            <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#admins"></use></svg>
+          </a>
+          <a class="onlineconf__icon" href="/onlineconf/rollout-plans" aria-label="Регламенты раскатки" title="Регламенты раскатки" data-onlineconf-link data-rollout-plans-link>
+            <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#rollout-plans"></use></svg>
+          </a>
+        </nav>
+        <button class="onlineconf__icon" type="button" data-theme-toggle aria-label="Сменить тему" title="Сменить тему" aria-pressed="false">
+          <svg width="30" height="30" aria-hidden="true"><use></use></svg>
+        </button>
+      </div>
+      <div class="onlineconf__library">
+        <div class="onlineconf__heading">
+          <h2 id="onlineconf-sidebar-title">Ключи</h2>
+          <button class="onlineconf__icon onlineconf__drawer" type="button" aria-label="Закрыть список ключей" data-sidebar-close>
+            <svg width="20" height="20" aria-hidden="true"><use href="{{spriteUrl}}#close"></use></svg>
+          </button>
+        </div>
+        <nav class="onlineconf__keys" aria-label="Ключи" data-keys hidden>
+          <a class="onlineconf__key" href="/onlineconf/" data-onlineconf-link data-catalog-link>Все области</a>
+          <div class="onlineconf__key-list">
+            <div data-key-list aria-busy="true"></div>
+          </div>
+        </nav>
+      </div>
+    </aside>
+    <main class="onlineconf__main">
+      <div class="onlineconf__view" data-catalog hidden></div>
+      <div class="onlineconf__view" id="onlineconf-main"></div>
+    </main>
+  </div>
+  <dialog class="onlineconf__profile" aria-labelledby="onlineconf-profile-title">
+    <form method="dialog">
+      <h2 id="onlineconf-profile-title">Профиль</h2>
+      <button class="onlineconf__icon" type="submit" aria-label="Закрыть" autofocus>
+        <svg width="20" height="20" aria-hidden="true"><use href="{{spriteUrl}}#close"></use></svg>
+      </button>
+    </form>
+    <div class="onlineconf__identity">
+      <img src="{{avatarUrl}}" width="60" height="60" alt="" data-avatar-image />
+      <span data-admin-login></span>
+    </div>
+  </dialog>
+</div>

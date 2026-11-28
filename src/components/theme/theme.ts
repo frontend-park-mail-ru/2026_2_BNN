@@ -2,9 +2,9 @@ import { setTheme } from "@/flux/ui/ui-actions";
 import { uiStore } from "@/flux/ui/ui-store";
 import type { Theme } from "@/flux/ui/ui-action-types";
 
-const SPRITE = "/assets/icons/ui/sprite.svg";
+import { transitionTheme } from "./transition";
 
-let themeTransitionRunning = false;
+const SPRITE = "/assets/icons/ui/sprite.svg";
 
 const THEME_ICONS: Record<Theme, string> = {
   light: "sunrise",
@@ -87,78 +87,6 @@ function applyTheme(theme: Theme): void {
 }
 
 /**
- * Переключает тему круговым переходом от кнопки. Без View Transitions тема меняется сразу.
- *
- * @param button Кнопка, из центра которой расходится переход.
- */
-async function transitionTheme(button: Element): Promise<void> {
-  if (themeTransitionRunning) {
-    return;
-  }
-
-  const theme = getTheme() === "dark" ? "light" : "dark";
-
-  if (
-    !document.startViewTransition ||
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ) {
-    setTheme(theme);
-    return;
-  }
-
-  themeTransitionRunning = true;
-  const root = document.documentElement;
-  const rect = button.getBoundingClientRect();
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
-  const radius = Math.hypot(
-    Math.max(x, window.innerWidth - x),
-    Math.max(y, window.innerHeight - y)
-  );
-
-  let animation: Animation | undefined;
-
-  root.dataset.themeTransition = "circle";
-
-  try {
-    const transition = document.startViewTransition(() => {
-      setTheme(theme);
-    });
-
-    try {
-      await transition.ready;
-
-      const circle = [`circle(${radius}px at ${x}px ${y}px)`, `circle(0px at ${x}px ${y}px)`];
-
-      animation = root.animate(
-        {
-          clipPath: theme === "light" ? circle.reverse() : circle,
-        },
-        {
-          duration: 900,
-          easing: "ease-in-out",
-          fill: "forwards",
-          pseudoElement:
-            theme === "light"
-              ? "::view-transition-new(theme-page)"
-              : "::view-transition-old(theme-page)",
-        }
-      );
-
-      await animation.finished;
-    } catch {
-      transition.skipTransition();
-    }
-
-    await transition.finished;
-  } finally {
-    animation?.cancel();
-    delete root.dataset.themeTransition;
-    themeTransitionRunning = false;
-  }
-}
-
-/**
  * Инициализирует тему и обработчик кнопки переключения.
  */
 export function initTheme() {
@@ -181,6 +109,7 @@ export function initTheme() {
       return;
     }
 
-    void transitionTheme(button);
+    const theme = getTheme() === "dark" ? "light" : "dark";
+    void transitionTheme(button, theme, () => setTheme(theme));
   });
 }

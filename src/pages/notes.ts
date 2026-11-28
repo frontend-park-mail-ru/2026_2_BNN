@@ -416,6 +416,7 @@ export class NotesPage {
           mainKey = key;
           editor.resetSelection();
           mainRegion.innerHTML = Handlebars.partials["notes-main"](buildNotesView(context, id));
+          editor.syncVoiceInput();
           observeBreadcrumbs();
           editorRendered = mainRegion.querySelector("[data-note-title]") !== null;
           focusPendingTitle();

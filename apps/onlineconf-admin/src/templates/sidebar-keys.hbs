@@ -1,0 +1,20 @@
+<ul aria-label="Области и ключи">
+  {{#each groups}}
+    <li>
+      <div class="onlineconf__scope">
+        <button type="button" class="onlineconf__scope-toggle" data-scope-toggle="{{scope}}" aria-label="Ключи области {{label}}" aria-expanded="{{open}}" aria-controls="onlineconf-scope-{{scope}}" {{#unless expandable}}disabled{{/unless}}></button>
+        <a class="onlineconf__key" href="{{href}}" data-onlineconf-link {{#if active}}aria-current="true"{{/if}}>{{label}}</a>
+      </div>
+      <ul id="onlineconf-scope-{{scope}}" class="onlineconf__children" {{#unless open}}hidden{{/unless}}>
+        {{#if draft}}
+          <li><span class="onlineconf__key" aria-current="page" data-draft-key>{{draft}}</span></li>
+        {{/if}}
+        {{#each keys}}
+          <li>
+            <a class="onlineconf__key" href="{{href}}" title="{{scope}} / {{key}}" data-onlineconf-link {{#if active}}aria-current="page"{{/if}}>{{key}}</a>
+          </li>
+        {{/each}}
+      </ul>
+    </li>
+  {{/each}}
+</ul>

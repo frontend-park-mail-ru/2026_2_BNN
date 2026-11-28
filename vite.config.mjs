@@ -192,6 +192,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": "http://localhost:5458",
+      "/onlineconf": { target: "http://localhost:3001", ws: true },
       "/avatars": "http://localhost:9002",
     },
   },
@@ -199,6 +200,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": "http://localhost:5458",
+      "/onlineconf": { target: "http://localhost:3001", ws: true },
       "/avatars": "http://localhost:9002",
     },
   },

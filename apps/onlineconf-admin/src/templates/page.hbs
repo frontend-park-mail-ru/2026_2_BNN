@@ -1,0 +1,19 @@
+<section class="onlineconf__panel" aria-labelledby="page-title" aria-busy="{{loading}}">
+  <h1 id="page-title" tabindex="-1">{{title}}</h1>
+  {{#if description}}
+    <p class="onlineconf__description" role="status">{{description}}</p>
+  {{/if}}
+  {{#if id}}
+    <p class="onlineconf__description">ID: {{id}}</p>
+  {{/if}}
+  <div data-page-content></div>
+  {{#if retry}}
+    <button type="button" data-session-retry>Повторить</button>
+  {{/if}}
+  {{#if login}}
+    <a href="/login">Войти в BNN</a>
+  {{/if}}
+  {{#if notFound}}
+    <a href="/onlineconf/" data-onlineconf-link>К каталогу</a>
+  {{/if}}
+</section>

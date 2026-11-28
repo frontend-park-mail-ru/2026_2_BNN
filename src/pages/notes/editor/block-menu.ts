@@ -1,4 +1,5 @@
 import type { BlockType } from "@/types/note";
+import { runtimeConfigStore } from "@/flux/runtime/runtime-store";
 import type { AttachmentRequest } from "@/pages/notes/attachments";
 import { toBlockView } from "@/pages/notes/editor/block-view";
 import { placeCaret } from "@/pages/notes/editor/caret";
@@ -16,9 +17,28 @@ export function createBlockMenu(options: {
   timerSave: () => void;
   attachFile: (block: HTMLElement, requested: AttachmentRequest) => Promise<void>;
   createSubnote: (block: HTMLElement) => void;
+  showToast: (message: string) => void;
 }) {
   const { mainRegion, timerSave, attachFile } = options;
   const { replaceBlock } = options.document;
+
+  function syncAttachmentOptions(): void {
+    const { attachmentUploadDenied } = runtimeConfigStore.getState();
+    const menu = mainRegion.querySelector<HTMLElement>("[data-block-menu]");
+    menu
+      ?.querySelectorAll<HTMLButtonElement>(
+        '[data-block-option="file"], [data-block-option="image"]'
+      )
+      .forEach((button) => {
+        if (button.disabled === attachmentUploadDenied) return;
+        const focused = button === document.activeElement;
+        button.disabled = attachmentUploadDenied;
+        if (button.disabled) {
+          button.classList.remove("block-menu__item_active");
+          if (focused) menu.focus({ preventScroll: true });
+        }
+      });
+  }
 
   /**
    * Показывает меню типа блока.
@@ -38,6 +58,7 @@ export function createBlockMenu(options: {
       return;
     }
     menu.toggleAttribute("data-from-toolbar", fromToolbar);
+    syncAttachmentOptions();
     menu.addEventListener("focusin", (event) => {
       if (!(event.target instanceof HTMLElement) || !event.target.matches("[data-block-option]"))
         return;
@@ -69,6 +90,9 @@ export function createBlockMenu(options: {
       menu.style.bottom = `calc(100% + ${gap}px)`;
     }
     if (fromToolbar) menu.focus({ preventScroll: true });
+    if (runtimeConfigStore.consumeAttachmentUploadRestored()) {
+      options.showToast("Вложения снова можно добавлять.");
+    }
   }
 
   /**
@@ -86,10 +110,15 @@ export function createBlockMenu(options: {
    */
   function moveBlockMenu(menu: HTMLElement, step: number): void {
     const items = Array.from(
-      menu.querySelectorAll<HTMLElement>("[data-block-option], [data-selection-type]")
+      menu.querySelectorAll<HTMLElement>(
+        "[data-block-option]:not(:disabled), [data-selection-type]"
+      )
     );
+    if (!items.length) return;
     const current = items.findIndex((item) => item.classList.contains("block-menu__item_active"));
-    const next = items[(current + step + items.length) % items.length];
+    const nextIndex =
+      current < 0 && step < 0 ? items.length - 1 : (current + step + items.length) % items.length;
+    const next = items[nextIndex];
     items[current]?.classList.remove("block-menu__item_active");
     next.classList.add("block-menu__item_active");
     if (menu.contains(document.activeElement) && menu !== document.activeElement) {
@@ -99,13 +128,19 @@ export function createBlockMenu(options: {
   }
 
   /**
-   * Меняет тип блока и закрывает меню.
+   * Меняет тип блока. При запрете загрузки оставляет меню открытым, чтобы показать недоступные пункты.
    *
    * @param block Текущий блок.
    * @param type Новый тип.
    */
   function chooseBlockType(block: HTMLElement, type: BlockType): void {
     const fromToolbar = !!block.querySelector("[data-block-menu][data-from-toolbar]");
+    if (type === "file" || type === "image") {
+      if (runtimeConfigStore.getAttachmentPolicy().uploadEnabled) closeBlockMenu();
+      void attachFile(block, type);
+      return;
+    }
+
     closeBlockMenu();
     if (fromToolbar) {
       const text = block.querySelector<HTMLElement>("[data-block-text]");
@@ -122,11 +157,6 @@ export function createBlockMenu(options: {
       return;
     }
 
-    if (type === "file" || type === "image") {
-      void attachFile(block, type);
-      return;
-    }
-
     const next = replaceBlock(
       block,
       toBlockView({ id: block.dataset.blockId ?? "", content: { type, text: "" } })
@@ -137,5 +167,5 @@ export function createBlockMenu(options: {
     }
     timerSave();
   }
-  return { openBlockMenu, closeBlockMenu, moveBlockMenu, chooseBlockType };
+  return { openBlockMenu, closeBlockMenu, moveBlockMenu, chooseBlockType, syncAttachmentOptions };
 }

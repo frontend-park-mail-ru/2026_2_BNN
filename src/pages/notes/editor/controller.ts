@@ -1,4 +1,5 @@
 import { notesStore } from "@/flux/notes/note-store";
+import { runtimeConfigStore } from "@/flux/runtime/runtime-store";
 import type { BlockType } from "@/types/note";
 import { createVoiceInputController } from "@/pages/notes/voice-input/controller";
 import { createVoiceInputView } from "@/pages/notes/voice-input/view";
@@ -76,6 +77,7 @@ export function createNoteEditor(options: EditorOptions) {
     timerSave,
     attachFile: (block, requested) => attachments.attachFile(block, requested),
     createSubnote: startSubnote,
+    showToast: options.showToast,
   });
   const { openBlockMenu, closeBlockMenu, moveBlockMenu, chooseBlockType } = menu;
   const persistence = createEditorPersistence({
@@ -111,6 +113,24 @@ export function createNoteEditor(options: EditorOptions) {
     onError: (message) => options.showToast(message, true),
     onActiveChange: voiceInputView.setVoiceInputActive,
   });
+
+  let voiceInputEnabled = runtimeConfigStore.isVoiceInputEnabled();
+
+  /** Синхронизирует кнопку и сообщает, когда диктовка снова доступна. */
+  function syncVoiceInput(): void {
+    const enabled = runtimeConfigStore.isVoiceInputEnabled();
+    const { snapshot, voiceInputDenialShown } = runtimeConfigStore.getState();
+    const restored = !voiceInputEnabled && enabled && snapshot !== null;
+    if (voiceInputEnabled && !enabled) voiceInput.stop();
+    voiceInputEnabled = enabled;
+
+    const button = mainRegion.querySelector<HTMLButtonElement>("[data-voice-input-toggle]");
+    if (!button) return;
+
+    button.disabled = voiceInputDenialShown;
+    button.classList.toggle("icon-button_disabled", voiceInputDenialShown);
+    if (restored) options.showToast("Голосовой ввод снова доступен.");
+  }
 
   /**
    * Убирает панель форматирования из блока, который сейчас заменят.
@@ -594,7 +614,12 @@ export function createNoteEditor(options: EditorOptions) {
       return true;
     }
     if (target.closest("[data-voice-input-toggle]")) {
-      voiceInput.toggle();
+      if (runtimeConfigStore.isVoiceInputEnabled()) {
+        voiceInput.toggle();
+      } else if (!runtimeConfigStore.getState().voiceInputDenialShown) {
+        options.showToast("Голосовой ввод сейчас отключён.", true);
+        runtimeConfigStore.recordVoiceInputDenial();
+      }
       return true;
     }
     return false;
@@ -639,6 +664,12 @@ export function createNoteEditor(options: EditorOptions) {
 
   const events = new AbortController();
   const signal = events.signal;
+  const unsubscribeRuntime = runtimeConfigStore.subscribe(() => {
+    menu.syncAttachmentOptions();
+    syncVoiceInput();
+  });
+  signal.addEventListener("abort", unsubscribeRuntime, { once: true });
+  syncVoiceInput();
   const cancelBlockReorder = mountBlockReorder(mainRegion, timerSave, signal);
   mainRegion.addEventListener(
     "focusin",
@@ -686,6 +717,7 @@ export function createNoteEditor(options: EditorOptions) {
     handleClick,
     escape,
     resetSelection,
+    syncVoiceInput,
     scheduleSave: timerSave,
     retrySave: () => autosave.run(),
     clearSave: () => autosave.clear(),

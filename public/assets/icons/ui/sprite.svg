@@ -2,6 +2,18 @@
   <symbol id="plus" viewBox="0 0 24 24" fill="none">
     <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
   </symbol>
+  <symbol id="key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15.5 14a5.5 5.5 0 1 0-5.2-7.3L3 14v4h4v-3h3v-3l1.2-1.2A5.5 5.5 0 0 0 15.5 14Z"/>
+    <path d="M16.5 8h.01"/>
+  </symbol>
+  <symbol id="admins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="7" r="3"/>
+    <path d="M2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M16 4a3 3 0 0 1 0 6m1 4a4 4 0 0 1 4 4v2"/>
+  </symbol>
+  <symbol id="rollout-plans" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 10V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4M2 7h4M2 12h4M2 17h4M9 7h5M9 11h5M9 15h2"/>
+    <path d="m13 18 6-6a1.4 1.4 0 0 1 2 2l-6 6-3 1 1-3Z"/>
+  </symbol>
   <symbol id="file" viewBox="0 0 25 25" fill="none">
     <path d="M20.8333 8.33337L14.5833 2.08337H6.24999C5.69746 2.08337 5.16755 2.30287 4.77685 2.69357C4.38615 3.08427 4.16666 3.61417 4.16666 4.16671V20.8334C4.16666 21.3859 4.38615 21.9158 4.77685 22.3065C5.16755 22.6972 5.69746 22.9167 6.24999 22.9167H18.75C19.3025 22.9167 19.8324 22.6972 20.2231 22.3065C20.6138 21.9158 20.8333 21.3859 20.8333 20.8334V8.33337ZM14.5833 2.08337L14.5833 8.33337H20.8333M16.6667 13.5417H8.33332M16.6667 17.7084H8.33332M10.4167 9.37504H8.33332" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>

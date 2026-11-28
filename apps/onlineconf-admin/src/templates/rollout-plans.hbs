@@ -1,0 +1,22 @@
+<section class="onlineconf__panel rollout-editor" aria-labelledby="rollout-plans-title">
+  <h1 id="rollout-plans-title" tabindex="-1">Регламенты раскатки</h1>
+  <p role="status" data-plans-status></p>
+  <button type="button" data-plans-reload>Обновить список</button>
+
+  <form data-plans-form>
+    <fieldset disabled>
+      <label for="rollout-plan-select">Регламент</label>
+      <select id="rollout-plan-select" data-plans-select></select>
+      <label for="rollout-plan-name">Название</label>
+      <input id="rollout-plan-name" data-plans-name required />
+      <label for="rollout-plan-steps">Этапы в процентах, через запятую</label>
+      <input id="rollout-plan-steps" data-plans-steps placeholder="10, 25, 50, 100" required />
+      <label for="rollout-plan-interval">Интервал между этапами, мин</label>
+      <input id="rollout-plan-interval" data-plans-interval type="number" min="1" step="1" required />
+      <div class="rollout-editor__actions">
+        <button type="submit">Сохранить регламент</button>
+        <button type="button" data-plans-delete hidden>Удалить регламент</button>
+      </div>
+    </fieldset>
+  </form>
+</section>

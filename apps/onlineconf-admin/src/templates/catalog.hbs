@@ -1,0 +1,24 @@
+<section class="onlineconf__panel catalog" aria-labelledby="page-title">
+  <h1 id="page-title" tabindex="-1">Конфигурации и feature flags</h1>
+  <form class="catalog__filters" role="search" aria-label="Поиск ключей">
+    <div class="catalog__fields">
+      <div class="catalog__field">
+        <label for="catalog-query">Имя ключа</label>
+        <input id="catalog-query" type="search" name="query" autocomplete="off" placeholder="Часть имени ключа" />
+      </div>
+      <div class="catalog__field catalog__field_select">
+        <label for="catalog-kind">Тип</label>
+        <select id="catalog-kind" name="kind">
+          <option value="">Все типы</option>
+          <option value="config">config</option>
+          <option value="flag">flag</option>
+        </select>
+      </div>
+    </div>
+    <div class="catalog__actions">
+      <button type="submit">Найти</button>
+      <button type="button" data-search-clear>Очистить</button>
+    </div>
+  </form>
+  <div data-catalog-results aria-busy="true"></div>
+</section>

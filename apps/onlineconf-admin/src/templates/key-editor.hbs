@@ -1,0 +1,85 @@
+<section class="onlineconf__panel key-editor">
+  <h1 tabindex="-1">{{title}}</h1>
+  {{#if historyHref}}
+    <p><a href="{{historyHref}}" data-onlineconf-link>История изменений</a></p>
+  {{/if}}
+  <p data-key-meta class="onlineconf__description"></p>
+  <p data-key-status role="status" aria-live="polite"></p>
+  <button type="button" data-key-load hidden>Повторить загрузку</button>
+  <form data-key-form hidden>
+    <fieldset data-key-fields>
+      <label for="key-scope">Область</label>
+      <select id="key-scope" name="scope" aria-describedby="key-identity-error"></select>
+      <label for="key-name">Имя ключа</label>
+      <input
+        id="key-name"
+        name="key"
+        required
+        maxlength="100"
+        pattern="[a-zA-Z][a-zA-Z0-9_.\-]{0,99}"
+        aria-describedby="key-name-hint key-identity-error"
+      />
+      <p id="key-name-hint" class="onlineconf__description">От 1 до 100 символов: латинская буква в
+        начале, далее буквы, цифры, _, . и -.</p>
+      <p id="key-identity-error" class="key-editor__error"></p>
+      <label for="key-kind">Тип ключа</label>
+      <select id="key-kind" name="kind"><option value="config">config</option><option
+          value="flag"
+        >flag</option></select>
+      <label for="key-description">Описание</label>
+      <textarea
+        id="key-description"
+        name="description"
+        rows="3"
+        aria-describedby="key-description-error"
+      ></textarea>
+      <p id="key-description-error" class="key-editor__error"></p>
+      <label class="key-editor__check"><input
+          name="is_public"
+          type="checkbox"
+          aria-describedby="key-public-hint key-public-error"
+        />
+        Доступен продуктовому фронтенду</label>
+      <p id="key-public-hint" class="onlineconf__description">Для области frontend публичность
+        действует всегда. Не размещайте в ней секреты.</p>
+      <p id="key-public-error" class="key-editor__error"></p>
+      <div data-config-fields>
+        <label for="key-value-type">Тип значения</label>
+        <select id="key-value-type" name="value_type" aria-describedby="key-value-error">
+          <option value="string">string</option><option value="number">number</option><option
+            value="boolean"
+          >boolean</option><option value="object">object</option><option
+            value="array"
+          >array</option>
+        </select>
+        <label for="key-value" data-value-label>Значение</label>
+        <textarea
+          id="key-value"
+          name="value"
+          rows="6"
+          aria-describedby="key-value-error"
+          spellcheck="false"
+        ></textarea>
+        <label class="key-editor__check" data-boolean-field hidden><input
+            name="boolean_value"
+            aria-describedby="key-value-error"
+            type="checkbox"
+          />
+          Значение true</label>
+        <button type="button" data-format-json hidden>Форматировать JSON</button>
+        <p id="key-value-error" class="key-editor__error"></p>
+      </div>
+      <div data-flag-editor hidden></div>
+      <div class="key-editor__actions">
+        <button type="submit" data-key-save>Сохранить</button>
+        <button type="button" data-key-reset>Сбросить</button>
+        <button type="button" data-key-delete hidden>Удалить</button>
+      </div>
+    </fieldset>
+  </form>
+  <div data-flag-evaluation hidden></div>
+  <div data-flag-rollout hidden></div>
+  <div data-flag-schedules hidden></div>
+  <button type="button" data-key-reload hidden>Загрузить актуальную версию</button>
+  <p><a href="/onlineconf/" data-onlineconf-link>Вернуться в каталог</a></p>
+</section>

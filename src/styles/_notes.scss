@@ -1,5 +1,6 @@
 @use "mixins" as *;
 @use "variables" as *;
+@use "theme-transition";
 
 .notes {
   position: relative;
@@ -363,9 +364,14 @@
     text-align: left;
     cursor: pointer;
 
-    &:hover,
+    &:hover:not(:disabled),
     &_active {
       background-color: var(--dark-bg);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 }
@@ -1331,37 +1337,7 @@
   }
 }
 
-:root[data-theme-transition="circle"] {
-  view-transition-name: none;
-
-  .notes {
-    view-transition-name: theme-page;
-  }
-
-  &::view-transition-old(theme-page),
-  &::view-transition-new(theme-page) {
-    animation: none;
-    mix-blend-mode: normal;
-  }
-
-  &::view-transition-old(theme-page) {
-    z-index: 2;
-  }
-
-  &::view-transition-new(theme-page) {
-    z-index: 1;
-  }
-}
-
-:root[data-theme="light"][data-theme-transition="circle"] {
-  &::view-transition-old(theme-page) {
-    z-index: 1;
-  }
-
-  &::view-transition-new(theme-page) {
-    z-index: 2;
-  }
-}
+@include theme-transition.circle(".notes");
 
 .note-title-tooltip {
   position: fixed;

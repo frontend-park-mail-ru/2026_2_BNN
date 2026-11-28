@@ -1,0 +1,79 @@
+<fieldset class="flag-editor" aria-describedby="flag-rules-hint flag-feedback">
+  <legend>Настройки флага</legend>
+
+  <label>
+    <input type="checkbox" data-flag-enabled aria-describedby="flag-rules-hint flag-feedback" />
+    Флаг включён
+  </label>
+
+  <div class="flag-editor__row">
+    <label>
+      Процент раскатки
+      <input
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        data-flag-range
+        aria-describedby="flag-percent-error"
+      />
+    </label>
+    <label>
+      Процент вручную
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="1"
+        required
+        data-flag-percent
+        aria-describedby="flag-percent-error"
+      />
+    </label>
+  </div>
+
+  <p id="flag-percent-error" class="key-editor__error" data-flag-percent-error></p>
+
+  <p id="flag-rules-hint" class="flag-editor__hint">
+    Процент применяется к пользователям вне персональных списков. Выключенный флаг недоступен всем.
+  </p>
+
+  <div class="flag-editor__row">
+    <label>
+      Поиск пользователя по логину
+      <input
+        type="search"
+        autocomplete="off"
+        data-flag-query
+        aria-describedby="flag-search-status"
+      />
+    </label>
+    <button type="button" data-flag-search>Найти</button>
+  </div>
+
+  <p id="flag-search-status" role="status" data-flag-search-status></p>
+  <ul class="flag-editor__results" aria-label="Результаты поиска" data-flag-results></ul>
+
+  <div class="flag-editor__lists">
+    <section aria-label="Принудительно включить">
+      <h3>Принудительно включить <span data-flag-include-count></span></h3>
+      <ul
+        class="flag-editor__chips"
+        data-flag-include
+        tabindex="-1"
+        aria-describedby="flag-feedback"
+      ></ul>
+    </section>
+    <section aria-label="Принудительно исключить">
+      <h3>Принудительно исключить <span data-flag-exclude-count></span></h3>
+      <ul
+        class="flag-editor__chips"
+        data-flag-exclude
+        tabindex="-1"
+        aria-describedby="flag-feedback"
+      ></ul>
+    </section>
+  </div>
+
+  <p id="flag-feedback" role="status" data-flag-feedback></p>
+</fieldset>

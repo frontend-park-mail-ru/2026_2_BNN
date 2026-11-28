@@ -77,7 +77,12 @@ export class ApiError extends Error {
    * @param message Сообщение для пользователя или лога.
    * @param status HTTP-статус ответа.
    */
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    public readonly code?: string,
+    public readonly limitBytes?: number
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -196,7 +201,7 @@ class Api {
     let response = await send();
 
     if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
-      if (await this.refreshSession()) {
+      if (!options.signal?.aborted && (await this.refreshSession()) && !options.signal?.aborted) {
         response = await send();
       }
     }
@@ -204,19 +209,29 @@ class Api {
     if (!response.ok) {
       const text = await response.text();
       let message = getErrorMessage(response.status, messages);
+      let code: string | undefined;
+      let limitBytes: number | undefined;
 
       if (text) {
         try {
           const data: unknown = JSON.parse(text);
-          if (isRecord(data) && data.message) {
-            message = String(data.message);
+          if (isRecord(data)) {
+            if (data.message) message = String(data.message);
+            if (typeof data.code === "string") code = data.code;
+            if (
+              typeof data.limit_bytes === "number" &&
+              Number.isSafeInteger(data.limit_bytes) &&
+              data.limit_bytes >= 0
+            ) {
+              limitBytes = data.limit_bytes;
+            }
           }
         } catch {
           message = TECHNICAL_ERROR_MESSAGE;
         }
       }
 
-      throw new ApiError(message, response.status);
+      throw new ApiError(message, response.status, code, limitBytes);
     }
 
     return response;

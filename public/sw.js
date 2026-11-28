@@ -233,7 +233,12 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  if (url.origin !== self.location.origin) {
+  if (
+    url.origin !== self.location.origin ||
+    url.pathname === "/onlineconf" ||
+    url.pathname.startsWith("/onlineconf/") ||
+    url.pathname.startsWith("/api/onlineconf/")
+  ) {
     return;
   }
 

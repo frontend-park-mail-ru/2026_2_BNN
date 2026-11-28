@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - onlyconf-super-puper
 
 jobs:
   BNN-Deploy:
