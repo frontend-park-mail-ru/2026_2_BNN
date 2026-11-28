@@ -47,9 +47,7 @@ const create = root.querySelector<HTMLAnchorElement>("[data-create-key]")!;
 const catalogView = root.querySelector<HTMLElement>("[data-catalog]")!;
 const keyNav = root.querySelector<HTMLElement>("[data-keys]")!;
 const keyList = root.querySelector<HTMLElement>("[data-key-list]")!;
-const scopes = root.querySelector<HTMLElement>("[data-scopes]")!;
 const allScopes = root.querySelector<HTMLAnchorElement>("[data-catalog-link]")!;
-const draft = root.querySelector<HTMLElement>("[data-draft-key]")!;
 const mobile = window.matchMedia("(max-width: 800px)");
 
 function setSidebar(open: boolean): void {
@@ -191,8 +189,6 @@ const render = (route: Route): void => {
   profileButton.hidden = !canManage;
   keysShortcut.hidden = !canManage;
   keyNav.hidden = !canManage;
-  draft.hidden = !canManage || route.name !== "new-key";
-  draft.textContent = "Новый ключ";
 
   if (!canManage) {
     if (profile.open) profile.close();
@@ -234,7 +230,7 @@ const render = (route: Route): void => {
   const title = titles[route.name];
   document.title = `${title} | OnlineConf BNN`;
 
-  catalog ??= mountCatalog(catalogView, keyList, scopes, allScopes, handleAccessError);
+  catalog ??= mountCatalog(catalogView, keyList, allScopes, handleAccessError);
   catalog.show(route);
 
   if (search) {
@@ -250,11 +246,7 @@ const render = (route: Route): void => {
         if (route.name === "new-key" && replace) catalog?.reset();
         router.navigate(path, replace);
       },
-      route.name === "new-key"
-        ? (name) => {
-            draft.textContent = name.trim() || "Новый ключ";
-          }
-        : undefined
+      route.name === "new-key" ? (name, scope) => catalog?.setDraft(name, scope) : undefined
     );
   } else {
     main.innerHTML = page({

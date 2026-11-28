@@ -8,7 +8,6 @@ import type { KeyFilters, KeyKind, KeyListItem, Scope } from "../types/onlinecon
 export function mountCatalog(
   panel: HTMLElement,
   list: HTMLElement,
-  scopeList: HTMLElement,
   allScopes: HTMLAnchorElement,
   onAccessError: (error: ApiError) => void
 ) {
@@ -21,29 +20,61 @@ export function mountCatalog(
   let filters: KeyFilters = {};
   let scopes: Scope[] | undefined;
   let keys: KeyListItem[] = [];
+  let refreshTree = true;
+  let draft: { name: string; scope: Scope } | undefined;
+  const collapsed = new Set<string>();
   let activeId: string | undefined;
   let request: AbortController | undefined;
 
   function renderKeys(): void {
+    if (filters.scope) allScopes.removeAttribute("aria-current");
+    else allScopes.setAttribute("aria-current", "true");
+
     list.innerHTML = sidebarKeys({
-      rows: keys.map(({ id, key, scope }) => ({
-        href: `/onlineconf/keys/${encodeURIComponent(id)}`,
-        key,
-        scope,
-        active: id === activeId,
-      })),
+      groups: (scopes ?? []).map((scope) => {
+        const children = keys
+          .filter((key) => key.scope === scope)
+          .map(({ id, key }) => ({
+            href: `/onlineconf/keys/${encodeURIComponent(id)}`,
+            key,
+            scope,
+            active: id === activeId,
+          }));
+        const draftName = draft?.scope === scope ? draft.name : undefined;
+        return {
+          scope,
+          href: `/onlineconf/?scope=${encodeURIComponent(scope)}`,
+          keys: children,
+          draft: draftName,
+          active: filters.scope === scope,
+          expandable: children.length > 0 || Boolean(draftName),
+          open: !collapsed.has(scope),
+        };
+      }),
     });
   }
 
   function selectScope(): void {
     const scope = new URLSearchParams(location.search).get("scope");
     filters.scope = scopes?.find((item) => item === scope);
-    for (const link of [allScopes, ...scopeList.querySelectorAll("a")]) {
-      if ((link.dataset.scope || undefined) === filters.scope)
-        link.setAttribute("aria-current", "true");
-      else link.removeAttribute("aria-current");
-    }
   }
+
+  list.addEventListener(
+    "click",
+    (event) => {
+      if (!(event.target instanceof Element)) return;
+      const button = event.target.closest<HTMLButtonElement>("[data-scope-toggle]");
+      const scope = button?.dataset.scopeToggle;
+      if (!button || !scope) return;
+
+      const open = collapsed.delete(scope);
+      if (!open) collapsed.add(scope);
+      button.setAttribute("aria-expanded", String(open));
+      const children = document.getElementById(`onlineconf-scope-${scope}`);
+      if (children) children.hidden = !open;
+    },
+    { signal: events.signal }
+  );
 
   async function load(): Promise<void> {
     request?.abort();
@@ -51,6 +82,7 @@ export function mountCatalog(
     request = current;
     const timeout = window.setTimeout(() => current.abort(), 10_000);
     list.setAttribute("aria-busy", "true");
+    const showTable = !panel.hidden;
     content.setAttribute("aria-busy", "true");
     content.innerHTML = results({ message: "Загружаем ключи…" });
     try {
@@ -58,27 +90,27 @@ export function mountCatalog(
         const available = await getScopes(current.signal);
         if (request !== current || events.signal.aborted) return;
         scopes = available;
-        scopeList.replaceChildren(
-          ...scopes.map((scope) => {
-            const link = document.createElement("a");
-            link.href = `/onlineconf/?scope=${encodeURIComponent(scope)}`;
-            link.className = "onlineconf__key";
-            link.dataset.onlineconfLink = "";
-            link.dataset.scope = scope;
-            link.textContent = scope;
-            return link;
-          })
-        );
-        if (activeId === undefined && location.pathname.replace(/\/$/, "") === "/onlineconf") {
-          selectScope();
-        }
+        if (showTable) selectScope();
+        renderKeys();
       }
-      const found = await listKeys(filters, current.signal);
+
+      const filtered = Boolean(filters.scope || filters.query || filters.kind);
+      const sidebar =
+        refreshTree || (showTable && !filtered)
+          ? listKeys({}, current.signal)
+          : Promise.resolve(keys);
+      const table = showTable && filtered ? listKeys(filters, current.signal) : sidebar;
+      const [allKeys, found] = await Promise.all([sidebar, table]);
       if (request !== current || events.signal.aborted) return;
-      keys = found;
+
+      keys = allKeys;
+      refreshTree = false;
+      const activeScope = keys.find((key) => key.id === activeId)?.scope;
+      if (activeScope) collapsed.delete(activeScope);
       renderKeys();
+      if (!showTable) return;
       content.innerHTML = results({
-        rows: keys.map((key) => {
+        rows: found.map((key) => {
           const date = new Date(key.updated_at);
           return {
             ...key,
@@ -93,9 +125,9 @@ export function mountCatalog(
             login: key.updated_by.login,
           };
         }),
-        limited: keys.length === 200,
-        message: keys.length
-          ? `Получено ключей: ${keys.length}.`
+        limited: found.length === 200,
+        message: found.length
+          ? `Получено ключей: ${found.length}.`
           : filters.query || filters.kind
             ? "По выбранным условиям ключи не найдены."
             : filters.scope
@@ -126,8 +158,6 @@ export function mountCatalog(
   function search(): void {
     filters.query = query.value.trim() || undefined;
     filters.kind = (kind.value || undefined) as KeyKind | undefined;
-    keys = [];
-    renderKeys();
     void load();
   }
 
@@ -167,27 +197,26 @@ export function mountCatalog(
 
   return {
     show(route: Route) {
-      if (route.name === "catalog") {
-        const previous = filters.scope;
-        selectScope();
-        if (previous !== filters.scope) keys = [];
-      }
+      if (route.name === "catalog") selectScope();
+      draft = undefined;
+      refreshTree = true;
       activeId = route.name === "key" || route.name === "history" ? route.id : undefined;
       renderKeys();
       void load();
     },
+    setDraft(name: string, scope: Scope) {
+      if (draft?.scope !== scope) collapsed.delete(scope);
+      draft = { name: name.trim() || "Новый ключ", scope };
+      renderKeys();
+    },
     reset() {
       form.reset();
       filters = {};
-      for (const link of scopeList.querySelectorAll("a")) link.removeAttribute("aria-current");
-      allScopes.setAttribute("aria-current", "true");
-      keys = [];
     },
     destroy() {
       events.abort();
       request?.abort();
       list.replaceChildren();
-      scopeList.replaceChildren();
     },
   };
 }

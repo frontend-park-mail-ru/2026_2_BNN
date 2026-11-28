@@ -295,6 +295,54 @@ button {
     }
   }
 
+  &__key-list .onlineconf__children {
+    padding-inline-start: 24px;
+  }
+
+  &__scope {
+    display: flex;
+    align-items: center;
+
+    .onlineconf__key {
+      flex: 1;
+      min-width: 0;
+      padding-inline-start: 8px;
+    }
+  }
+
+  &__scope-toggle {
+    display: grid;
+    place-items: center;
+    flex: 0 0 28px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: inherit;
+
+    &:disabled {
+      visibility: hidden;
+    }
+
+    &:hover {
+      background-color: var(--dark-bg);
+    }
+
+    &::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg);
+    }
+
+    &[aria-expanded="true"]::before {
+      transform: rotate(45deg);
+    }
+  }
+
   &__key {
     display: block;
     flex-shrink: 0;
@@ -345,30 +393,59 @@ button {
 @include theme-transition.circle(".onlineconf");
 
 .catalog {
-  &__filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: 12px;
-    margin-bottom: 24px;
-
-    label,
-    .catalog__field {
-      display: grid;
-      gap: 8px;
-      min-width: 0;
-    }
+  h1:focus {
+    outline: none;
   }
 
-  &__search {
-    flex: 1 1 240px;
+  &__filters,
+  &__actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  &__filters {
+    flex-wrap: wrap;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+
+  &__fields {
+    display: grid;
+    flex: 1 1 300px;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    gap: 12px;
+  }
+
+  &__field {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    line-height: 1.4;
+  }
+
+  &__field_select {
+    position: relative;
+
+    &::after {
+      position: absolute;
+      inset-inline-end: 14px;
+      bottom: 19px;
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(45deg);
+      pointer-events: none;
+      content: "";
+    }
   }
 
   input,
   select,
   button {
-    min-height: 44px;
-    padding: 10px 14px;
+    height: 44px;
+    padding: 0 14px;
     border: 1px solid var(--muted);
     border-radius: 12px;
     font: inherit;
@@ -378,6 +455,12 @@ button {
 
   input {
     width: 100%;
+    min-width: 0;
+  }
+
+  select {
+    appearance: none;
+    padding-inline-end: 32px;
   }
 
   button:hover {
