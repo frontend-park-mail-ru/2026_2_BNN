@@ -81,6 +81,15 @@ button {
     gap: 16px;
   }
 
+  &__account {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-left: auto;
+    overflow-wrap: anywhere;
+  }
+
   &__header {
     justify-content: space-between;
     flex-wrap: wrap;
@@ -153,6 +162,108 @@ button {
   &__description {
     color: var(--muted);
     line-height: 1.6;
+  }
+}
+
+.catalog {
+  &__scopes {
+    display: grid;
+    gap: 4px;
+    margin-top: 12px;
+
+    button {
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 16px;
+      text-align: left;
+      background: none;
+      color: var(--text);
+
+      &:hover,
+      &[aria-pressed="true"] {
+        background: var(--surface);
+      }
+    }
+  }
+
+  &__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 24px;
+
+    label,
+    .catalog__field {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+  }
+
+  &__search {
+    flex: 1 1 240px;
+  }
+
+  input,
+  select,
+  button {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid var(--muted);
+    border-radius: 12px;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  input {
+    width: 100%;
+  }
+
+  button:hover {
+    background: var(--surface);
+  }
+
+  &__table-scroll {
+    overflow-x: auto;
+  }
+
+  &__table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+    text-align: left;
+    overflow-wrap: normal;
+    font-size: 14px;
+    line-height: 1.6;
+
+    th,
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--surface);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+    }
+  }
+
+  &__caption {
+    text-align: left;
+    padding-bottom: 12px;
+    color: var(--muted);
+  }
+
+  &__key,
+  &__value,
+  &__author {
+    display: block;
+    max-width: 240px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 
