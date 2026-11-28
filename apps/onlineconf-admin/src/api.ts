@@ -143,6 +143,29 @@ export async function getSession(signal?: AbortSignal): Promise<AdminUser> {
   return { id, login };
 }
 
+export function searchUsers(query: string, signal?: AbortSignal): Promise<AdminUser[]> {
+  const login = query.trim();
+  if (!login) return Promise.resolve([]);
+
+  const params = new URLSearchParams({ query: login });
+
+  return read<AdminUser[]>(
+    `/users?${params}`,
+    signal,
+    (users) =>
+      Array.isArray(users) &&
+      users.length <= 10 &&
+      users.every(
+        (user) =>
+          user !== null &&
+          typeof user.id === "string" &&
+          user.id.trim() !== "" &&
+          typeof user.login === "string" &&
+          user.login.trim() !== ""
+      )
+  );
+}
+
 export function getScopes(signal?: AbortSignal) {
   return read<Scope[]>(
     "/scopes",
