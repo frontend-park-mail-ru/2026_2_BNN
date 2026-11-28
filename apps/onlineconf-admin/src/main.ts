@@ -35,7 +35,7 @@ const adminLogin = root.querySelector<HTMLElement>("[data-admin-login]")!;
 const profile = root.querySelector<HTMLDialogElement>(".onlineconf__profile")!;
 const profileButton = root.querySelector<HTMLButtonElement>("[data-profile-open]")!;
 const avatarImages = root.querySelectorAll<HTMLImageElement>("[data-avatar-image]");
-const keysShortcut = root.querySelector<HTMLAnchorElement>("[data-keys-shortcut]")!;
+const railNav = root.querySelector<HTMLElement>("[data-rail-nav]")!;
 let avatarUrl = "";
 let avatarRequest: AbortController | undefined;
 
@@ -189,12 +189,12 @@ const render = (route: Route): void => {
   main.hidden = search;
   create.hidden = !canManage;
   profileButton.hidden = !canManage;
-  keysShortcut.hidden = !canManage;
+  railNav.hidden = !canManage;
   keyNav.hidden = !canManage;
-  const adminsLink = keyNav.querySelector("[data-admins-link]");
+  const adminsLink = railNav.querySelector("[data-admins-link]");
   if (canManage && route.name === "admins") adminsLink?.setAttribute("aria-current", "page");
   else adminsLink?.removeAttribute("aria-current");
-  const plansLink = keyNav.querySelector("[data-rollout-plans-link]");
+  const plansLink = railNav.querySelector("[data-rollout-plans-link]");
   if (canManage && route.name === "rollout-plans") plansLink?.setAttribute("aria-current", "page");
   else plansLink?.removeAttribute("aria-current");
 

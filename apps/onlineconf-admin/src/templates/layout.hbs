@@ -23,9 +23,17 @@
     <div class="onlineconf__backdrop" data-sidebar-close hidden></div>
     <aside class="onlineconf__sidebar" id="onlineconf-sidebar" aria-labelledby="onlineconf-sidebar-title">
       <div class="onlineconf__rail">
-        <a class="onlineconf__icon onlineconf__icon_active" href="/onlineconf/" aria-label="Все ключи" title="Все ключи" data-onlineconf-link data-keys-shortcut hidden>
-          <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#key"></use></svg>
-        </a>
+        <nav class="onlineconf__rail-nav" aria-label="Разделы OnlineConf" data-rail-nav hidden>
+          <a class="onlineconf__icon onlineconf__icon_active" href="/onlineconf/" aria-label="Все ключи" title="Все ключи" data-onlineconf-link>
+            <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#key"></use></svg>
+          </a>
+          <a class="onlineconf__icon" href="/onlineconf/admins" aria-label="Администраторы" title="Администраторы" data-onlineconf-link data-admins-link>
+            <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#admins"></use></svg>
+          </a>
+          <a class="onlineconf__icon" href="/onlineconf/rollout-plans" aria-label="Регламенты раскатки" title="Регламенты раскатки" data-onlineconf-link data-rollout-plans-link>
+            <svg width="25" height="25" aria-hidden="true"><use href="{{spriteUrl}}#rollout-plans"></use></svg>
+          </a>
+        </nav>
         <button class="onlineconf__icon" type="button" data-theme-toggle aria-label="Сменить тему" title="Сменить тему" aria-pressed="false">
           <svg width="30" height="30" aria-hidden="true"><use></use></svg>
         </button>
@@ -41,8 +49,6 @@
           <a class="onlineconf__key" href="/onlineconf/" data-onlineconf-link data-catalog-link>Все области</a>
           <div class="onlineconf__key-list">
             <div data-key-list aria-busy="true"></div>
-            <a class="onlineconf__key" href="/onlineconf/admins" data-onlineconf-link data-admins-link>Администраторы</a>
-            <a class="onlineconf__key" href="/onlineconf/rollout-plans" data-onlineconf-link data-rollout-plans-link>Регламенты раскатки</a>
           </div>
         </nav>
       </div>
