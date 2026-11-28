@@ -196,7 +196,7 @@ class Api {
     let response = await send();
 
     if (response.status === 401 && !NO_REFRESH_PATHS.some((item) => path.startsWith(item))) {
-      if (await this.refreshSession()) {
+      if (!options.signal?.aborted && (await this.refreshSession()) && !options.signal?.aborted) {
         response = await send();
       }
     }
