@@ -1,6 +1,9 @@
 import type { ApiError } from "./api/api";
 import faviconUrl from "../../../public/assets/icons/logo-auth.svg";
 import lightLogoUrl from "../../../public/assets/icons/logo-shape.svg";
+import lightAvatarUrl from "../../../public/assets/images/avatar-default.svg";
+import darkAvatarUrl from "../../../public/assets/images/avatar-default-dark.svg";
+import { safeResourceUrl } from "../../../src/utils/url";
 import darkLogoUrl from "../../../public/assets/icons/logo-shape-dark.svg";
 import { transitionTheme } from "../../../src/components/theme/transition";
 import spriteUrl from "../../../public/assets/icons/ui/sprite.svg";
@@ -22,10 +25,16 @@ document.head.append(favicon);
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("OnlineConf root not found");
 
-root.innerHTML = layout({ spriteUrl, logoUrl: lightLogoUrl });
+root.innerHTML = layout({ spriteUrl, logoUrl: lightLogoUrl, avatarUrl: lightAvatarUrl });
 const main = root.querySelector<HTMLElement>("#onlineconf-main");
 if (!main) throw new Error("OnlineConf main not found");
 const adminLogin = root.querySelector<HTMLElement>("[data-admin-login]")!;
+const profile = root.querySelector<HTMLDialogElement>(".onlineconf__profile")!;
+const profileButton = root.querySelector<HTMLButtonElement>("[data-profile-open]")!;
+const avatarImages = root.querySelectorAll<HTMLImageElement>("[data-avatar-image]");
+const keysShortcut = root.querySelector<HTMLAnchorElement>("[data-keys-shortcut]")!;
+let avatarUrl = "";
+let avatarRequest: AbortController | undefined;
 
 const events = new AbortController();
 const themeButton = root.querySelector<HTMLButtonElement>("[data-theme-toggle]")!;
@@ -37,7 +46,8 @@ const create = root.querySelector<HTMLAnchorElement>("[data-create-key]")!;
 const catalogView = root.querySelector<HTMLElement>("[data-catalog]")!;
 const keyNav = root.querySelector<HTMLElement>("[data-keys]")!;
 const keyList = root.querySelector<HTMLElement>("[data-key-list]")!;
-const catalogLink = root.querySelector<HTMLAnchorElement>("[data-catalog-link]")!;
+const scopes = root.querySelector<HTMLElement>("[data-scopes]")!;
+const allScopes = root.querySelector<HTMLAnchorElement>("[data-catalog-link]")!;
 const draft = root.querySelector<HTMLElement>("[data-draft-key]")!;
 const mobile = window.matchMedia("(max-width: 800px)");
 
@@ -72,10 +82,53 @@ document.addEventListener(
   { signal: events.signal }
 );
 
+function updateAvatar(): void {
+  const dark = document.documentElement.dataset.theme === "dark";
+  for (const image of avatarImages)
+    image.src = avatarUrl || (dark ? darkAvatarUrl : lightAvatarUrl);
+}
+
+profileButton.addEventListener("click", () => profile.showModal(), { signal: events.signal });
+
+for (const image of avatarImages) {
+  image.addEventListener(
+    "error",
+    () => {
+      if (!avatarUrl) return;
+      avatarUrl = "";
+      updateAvatar();
+    },
+    { signal: events.signal }
+  );
+}
+
+async function loadAvatar(userId: string): Promise<void> {
+  const request = new AbortController();
+  avatarRequest = request;
+  const timeout = window.setTimeout(() => request.abort(), 10_000);
+  try {
+    const response = await fetch("/api/auth/me", { cache: "no-store", signal: request.signal });
+    if (!response.ok) return;
+    const user = await response.json();
+    if (request.signal.aborted || user?.id !== userId || typeof user.avatar !== "string") return;
+    const url = safeResourceUrl(user.avatar);
+    if (url && new URL(url, location.origin).origin === location.origin) {
+      avatarUrl = url;
+      updateAvatar();
+    }
+  } catch {
+    return;
+  } finally {
+    window.clearTimeout(timeout);
+    if (avatarRequest === request) avatarRequest = undefined;
+  }
+}
+
 /** Применяет тему к админке и обновляет кнопку переключения. */
 function applyTheme(dark: boolean): void {
   document.documentElement.dataset.theme = dark ? "dark" : "light";
   logo.src = dark ? darkLogoUrl : lightLogoUrl;
+  updateAvatar();
   themeButton
     .querySelector("use")
     ?.setAttribute("href", `${spriteUrl}#${dark ? "sunset" : "sunrise"}`);
@@ -130,13 +183,15 @@ const render = (route: Route): void => {
   catalogView.hidden = !search;
   main.hidden = search;
   create.hidden = !canManage;
+  profileButton.hidden = !canManage;
+  keysShortcut.hidden = !canManage;
   keyNav.hidden = !canManage;
   draft.hidden = !canManage || route.name !== "new-key";
   draft.textContent = "Новый ключ";
-  if (search) catalogLink.setAttribute("aria-current", "page");
-  else catalogLink.removeAttribute("aria-current");
 
   if (!canManage) {
+    if (profile.open) profile.close();
+    avatarRequest?.abort();
     catalog?.destroy();
     catalog = undefined;
     const title =
@@ -173,7 +228,7 @@ const render = (route: Route): void => {
   const title = titles[route.name];
   document.title = `${title} | OnlineConf BNN`;
 
-  catalog ??= mountCatalog(catalogView, keyList, handleAccessError);
+  catalog ??= mountCatalog(catalogView, keyList, scopes, allScopes, handleAccessError);
   catalog.show(route);
 
   if (search) {
@@ -238,6 +293,8 @@ async function checkSession(): Promise<void> {
   const timeout = window.setTimeout(() => request.abort(), 10_000);
   access = "loading";
   adminLogin.textContent = "";
+  avatarUrl = "";
+  updateAvatar();
   render(currentRoute);
 
   try {
@@ -250,6 +307,7 @@ async function checkSession(): Promise<void> {
       access = result.status === "authenticated" ? "ready" : "unavailable";
       if (result.status === "authenticated") {
         adminLogin.textContent = result.user.login;
+        void loadAvatar(result.user.id);
       }
     }
   } catch {
@@ -287,6 +345,7 @@ void checkSession();
 import.meta.hot?.dispose(() => {
   events.abort();
   sessionRequest?.abort();
+  avatarRequest?.abort();
   catalog?.destroy();
   editor?.destroy();
   router.destroy();

@@ -1,18 +1,20 @@
 <section class="onlineconf__panel catalog" aria-labelledby="page-title">
   <h1 id="page-title" tabindex="-1">Конфигурации и feature flags</h1>
   <form class="catalog__filters" role="search" aria-label="Поиск ключей">
-    <input class="catalog__search" type="search" name="query" aria-label="Имя ключа" autocomplete="off" placeholder="Поиск по имени ключа" />
-    <select name="scope" aria-label="Область">
-      <option value="">Все области</option>
-    </select>
-    <select name="kind" aria-label="Тип">
-      <option value="">Все типы</option>
-      <option value="config">config</option>
-      <option value="flag">flag</option>
-    </select>
+    <label class="catalog__search">
+      Имя ключа
+      <input type="search" name="query" autocomplete="off" placeholder="Часть имени ключа" />
+    </label>
+    <div class="catalog__field">
+      <label for="catalog-kind">Тип</label>
+      <select id="catalog-kind" name="kind">
+        <option value="">Все типы</option>
+        <option value="config">config</option>
+        <option value="flag">flag</option>
+      </select>
+    </div>
     <button type="submit">Найти</button>
     <button type="button" data-search-clear>Очистить</button>
   </form>
-  <p class="onlineconf__description" data-catalog-status role="status"></p>
-  <button type="button" data-catalog-retry hidden>Повторить</button>
+  <div data-catalog-results aria-busy="true"></div>
 </section>
