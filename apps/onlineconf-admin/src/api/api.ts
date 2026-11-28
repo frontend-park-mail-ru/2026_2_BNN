@@ -179,7 +179,7 @@ export function getScopes(signal?: AbortSignal) {
     signal,
     (scopes) =>
       Array.isArray(scopes) &&
-      scopes.every((scope) => ["frontend", "backend", "auth", "notes"].includes(scope))
+      scopes.every((scope) => ["Frontend", "Backend", "Auth", "Notes"].includes(scope))
   );
 }
 

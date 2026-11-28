@@ -1,4 +1,4 @@
-export type Scope = "frontend" | "backend" | "auth" | "notes";
+export type Scope = "Frontend" | "Backend" | "Auth" | "Notes";
 export type KeyKind = "config" | "flag";
 export type AdminUser = { id: string; login: string };
 export type AdminSession = { login: string };
