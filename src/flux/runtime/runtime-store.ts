@@ -13,9 +13,15 @@ class RuntimeConfigStore extends BaseStore<{
   snapshot: RuntimeSnapshot | null;
   attachmentUploadDenied: boolean;
   attachmentUploadRestored: boolean;
+  voiceInputDenialShown: boolean;
 }> {
   constructor() {
-    super({ snapshot: null, attachmentUploadDenied: false, attachmentUploadRestored: false });
+    super({
+      snapshot: null,
+      attachmentUploadDenied: false,
+      attachmentUploadRestored: false,
+      voiceInputDenialShown: false,
+    });
   }
 
   replace(snapshot: RuntimeSnapshot | null): void {
@@ -33,6 +39,10 @@ class RuntimeConfigStore extends BaseStore<{
 
     this.state = {
       snapshot,
+      voiceInputDenialShown:
+        sameSession &&
+        snapshot?.flags.frontend?.["notes.voice_input"] === false &&
+        this.state.voiceInputDenialShown,
       attachmentUploadDenied: sameSession && !enabled && this.state.attachmentUploadDenied,
       attachmentUploadRestored:
         sameSession && enabled && (wasBlocked || this.state.attachmentUploadRestored),
@@ -64,6 +74,13 @@ class RuntimeConfigStore extends BaseStore<{
   /** Читает флаг голосового ввода. До получения настройки диктовка доступна. */
   isVoiceInputEnabled(): boolean {
     return this.getState().snapshot?.flags.frontend?.["notes.voice_input"] ?? true;
+  }
+
+  /** Запоминает уведомление на время текущего запрета для этого аккаунта. */
+  recordVoiceInputDenial(): void {
+    if (this.isVoiceInputEnabled() || this.state.voiceInputDenialShown) return;
+    this.state = { ...this.state, voiceInputDenialShown: true };
+    this.emit();
   }
 
   getAttachmentPolicy(): { uploadEnabled: boolean; maxFileSizeBytes: number } {

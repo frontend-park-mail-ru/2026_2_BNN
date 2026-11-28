@@ -114,14 +114,22 @@ export function createNoteEditor(options: EditorOptions) {
     onActiveChange: voiceInputView.setVoiceInputActive,
   });
 
-  /** Обновляет кнопку без перерисовки заметки и останавливает запись при выключении флага. */
-  function syncVoiceInput(): void {
-    const button = mainRegion.querySelector<HTMLButtonElement>("[data-voice-input-toggle]");
-    const hidden = !runtimeConfigStore.isVoiceInputEnabled();
-    if (!button || button.hidden === hidden) return;
+  let voiceInputEnabled = runtimeConfigStore.isVoiceInputEnabled();
 
-    button.hidden = hidden;
-    if (hidden) voiceInput.stop();
+  /** Синхронизирует кнопку и сообщает, когда диктовка снова доступна. */
+  function syncVoiceInput(): void {
+    const enabled = runtimeConfigStore.isVoiceInputEnabled();
+    const { snapshot, voiceInputDenialShown } = runtimeConfigStore.getState();
+    const restored = !voiceInputEnabled && enabled && snapshot !== null;
+    if (voiceInputEnabled && !enabled) voiceInput.stop();
+    voiceInputEnabled = enabled;
+
+    const button = mainRegion.querySelector<HTMLButtonElement>("[data-voice-input-toggle]");
+    if (!button) return;
+
+    button.disabled = voiceInputDenialShown;
+    button.classList.toggle("icon-button_disabled", voiceInputDenialShown);
+    if (restored) options.showToast("Голосовой ввод снова доступен.");
   }
 
   /**
@@ -606,7 +614,12 @@ export function createNoteEditor(options: EditorOptions) {
       return true;
     }
     if (target.closest("[data-voice-input-toggle]")) {
-      if (runtimeConfigStore.isVoiceInputEnabled()) voiceInput.toggle();
+      if (runtimeConfigStore.isVoiceInputEnabled()) {
+        voiceInput.toggle();
+      } else if (!runtimeConfigStore.getState().voiceInputDenialShown) {
+        options.showToast("Голосовой ввод сейчас отключён.", true);
+        runtimeConfigStore.recordVoiceInputDenial();
+      }
       return true;
     }
     return false;
