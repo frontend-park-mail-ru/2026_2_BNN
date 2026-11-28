@@ -8,6 +8,9 @@ import type {
   KeyHistoryEntry,
   KeyListItem,
   OnlineconfKey,
+  RolloutPlan,
+  RolloutPlanInput,
+  RolloutState,
   Scope,
   UpdateKeyInput,
 } from "../types/onlineconf";
@@ -184,6 +187,35 @@ export function getScopes(signal?: AbortSignal) {
   );
 }
 
+/** Возвращает список пользователей с административным доступом. */
+export function listAdmins(signal?: AbortSignal): Promise<AdminUser[]> {
+  return read<AdminUser[]>(
+    "/admins",
+    signal,
+    (admins) =>
+      Array.isArray(admins) &&
+      admins.every(
+        (admin) =>
+          typeof admin?.id === "string" &&
+          Boolean(admin.id) &&
+          typeof admin.login === "string" &&
+          Boolean(admin.login)
+      )
+  );
+}
+
+/** Выдаёт или отзывает административный доступ без тела запроса. */
+export async function setAdminAccess(
+  userId: string,
+  granted: boolean,
+  signal?: AbortSignal
+): Promise<void> {
+  await request(`/admins/${encodeURIComponent(userId)}`, {
+    method: granted ? "PUT" : "DELETE",
+    signal,
+  });
+}
+
 export function listKeys(filters: KeyFilters = {}, signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (filters.query !== undefined) query.set("query", filters.query);
@@ -201,6 +233,92 @@ function keyPath(id: string): string {
 
 function validVersion(version: number): boolean {
   return Number.isSafeInteger(version) && version > 0;
+}
+
+/** Загружает регламенты и проверяет формат шагов перед показом. */
+export function listRolloutPlans(signal?: AbortSignal): Promise<RolloutPlan[]> {
+  return read<RolloutPlan[]>(
+    "/rollout-plans",
+    signal,
+    (plans) =>
+      Array.isArray(plans) &&
+      plans.every(
+        (plan) =>
+          typeof plan?.id === "string" &&
+          Boolean(plan.id) &&
+          typeof plan.name === "string" &&
+          Number.isSafeInteger(plan.interval_min) &&
+          Array.isArray(plan.steps) &&
+          plan.steps.at(-1) === 100 &&
+          plan.steps.every(
+            (step, index) =>
+              Number.isSafeInteger(step) &&
+              step >= 0 &&
+              (index === 0 || step > plan.steps[index - 1])
+          )
+      )
+  );
+}
+
+export async function saveRolloutPlan(
+  input: RolloutPlanInput,
+  id: string | null,
+  signal?: AbortSignal
+): Promise<void> {
+  const path = id ? `/rollout-plans/${encodeURIComponent(id)}` : "/rollout-plans";
+  await request(path, { method: id ? "PUT" : "POST", body: input, signal });
+}
+
+export async function deleteRolloutPlan(id: string, signal?: AbortSignal): Promise<void> {
+  await request(`/rollout-plans/${encodeURIComponent(id)}`, { method: "DELETE", signal });
+}
+
+/** Загружает текущий этап. Пустой ответ означает отсутствие привязки. */
+export async function getRolloutState(
+  id: string,
+  signal?: AbortSignal
+): Promise<RolloutState | null> {
+  const response = await request(`${keyPath(id)}/rollout`, { signal });
+  if (response.status === 204) return null;
+
+  const state: RolloutState | { plan_id: null } | null = await response
+    .json()
+    .catch(() => undefined);
+  signal?.throwIfAborted();
+  if (state === null || state?.plan_id === null) return null;
+  if (
+    !state ||
+    typeof state.plan_id !== "string" ||
+    !state.plan_id ||
+    !("status" in state) ||
+    !["waiting", "pending_approval", "done"].includes(state.status) ||
+    (state.current_step != null && !Number.isSafeInteger(state.current_step)) ||
+    (state.next_step != null && !Number.isSafeInteger(state.next_step)) ||
+    (state.step_ready_at != null && typeof state.step_ready_at !== "string")
+  ) {
+    throw new ApiError(response.status, "INVALID_RESPONSE", "Некорректное состояние раскатки");
+  }
+  return state;
+}
+
+export async function setRolloutPlan(
+  id: string,
+  planId: string | null,
+  signal?: AbortSignal
+): Promise<void> {
+  await request(`${keyPath(id)}/rollout-plan`, {
+    method: "PUT",
+    body: { plan_id: planId },
+    signal,
+  });
+}
+
+export async function advanceRollout(
+  id: string,
+  action: "approve" | "rollback",
+  signal?: AbortSignal
+): Promise<void> {
+  await request(`${keyPath(id)}/rollout/${action}`, { method: "POST", signal });
 }
 
 /** Проверяет сохранённый флаг для выбранного пользователя на сервере. */

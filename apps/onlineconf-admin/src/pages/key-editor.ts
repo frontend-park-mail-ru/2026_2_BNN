@@ -1,6 +1,7 @@
 import { ApiError, createKey, deleteKey, getKey, getScopes, listKeys, updateKey } from "../api/api";
 import { mountFlagEditor } from "../components/flag-editor";
 import { mountFlagEvaluation } from "../components/flag-evaluation";
+import { mountFlagRollout } from "../components/flag-rollout";
 import { readConfig } from "../utils/config-value";
 import template from "../templates/key-editor.hbs";
 import {
@@ -53,6 +54,9 @@ export function mountKeyEditor(
   let flagEditor: ReturnType<typeof mountFlagEditor> | undefined;
   let evaluation: ReturnType<typeof mountFlagEvaluation> | undefined;
   const evaluationHost = find("[data-flag-evaluation]");
+  const rolloutHost = find("[data-flag-rollout]");
+  let rollout: ReturnType<typeof mountFlagRollout> | undefined;
+  let rolloutManaged = false;
   let busy = false;
   let written = false;
   let baseline = "";
@@ -88,11 +92,18 @@ export function mountKeyEditor(
     kind.disabled = Boolean(saved) || written;
     saveButton.disabled = written;
     flagEditor?.setDisabled(busy || written);
+    flagEditor?.setRolloutManaged(rolloutManaged);
     evaluation?.setDisabled(busy || written);
+    syncRolloutControls();
     deleteButton.disabled = written;
     reloadButton.disabled = busy;
     loadButton.disabled = busy;
     form.setAttribute("aria-busy", String(busy));
+  }
+
+  function syncRolloutControls(): void {
+    if (saved?.kind === "flag")
+      rollout?.setContext(dirty || written, busy, saved.flag.rollout_percent);
   }
   function clearErrors(): void {
     for (const error of form.querySelectorAll(".key-editor__error")) error.textContent = "";
@@ -138,6 +149,7 @@ export function mountKeyEditor(
         onChange: () => {
           flagDirty = true;
           dirty = true;
+          syncRolloutControls();
         },
       });
     value.disabled = flag;
@@ -169,6 +181,23 @@ export function mountKeyEditor(
         ? mountFlagEvaluation(evaluationHost, saved.id, onAccessError)
         : undefined;
     evaluationHost.hidden = !evaluation;
+    if (saved?.kind === "flag") {
+      rollout ??= mountFlagRollout(
+        rolloutHost,
+        saved.id,
+        writeRollout,
+        onAccessError,
+        (managed) => {
+          rolloutManaged = managed;
+          flagEditor?.setRolloutManaged(managed);
+        }
+      );
+    } else {
+      rollout?.destroy();
+      rollout = undefined;
+      rolloutManaged = false;
+    }
+    rolloutHost.hidden = !rollout;
     find("[data-key-meta]").textContent = saved
       ? `ID: ${saved.id} · Версия: ${saved.version} · ${saved.updated_at} · ${saved.updated_by.login}`
       : "";
@@ -184,6 +213,10 @@ export function mountKeyEditor(
   function showError(error: unknown, timedOut: boolean): void {
     if (error instanceof ApiError && (error.status === 401 || error.code === "NOT_FOUND")) {
       onAccessError(error);
+      return;
+    }
+    if (error instanceof ApiError && error.code === "ROLLOUT_STEP_NOT_ALLOWED") {
+      status.textContent = "Этот переход запрещён регламентом. Проверьте текущий этап раскатки.";
       return;
     }
     if (error instanceof ApiError && error.code === "VERSION_CONFLICT") {
@@ -227,6 +260,45 @@ export function mountKeyEditor(
           ? error.message
           : "Не удалось выполнить запрос. Черновик сохранён. Попробуйте ещё раз.";
     }
+  }
+
+  /** Обновляет версию карточки после изменения этапа или привязки регламента. */
+  async function writeRollout(action: (signal: AbortSignal) => Promise<void>): Promise<void> {
+    if (!saved || dirty || written || busy) return;
+    const id = saved.id;
+    await run(async (signal) => {
+      status.textContent = "Применяем изменение раскатки…";
+      try {
+        await action(signal);
+      } catch (error) {
+        if (events.signal.aborted) return;
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) throw error;
+
+        written = true;
+        reloadButton.hidden = false;
+        status.textContent =
+          "Не удалось подтвердить результат. Загрузите актуальную версию карточки перед следующей записью.";
+        return;
+      }
+      if (events.signal.aborted) return;
+
+      written = true;
+      try {
+        const next = await getKey(id, signal);
+        if (events.signal.aborted) return;
+        saved = next;
+        written = false;
+        populate();
+        status.textContent = "Изменение раскатки сохранено.";
+      } catch (error) {
+        if (error instanceof ApiError && (error.status === 401 || error.code === "NOT_FOUND"))
+          throw error;
+        if (events.signal.aborted) return;
+        reloadButton.hidden = false;
+        status.textContent =
+          "Изменение принято. Загрузите актуальную версию карточки перед следующей записью.";
+      }
+    });
   }
   function focusError(): void {
     errorFocus?.focus();
@@ -331,6 +403,7 @@ export function mountKeyEditor(
   /** Отмечает изменения общих полей, конфига или флага. */
   function updateDirty(): void {
     dirty = flagDirty || snapshot() !== baseline;
+    syncRolloutControls();
   }
 
   form.addEventListener("input", updateDirty, { signal: events.signal });
@@ -458,6 +531,7 @@ export function mountKeyEditor(
           valueError.textContent = "";
           value.removeAttribute("aria-invalid");
           dirty = flagDirty || snapshot() !== baseline;
+          syncRolloutControls();
         } catch (error) {
           valueError.textContent = (error as Error).message;
           value.setAttribute("aria-invalid", "true");
@@ -499,6 +573,7 @@ export function mountKeyEditor(
       events.abort();
       flagEditor?.destroy();
       evaluation?.destroy();
+      rollout?.destroy();
       request?.abort();
     },
   };

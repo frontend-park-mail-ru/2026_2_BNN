@@ -869,3 +869,69 @@ button {
     margin: 0;
   }
 }
+.admins {
+  fieldset {
+    min-inline-size: 0;
+    margin: 16px 0;
+    padding: 12px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+  }
+
+  ul {
+    display: grid;
+    gap: 8px;
+    margin: 8px 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  ul:empty {
+    margin: 0;
+  }
+
+  li,
+  &__search {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    overflow-wrap: anywhere;
+  }
+
+  input {
+    max-inline-size: 100%;
+  }
+}
+.rollout-editor {
+  &[aria-labelledby="flag-rollout-title"] {
+    margin-top: 24px;
+    padding: 16px;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+  }
+
+  h2 {
+    margin-top: 0;
+  }
+
+  fieldset {
+    display: grid;
+    gap: 8px;
+    min-inline-size: 0;
+    margin: 12px 0;
+    padding: 0;
+    border: 0;
+  }
+
+  input,
+  select {
+    max-inline-size: 100%;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

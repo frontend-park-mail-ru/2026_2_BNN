@@ -3,6 +3,8 @@ export type Route =
   | { name: "new-key" }
   | { name: "key"; id: string }
   | { name: "history"; id: string }
+  | { name: "admins" }
+  | { name: "rollout-plans" }
   | { name: "not-found" };
 
 const KEY_PATH =
@@ -12,6 +14,9 @@ const KEY_PATH =
 function resolveRoute(path: string): Route {
   if (path === "/onlineconf" || path === "/onlineconf/") return { name: "catalog" };
   if (path === "/onlineconf/keys/new") return { name: "new-key" };
+  if (path === "/onlineconf/admins" || path === "/onlineconf/admins/") return { name: "admins" };
+  if (path === "/onlineconf/rollout-plans" || path === "/onlineconf/rollout-plans/")
+    return { name: "rollout-plans" };
 
   const match = path.match(KEY_PATH);
   if (!match) return { name: "not-found" };
