@@ -7,6 +7,7 @@ import { startRouter, type Route } from "./router";
 import { getAdminSession } from "./api/session";
 import { mountCatalog } from "./pages/catalog";
 import { mountKeyEditor } from "./pages/key-editor";
+import { mountKeyHistory } from "./pages/key-history";
 import "./styles/styles.scss";
 
 const favicon = document.createElement("link");
@@ -69,15 +70,15 @@ type AccessState = "loading" | "ready" | "unavailable" | "error" | "storage-erro
 let access: AccessState = "loading";
 let currentRoute: Route = { name: "catalog" };
 let sessionRequest: AbortController | null = null;
-let stopCatalog: (() => void) | undefined;
+let stopPage: (() => void) | undefined;
 let editor: ReturnType<typeof mountKeyEditor> | undefined;
 
 /** Освобождает предыдущий экран и отображает маршрут с учётом состояния доступа. */
 const render = (route: Route): void => {
   editor?.destroy();
   editor = undefined;
-  stopCatalog?.();
-  stopCatalog = undefined;
+  stopPage?.();
+  stopPage = undefined;
 
   if (access !== "ready") {
     const title =
@@ -111,31 +112,21 @@ const render = (route: Route): void => {
     catalog: "Конфигурации и feature flags",
     "new-key": "Создание ключа",
     key: "Карточка ключа",
+    history: "История изменений",
     "not-found": "Страница не найдена",
   };
   const title = titles[route.name];
   document.title = `${title} | OnlineConf BNN`;
 
   if (route.name === "catalog") {
-    stopCatalog = mountCatalog(main, root.querySelector<HTMLElement>("[data-scopes]")!, (error) => {
-      if (error.status === 401) {
-        redirectToLogin();
-      } else {
-        access = "unavailable";
-        render(currentRoute);
-      }
-    });
+    stopPage = mountCatalog(main, root.querySelector<HTMLElement>("[data-scopes]")!, onAccessError);
+  } else if (route.name === "history") {
+    stopPage = mountKeyHistory(main, route.id, onAccessError);
   } else if (route.name === "key" || route.name === "new-key") {
     editor = mountKeyEditor(
       main,
       route.name === "key" ? route.id : undefined,
-      (error) => {
-        if (error.status === 401) redirectToLogin();
-        else {
-          access = "unavailable";
-          render(currentRoute);
-        }
-      },
+      onAccessError,
       (path, replace) => router.navigate(path, replace)
     );
   } else {
@@ -151,6 +142,17 @@ const render = (route: Route): void => {
   else catalogLink?.setAttribute("aria-current", "page");
   main.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
 };
+
+/** Обрабатывает потерю сессии и закрытый доступ одинаково для всех экранов. */
+function onAccessError(error: { status: number }): void {
+  if (error.status === 401) {
+    redirectToLogin();
+    return;
+  }
+
+  access = "unavailable";
+  render(currentRoute);
+}
 
 /** Запоминает маршрут админки перед переходом к входу в BNN. */
 function redirectToLogin(): void {
@@ -224,7 +226,7 @@ void checkSession();
 import.meta.hot?.dispose(() => {
   events.abort();
   sessionRequest?.abort();
-  stopCatalog?.();
+  stopPage?.();
   editor?.destroy();
   router.destroy();
 });

@@ -11,7 +11,10 @@ export function mountKeyEditor(
   onAccessError: (error: ApiError) => void,
   navigate: (path: string, replace?: boolean) => void
 ): { destroy: () => void; canLeave: () => boolean } {
-  main.innerHTML = template({ title: id ? "Карточка ключа" : "Создание ключа" });
+  main.innerHTML = template({
+    title: id ? "Карточка ключа" : "Создание ключа",
+    historyHref: id ? `/onlineconf/keys/${encodeURIComponent(id)}/history` : undefined,
+  });
   const find = <T extends HTMLElement>(selector: string) => main.querySelector<T>(selector)!;
   const form = find<HTMLFormElement>("[data-key-form]");
   const field = <T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(

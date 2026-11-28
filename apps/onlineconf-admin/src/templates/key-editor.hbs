@@ -1,5 +1,8 @@
 <section class="onlineconf__panel key-editor">
   <h1 tabindex="-1">{{title}}</h1>
+  {{#if historyHref}}
+    <p><a href="{{historyHref}}" data-onlineconf-link>История изменений</a></p>
+  {{/if}}
   <p data-key-meta class="onlineconf__description"></p>
   <p data-key-status role="status" aria-live="polite"></p>
   <button type="button" data-key-load hidden>Повторить загрузку</button>

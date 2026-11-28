@@ -1,8 +1,8 @@
 import { ApiError, getSession } from "./api";
-import type { AdminUser } from "../types/onlineconf";
+import type { AdminSession } from "../types/onlineconf";
 
 export type SessionResult =
-  | { status: "authenticated"; user: AdminUser }
+  | { status: "authenticated"; user: AdminSession }
   | { status: "unauthenticated" }
   | { status: "unavailable" };
 

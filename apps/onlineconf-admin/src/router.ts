@@ -1,8 +1,12 @@
 export type Route =
-  { name: "catalog" } | { name: "new-key" } | { name: "key"; id: string } | { name: "not-found" };
+  | { name: "catalog" }
+  | { name: "new-key" }
+  | { name: "key"; id: string }
+  | { name: "history"; id: string }
+  | { name: "not-found" };
 
 const KEY_PATH =
-  /^\/onlineconf\/keys\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+  /^\/onlineconf\/keys\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/history)?\/?$/i;
 
 /** Сопоставляет адрес админки с маршрутом карточки или каталога. */
 function resolveRoute(path: string): Route {
@@ -10,7 +14,8 @@ function resolveRoute(path: string): Route {
   if (path === "/onlineconf/keys/new") return { name: "new-key" };
 
   const match = path.match(KEY_PATH);
-  return match ? { name: "key", id: match[1] } : { name: "not-found" };
+  if (!match) return { name: "not-found" };
+  return { name: match[2] ? "history" : "key", id: match[1] };
 }
 
 /** Связывает маршруты админки с History API и учитывает запрет ухода с черновика. */

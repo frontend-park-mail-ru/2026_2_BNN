@@ -67,7 +67,7 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
     request: AbortController
   ): Promise<void> {
     try {
-      const session = await api.request<{ id: string }>("/api/onlineconf/admin/session", {
+      const session = await api.request<{ login: string }>("/api/onlineconf/admin/session", {
         signal: request.signal,
         cache: "no-store",
       });
@@ -79,7 +79,8 @@ export function mountProfile(page: HTMLElement, options: ProfileOptions): () => 
         profileStore.getState().open &&
         auth.status === "authenticated" &&
         auth.user?.id === userId &&
-        session?.id === userId
+        typeof session?.login === "string" &&
+        session.login === auth.user.login
       ) {
         button.hidden = false;
       }
