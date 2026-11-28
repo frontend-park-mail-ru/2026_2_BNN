@@ -17,21 +17,22 @@ export function createBlockMenu(options: {
   timerSave: () => void;
   attachFile: (block: HTMLElement, requested: AttachmentRequest) => Promise<void>;
   createSubnote: (block: HTMLElement) => void;
+  showToast: (message: string) => void;
 }) {
   const { mainRegion, timerSave, attachFile } = options;
   const { replaceBlock } = options.document;
 
   function syncAttachmentOptions(): void {
-    const { uploadEnabled } = runtimeConfigStore.getAttachmentPolicy();
+    const { attachmentUploadDenied } = runtimeConfigStore.getState();
     const menu = mainRegion.querySelector<HTMLElement>("[data-block-menu]");
     menu
       ?.querySelectorAll<HTMLButtonElement>(
         '[data-block-option="file"], [data-block-option="image"]'
       )
       .forEach((button) => {
-        if (button.disabled === !uploadEnabled) return;
+        if (button.disabled === attachmentUploadDenied) return;
         const focused = button === document.activeElement;
-        button.disabled = !uploadEnabled;
+        button.disabled = attachmentUploadDenied;
         if (button.disabled) {
           button.classList.remove("block-menu__item_active");
           if (focused) menu.focus({ preventScroll: true });
@@ -89,6 +90,9 @@ export function createBlockMenu(options: {
       menu.style.bottom = `calc(100% + ${gap}px)`;
     }
     if (fromToolbar) menu.focus({ preventScroll: true });
+    if (runtimeConfigStore.consumeAttachmentUploadRestored()) {
+      options.showToast("Вложения снова можно добавлять.");
+    }
   }
 
   /**
@@ -124,18 +128,20 @@ export function createBlockMenu(options: {
   }
 
   /**
-   * Меняет тип блока и закрывает меню.
+   * Меняет тип блока. При запрете загрузки оставляет меню открытым, чтобы показать недоступные пункты.
    *
    * @param block Текущий блок.
    * @param type Новый тип.
    */
   function chooseBlockType(block: HTMLElement, type: BlockType): void {
     const fromToolbar = !!block.querySelector("[data-block-menu][data-from-toolbar]");
-    closeBlockMenu();
     if (type === "file" || type === "image") {
+      if (runtimeConfigStore.getAttachmentPolicy().uploadEnabled) closeBlockMenu();
       void attachFile(block, type);
       return;
     }
+
+    closeBlockMenu();
     if (fromToolbar) {
       const text = block.querySelector<HTMLElement>("[data-block-text]");
       if (block.dataset.blockType !== "text" || text?.textContent) {

@@ -1,5 +1,6 @@
 import { ApiError, createKey, deleteKey, getKey, getScopes, listKeys, updateKey } from "../api/api";
 import { mountFlagEditor } from "../components/flag-editor";
+import { mountFlagEvaluation } from "../components/flag-evaluation";
 import { readConfig } from "../utils/config-value";
 import template from "../templates/key-editor.hbs";
 import type { CreateKeyInput, OnlineconfKey, Scope } from "../types/onlineconf";
@@ -45,6 +46,8 @@ export function mountKeyEditor(
   let dirty = false;
   let flagDirty = false;
   let flagEditor: ReturnType<typeof mountFlagEditor> | undefined;
+  let evaluation: ReturnType<typeof mountFlagEvaluation> | undefined;
+  const evaluationHost = find("[data-flag-evaluation]");
   let busy = false;
   let written = false;
   let baseline = "";
@@ -80,6 +83,7 @@ export function mountKeyEditor(
     kind.disabled = Boolean(saved) || written;
     saveButton.disabled = written;
     flagEditor?.setDisabled(busy || written);
+    evaluation?.setDisabled(busy || written);
     deleteButton.disabled = written;
     reloadButton.disabled = busy;
     loadButton.disabled = busy;
@@ -154,6 +158,12 @@ export function mountKeyEditor(
       : "";
     booleanValue.checked = config?.value === true;
     showKind();
+    evaluation?.destroy();
+    evaluation =
+      saved?.kind === "flag"
+        ? mountFlagEvaluation(evaluationHost, saved.id, onAccessError)
+        : undefined;
+    evaluationHost.hidden = !evaluation;
     find("[data-key-meta]").textContent = saved
       ? `ID: ${saved.id} · Версия: ${saved.version} · ${saved.updated_at} · ${saved.updated_by.login}`
       : "";
@@ -483,6 +493,7 @@ export function mountKeyEditor(
     destroy: () => {
       events.abort();
       flagEditor?.destroy();
+      evaluation?.destroy();
       request?.abort();
     },
   };

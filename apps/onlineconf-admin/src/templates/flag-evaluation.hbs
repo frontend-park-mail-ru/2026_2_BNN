@@ -1,0 +1,25 @@
+<section class="flag-evaluation" aria-labelledby="flag-evaluation-title">
+  <h2 id="flag-evaluation-title">Проверить флаг для пользователя</h2>
+  <p class="onlineconf__description">
+    Проверяется сохранённый флаг. После сохранения сервер может временно вернуть предыдущую ревизию.
+  </p>
+
+  <form data-evaluate-search role="search" aria-label="Поиск пользователя для проверки флага">
+    <fieldset>
+      <label for="flag-evaluation-query">Логин пользователя</label>
+      <input id="flag-evaluation-query" type="search" autocomplete="off" required />
+      <button type="submit">Найти</button>
+    </fieldset>
+  </form>
+
+  <form data-evaluate-check hidden>
+    <fieldset>
+      <label for="flag-evaluation-user">Пользователь</label>
+      <select id="flag-evaluation-user" required></select>
+      <button type="submit">Проверить</button>
+    </fieldset>
+  </form>
+
+  <p role="status" data-evaluate-status></p>
+  <p role="status" data-evaluate-result></p>
+</section>

@@ -1,6 +1,7 @@
 import type {
   AdminSession,
   AdminUser,
+  FlagEvaluation,
   CreateKeyInput,
   KeyFilters,
   KeyHistoryEntry,
@@ -131,9 +132,10 @@ export async function request(path: string, options: Options & { body?: object }
 async function read<T>(
   path: string,
   signal: AbortSignal | undefined,
-  valid: (data: T) => boolean
+  valid: (data: T) => boolean,
+  options: Options & { body?: object } = {}
 ): Promise<T> {
-  const response = await request(path, { signal });
+  const response = await request(path, { ...options, signal });
   const data: T | null = await response.json().catch(() => null);
   signal?.throwIfAborted();
   if (response.status !== 200 || data == null || !valid(data)) {
@@ -200,6 +202,24 @@ function keyPath(id: string): string {
 
 function validVersion(version: number): boolean {
   return Number.isSafeInteger(version) && version > 0;
+}
+
+/** Проверяет сохранённый флаг для выбранного пользователя на сервере. */
+export function evaluateFlag(
+  id: string,
+  userId: string,
+  signal?: AbortSignal
+): Promise<FlagEvaluation> {
+  return read<FlagEvaluation>(
+    `${keyPath(id)}/evaluate`,
+    signal,
+    ({ result, reason, revision }) =>
+      typeof result === "boolean" &&
+      ["disabled", "excluded", "included", "rollout"].includes(reason) &&
+      Number.isSafeInteger(revision) &&
+      revision >= 0,
+    { method: "POST", body: { user_id: userId } }
+  );
 }
 
 /** Загружает историю напрямую, в том числе для удалённого ключа, если API её возвращает. */

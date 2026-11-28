@@ -77,6 +77,7 @@ export function createNoteEditor(options: EditorOptions) {
     timerSave,
     attachFile: (block, requested) => attachments.attachFile(block, requested),
     createSubnote: startSubnote,
+    showToast: options.showToast,
   });
   const { openBlockMenu, closeBlockMenu, moveBlockMenu, chooseBlockType } = menu;
   const persistence = createEditorPersistence({
@@ -112,6 +113,16 @@ export function createNoteEditor(options: EditorOptions) {
     onError: (message) => options.showToast(message, true),
     onActiveChange: voiceInputView.setVoiceInputActive,
   });
+
+  /** Обновляет кнопку без перерисовки заметки и останавливает запись при выключении флага. */
+  function syncVoiceInput(): void {
+    const button = mainRegion.querySelector<HTMLButtonElement>("[data-voice-input-toggle]");
+    const hidden = !runtimeConfigStore.isVoiceInputEnabled();
+    if (!button || button.hidden === hidden) return;
+
+    button.hidden = hidden;
+    if (hidden) voiceInput.stop();
+  }
 
   /**
    * Убирает панель форматирования из блока, который сейчас заменят.
@@ -595,7 +606,7 @@ export function createNoteEditor(options: EditorOptions) {
       return true;
     }
     if (target.closest("[data-voice-input-toggle]")) {
-      voiceInput.toggle();
+      if (runtimeConfigStore.isVoiceInputEnabled()) voiceInput.toggle();
       return true;
     }
     return false;
@@ -640,8 +651,12 @@ export function createNoteEditor(options: EditorOptions) {
 
   const events = new AbortController();
   const signal = events.signal;
-  const unsubscribeRuntime = runtimeConfigStore.subscribe(menu.syncAttachmentOptions);
+  const unsubscribeRuntime = runtimeConfigStore.subscribe(() => {
+    menu.syncAttachmentOptions();
+    syncVoiceInput();
+  });
   signal.addEventListener("abort", unsubscribeRuntime, { once: true });
+  syncVoiceInput();
   const cancelBlockReorder = mountBlockReorder(mainRegion, timerSave, signal);
   mainRegion.addEventListener(
     "focusin",
@@ -689,6 +704,7 @@ export function createNoteEditor(options: EditorOptions) {
     handleClick,
     escape,
     resetSelection,
+    syncVoiceInput,
     scheduleSave: timerSave,
     retrySave: () => autosave.run(),
     clearSave: () => autosave.clear(),
