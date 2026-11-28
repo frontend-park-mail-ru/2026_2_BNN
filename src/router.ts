@@ -3,6 +3,7 @@ import { LoginPage } from "@/pages/login";
 import { LoginTwoFactorPage } from "@/pages/login-2fa";
 import { SignupPage } from "@/pages/signup";
 import { NotFoundPage } from "@/pages/notfound";
+import { returnToOnlineconf } from "@/utils/onlineconf-return";
 import { ensureAuth } from "@/flux/auth/auth-actions";
 
 /** Данные текущего маршрута, которые страница получает от роутера. */
@@ -122,12 +123,14 @@ export async function router(): Promise<void> {
       await navigate("/login");
       return;
     }
+    if (returnToOnlineconf()) return;
   }
 
   if (matchedRoute?.guest) {
     const ok = await ensureAuth();
     if (thisRender !== renderId) return;
     if (ok) {
+      if (returnToOnlineconf()) return;
       await navigate("/notes");
       return;
     }
