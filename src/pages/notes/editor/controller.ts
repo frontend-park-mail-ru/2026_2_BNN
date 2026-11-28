@@ -1,4 +1,5 @@
 import { notesStore } from "@/flux/notes/note-store";
+import { runtimeConfigStore } from "@/flux/runtime/runtime-store";
 import type { BlockType } from "@/types/note";
 import { createVoiceInputController } from "@/pages/notes/voice-input/controller";
 import { createVoiceInputView } from "@/pages/notes/voice-input/view";
@@ -639,6 +640,8 @@ export function createNoteEditor(options: EditorOptions) {
 
   const events = new AbortController();
   const signal = events.signal;
+  const unsubscribeRuntime = runtimeConfigStore.subscribe(menu.syncAttachmentOptions);
+  signal.addEventListener("abort", unsubscribeRuntime, { once: true });
   const cancelBlockReorder = mountBlockReorder(mainRegion, timerSave, signal);
   mainRegion.addEventListener(
     "focusin",

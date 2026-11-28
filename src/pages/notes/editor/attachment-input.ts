@@ -1,12 +1,17 @@
 import { ApiError } from "@/api";
 import * as noteActions from "@/flux/notes/note-actions";
+import { refreshRuntime } from "@/flux/runtime/runtime-actions";
+import { runtimeConfigStore } from "@/flux/runtime/runtime-store";
 import type { BlockContent } from "@/types/note";
 import {
   acceptedAttachment,
+  attachmentLimitMessage,
   FILE_ACCEPT,
+  getAttachmentPolicyError,
   IMAGE_ACCEPT,
   pickFile,
   removeAttachment,
+  UPLOAD_DISABLED_MESSAGE,
   type AttachmentRequest,
 } from "@/pages/notes/attachments";
 import { toBlockView } from "@/pages/notes/editor/block-view";
@@ -59,7 +64,9 @@ export function createAttachmentInput(options: {
     requested: AttachmentRequest,
     given?: File
   ): Promise<void> {
-    return track(() => uploadFile(block, requested, given));
+    return track(async () => {
+      await uploadFile(block, requested, given);
+    });
   }
   /**
    * Вставляет несколько перетащенных файлов, начиная с указанного блока.
@@ -82,9 +89,18 @@ export function createAttachmentInput(options: {
     block: HTMLElement,
     requested: AttachmentRequest,
     given?: File
-  ): Promise<void> {
+  ): Promise<HTMLElement | undefined> {
+    if (!runtimeConfigStore.getAttachmentPolicy().uploadEnabled) {
+      showToast(UPLOAD_DISABLED_MESSAGE, true);
+      return;
+    }
     const file = given ?? (await pickFile(requested === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
     if (!file || !block.isConnected || !options.isActive()) {
+      return;
+    }
+    const initialError = getAttachmentPolicyError(file);
+    if (initialError) {
+      showToast(initialError, true);
       return;
     }
     const type = await acceptedAttachment(file, requested, showToast);
@@ -92,14 +108,27 @@ export function createAttachmentInput(options: {
       return;
     }
 
+    const policyError = getAttachmentPolicyError(file);
+    if (policyError) {
+      showToast(policyError, true);
+      return;
+    }
+    const inserted = !isEmptyParagraph(block);
+    if (inserted) {
+      const slot = insertBlockAfter(block, "text")?.closest<HTMLElement>("[data-block]");
+      if (!slot) return;
+      block = slot;
+    }
+
+    const original = readBlock(block) ?? { type: "text", text: "" };
     const content: BlockContent = { type, text: file.name, size: file.size };
     const uploading = replaceBlock(block, {
       ...toBlockView({ id: block.dataset.blockId ?? "", content }),
       isUploading: true,
     });
-    if (!uploading.nextElementSibling) {
-      insertBlockAfter(uploading, "text");
-    }
+    const trailing = uploading.nextElementSibling
+      ? null
+      : insertBlockAfter(uploading, "text")?.closest<HTMLElement>("[data-block]");
     const nextText = uploading.nextElementSibling?.querySelector<HTMLElement>("[data-block-text]");
     if (nextText && document.activeElement === document.body) {
       placeCaret(nextText, false);
@@ -107,14 +136,40 @@ export function createAttachmentInput(options: {
 
     timerSave();
     const saved = await finishSaving();
-    if (!options.isActive()) {
+    if (!uploading.isConnected || !options.isActive()) {
       return;
     }
 
     const blockId = uploading.dataset.blockId ?? "";
     let uploadError = saved && blockId ? "" : "Не удалось сохранить заметку";
 
+    function rejectUpload(message: string): HTMLElement | undefined {
+      if (!uploading.isConnected || !options.isActive()) return;
+      let restored: HTMLElement | undefined;
+      if (inserted) {
+        options.beforeRemove(uploading);
+        uploading.remove();
+      } else {
+        restored = replaceBlock(uploading, toBlockView({ id: blockId, content: original }));
+      }
+      if (
+        trailing?.isConnected &&
+        isEmptyParagraph(trailing) &&
+        !trailing.contains(document.activeElement)
+      ) {
+        options.beforeRemove(trailing);
+        trailing.remove();
+      }
+      timerSave();
+      showToast(message, true);
+      return restored;
+    }
+
     if (saved && blockId) {
+      const currentError = getAttachmentPolicyError(file);
+      if (currentError) {
+        return rejectUpload(currentError);
+      }
       try {
         const attachment = await noteActions.uploadAttachment(blockId, file);
         content.attachmentId = attachment.id;
@@ -126,6 +181,21 @@ export function createAttachmentInput(options: {
           }
           return;
         }
+        if (
+          error instanceof ApiError &&
+          error.status === 403 &&
+          error.code === "FEATURE_DISABLED"
+        ) {
+          void refreshRuntime();
+          return rejectUpload(UPLOAD_DISABLED_MESSAGE);
+        }
+        if (error instanceof ApiError && error.status === 413 && error.code === "FILE_TOO_LARGE") {
+          return rejectUpload(
+            attachmentLimitMessage(
+              error.limitBytes ?? runtimeConfigStore.getAttachmentPolicy().maxFileSizeBytes
+            )
+          );
+        }
         uploadError = error instanceof ApiError ? error.message : "Не удалось связаться с сервером";
       }
     }
@@ -135,11 +205,12 @@ export function createAttachmentInput(options: {
     }
 
     const view = toBlockView({ id: blockId, content });
-    replaceBlock(uploading, uploadError ? { ...view, uploadError } : view);
+    const result = replaceBlock(uploading, uploadError ? { ...view, uploadError } : view);
     timerSave();
+    return result;
   }
 
-  /** Можно ли использовать этот текстовый абзац для файла или для курсора после вставки. */
+  /** Можно ли использовать этот текстовый абзац для файла. */
   function isEmptyParagraph(block: HTMLElement): boolean {
     const content = readBlock(block);
     return content?.type === "text" && content.text === "";
@@ -153,37 +224,14 @@ export function createAttachmentInput(options: {
    */
   async function uploadFiles(block: HTMLElement, files: File[]): Promise<void> {
     closeBlockMenu();
-    const accepted: File[] = [];
+    let anchor = block;
     for (const file of files) {
-      if (await acceptedAttachment(file, "auto", showToast)) {
-        accepted.push(file);
+      if (!anchor.isConnected || !options.isActive()) return;
+      if (!runtimeConfigStore.getAttachmentPolicy().uploadEnabled) {
+        showToast(UPLOAD_DISABLED_MESSAGE, true);
+        return;
       }
-    }
-    if (!block.isConnected || !options.isActive() || accepted.length === 0) {
-      return;
-    }
-
-    const slots: HTMLElement[] = [];
-    let slot = block;
-    for (let i = 0; i < accepted.length; i++) {
-      if (i > 0 || !isEmptyParagraph(slot)) {
-        insertBlockAfter(slot, "text");
-        slot = slot.nextElementSibling as HTMLElement;
-      }
-      slots.push(slot);
-    }
-
-    const next = slot.nextElementSibling as HTMLElement | null;
-    const nextText =
-      next && isEmptyParagraph(next)
-        ? next.querySelector<HTMLElement>("[data-block-text]")
-        : insertBlockAfter(slot, "text");
-    if (nextText) {
-      placeCaret(nextText, false);
-    }
-
-    for (let i = 0; i < accepted.length; i++) {
-      await attachFile(slots[i], "auto", accepted[i]);
+      anchor = (await uploadFile(anchor, "auto", file)) ?? anchor;
     }
   }
 
@@ -236,7 +284,9 @@ export function createAttachmentInput(options: {
   function onDragOver(event: DragEvent): void {
     if (event.dataTransfer?.types.includes("Files")) {
       event.preventDefault();
-      const target = findDropTarget(event);
+      const target = runtimeConfigStore.getAttachmentPolicy().uploadEnabled
+        ? findDropTarget(event)
+        : null;
       event.dataTransfer.dropEffect = target ? "copy" : "none";
       mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", target !== null);
     }

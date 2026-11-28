@@ -1,6 +1,21 @@
 import * as noteActions from "@/flux/notes/note-actions";
 import type { BlockType } from "@/types/note";
 import { classifyAttachment } from "@/pages/notes/attachment-validation";
+import { runtimeConfigStore } from "@/flux/runtime/runtime-store";
+
+export const UPLOAD_DISABLED_MESSAGE = "Загрузка новых вложений сейчас недоступна.";
+
+export function attachmentLimitMessage(limit: number): string {
+  const size =
+    limit % 1048576 === 0 ? `${limit / 1048576} МиБ` : `${limit.toLocaleString("ru-RU")} байт`;
+  return `Файл превышает допустимый размер (${size}).`;
+}
+
+export function getAttachmentPolicyError(file: File): string | null {
+  const { uploadEnabled, maxFileSizeBytes } = runtimeConfigStore.getAttachmentPolicy();
+  if (!uploadEnabled) return UPLOAD_DISABLED_MESSAGE;
+  return file.size > maxFileSizeBytes ? attachmentLimitMessage(maxFileSizeBytes) : null;
+}
 
 /** Значение `accept` для выбора изображения. */
 export const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
