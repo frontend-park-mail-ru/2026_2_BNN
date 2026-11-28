@@ -4,6 +4,14 @@ export type AdminUser = { id: string; login: string };
 export type AdminSession = { login: string };
 export type RolloutPlanInput = { name: string; steps: number[]; interval_min: number };
 export type RolloutPlan = RolloutPlanInput & { id: string };
+export type FlagScheduleInput = { run_at: string; enabled?: boolean; rollout_percent?: number };
+export type FlagSchedule = {
+  id: string;
+  run_at: string;
+  done: boolean;
+  enabled?: boolean | null;
+  rollout_percent?: number | null;
+};
 export type RolloutState = {
   plan_id: string;
   status: "waiting" | "pending_approval" | "done";

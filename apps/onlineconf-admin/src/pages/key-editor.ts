@@ -2,6 +2,7 @@ import { ApiError, createKey, deleteKey, getKey, getScopes, listKeys, updateKey 
 import { mountFlagEditor } from "../components/flag-editor";
 import { mountFlagEvaluation } from "../components/flag-evaluation";
 import { mountFlagRollout } from "../components/flag-rollout";
+import { mountFlagSchedules } from "../components/flag-schedules";
 import { readConfig } from "../utils/config-value";
 import template from "../templates/key-editor.hbs";
 import type { CreateKeyInput, OnlineconfKey, Scope } from "../types/onlineconf";
@@ -52,6 +53,12 @@ export function mountKeyEditor(
   const rolloutHost = find("[data-flag-rollout]");
   let rollout: ReturnType<typeof mountFlagRollout> | undefined;
   let rolloutManaged = false;
+  let rolloutBinding: boolean | null = null;
+  const schedulesHost = find("[data-flag-schedules]");
+  let schedules: ReturnType<typeof mountFlagSchedules> | undefined;
+  let hasPendingSchedule = false;
+  let scheduleWriting = false;
+  let scheduleNeedsReload = false;
   let busy = false;
   let written = false;
   let baseline = "";
@@ -74,31 +81,51 @@ export function mountKeyEditor(
 
   /** Запрашивает подтверждение ухода, если на экране есть черновик. */
   function canLeave(): boolean {
-    if (busy)
+    if (busy || scheduleWriting)
       return window.confirm(
         "Запрос ещё выполняется. Покинуть карточку? Результат операции проверьте в каталоге."
       );
     return !dirty || window.confirm("Есть несохранённые изменения. Покинуть карточку?");
   }
   function updateControls(): void {
-    fields.disabled = busy;
+    const saving = busy || scheduleWriting;
+    fields.disabled = saving;
     scope.disabled = Boolean(saved) || written;
     name.readOnly = Boolean(saved) || written;
     kind.disabled = Boolean(saved) || written;
     saveButton.disabled = written;
-    flagEditor?.setDisabled(busy || written);
+    flagEditor?.setDisabled(saving || written);
     flagEditor?.setRolloutManaged(rolloutManaged);
-    evaluation?.setDisabled(busy || written);
+    evaluation?.setDisabled(saving || written);
     syncRolloutControls();
     deleteButton.disabled = written;
-    reloadButton.disabled = busy;
-    loadButton.disabled = busy;
-    form.setAttribute("aria-busy", String(busy));
+    reloadButton.disabled = saving;
+    loadButton.disabled = saving;
+    form.setAttribute("aria-busy", String(saving));
   }
 
   function syncRolloutControls(): void {
-    if (saved?.kind === "flag")
-      rollout?.setContext(dirty || written, busy, saved.flag.rollout_percent);
+    if (saved?.kind === "flag") {
+      rollout?.setContext(
+        dirty || written,
+        busy || scheduleWriting,
+        saved.flag.rollout_percent,
+        hasPendingSchedule
+      );
+      schedules?.setContext(dirty || written || busy, rolloutBinding);
+    }
+  }
+
+  /** Просит перечитать карточку после серверного выполнения расписания, сохраняя черновик. */
+  function markScheduleExecution(): void {
+    if (events.signal.aborted || busy || !scheduleNeedsReload) return;
+    scheduleNeedsReload = false;
+    if (written) return;
+
+    written = true;
+    reloadButton.hidden = false;
+    status.textContent = "Задача выполнена. Загрузите актуальную версию флага. Черновик сохранён.";
+    updateControls();
   }
   function clearErrors(): void {
     for (const error of form.querySelectorAll(".key-editor__error")) error.textContent = "";
@@ -183,16 +210,40 @@ export function mountKeyEditor(
         writeRollout,
         onAccessError,
         (managed) => {
-          rolloutManaged = managed;
-          flagEditor?.setRolloutManaged(managed);
+          rolloutBinding = managed;
+          if (managed !== null) {
+            rolloutManaged = managed;
+            flagEditor?.setRolloutManaged(managed);
+          }
+          syncRolloutControls();
         }
       );
+      schedules ??= mountFlagSchedules(schedulesHost, saved.id, {
+        onAccessError,
+        onWritingChange: (writing) => {
+          scheduleWriting = writing;
+          updateControls();
+        },
+        onPendingChange: (pending) => {
+          hasPendingSchedule = pending;
+          syncRolloutControls();
+        },
+        onExecuted: () => {
+          scheduleNeedsReload = true;
+          markScheduleExecution();
+        },
+      });
     } else {
       rollout?.destroy();
       rollout = undefined;
       rolloutManaged = false;
+      rolloutBinding = null;
+      schedules?.destroy();
+      schedules = undefined;
+      hasPendingSchedule = false;
     }
     rolloutHost.hidden = !rollout;
+    schedulesHost.hidden = !schedules;
     find("[data-key-meta]").textContent = saved
       ? `ID: ${saved.id} · Версия: ${saved.version} · ${saved.updated_at} · ${saved.updated_by.login}`
       : "";
@@ -302,7 +353,7 @@ export function mountKeyEditor(
 
   /** Выполняет одну операцию карточки с блокировкой формы и таймаутом. */
   async function run(action: (signal: AbortSignal) => Promise<void>): Promise<void> {
-    if (busy) return;
+    if (busy || scheduleWriting) return;
     busy = true;
     errorFocus = undefined;
     const current = new AbortController();
@@ -329,6 +380,7 @@ export function mountKeyEditor(
       if (!events.signal.aborted && request === current) {
         busy = false;
         updateControls();
+        markScheduleExecution();
         focusError();
       }
     }
@@ -416,7 +468,7 @@ export function mountKeyEditor(
     "submit",
     (event) => {
       event.preventDefault();
-      if (busy || written || form.hidden) return;
+      if (busy || scheduleWriting || written || form.hidden) return;
       clearErrors();
       if (!form.reportValidity()) return;
       if (!scopes.includes(scope.value as Scope)) return;
@@ -491,7 +543,7 @@ export function mountKeyEditor(
     (event) => {
       if (!(event.target instanceof Element)) return;
       if (event.target.closest("[data-key-load]")) load();
-      if (busy) return;
+      if (busy || scheduleWriting) return;
       if (event.target.closest("[data-key-reset]")) {
         if (written) {
           status.textContent = "Сначала загрузите актуальную версию.";
@@ -554,7 +606,7 @@ export function mountKeyEditor(
   window.addEventListener(
     "beforeunload",
     (event) => {
-      if (dirty || busy) {
+      if (dirty || busy || scheduleWriting) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -569,6 +621,7 @@ export function mountKeyEditor(
       flagEditor?.destroy();
       evaluation?.destroy();
       rollout?.destroy();
+      schedules?.destroy();
       request?.abort();
     },
   };

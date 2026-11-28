@@ -935,3 +935,27 @@ button {
     gap: 8px;
   }
 }
+.flag-schedules {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+
+  ul {
+    padding-inline-start: 20px;
+  }
+
+  li {
+    margin-block: 8px;
+    overflow-wrap: anywhere;
+
+    button {
+      margin-inline-start: 8px;
+    }
+  }
+
+  [role="status"]:empty,
+  [data-schedules-lock]:empty {
+    margin: 0;
+  }
+}

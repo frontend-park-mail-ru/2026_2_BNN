@@ -2,6 +2,8 @@ import type {
   AdminSession,
   AdminUser,
   FlagEvaluation,
+  FlagSchedule,
+  FlagScheduleInput,
   CreateKeyInput,
   KeyFilters,
   KeyHistoryEntry,
@@ -234,6 +236,48 @@ function keyPath(id: string): string {
 
 function validVersion(version: number): boolean {
   return Number.isSafeInteger(version) && version > 0;
+}
+
+/** Возвращает запланированные и уже выполненные изменения сохранённого флага. */
+export function listFlagSchedules(id: string, signal?: AbortSignal): Promise<FlagSchedule[]> {
+  return read<FlagSchedule[]>(
+    `${keyPath(id)}/schedules`,
+    signal,
+    (schedules) =>
+      Array.isArray(schedules) &&
+      schedules.every(
+        (schedule) =>
+          typeof schedule?.id === "string" &&
+          Boolean(schedule.id) &&
+          typeof schedule.run_at === "string" &&
+          Number.isFinite(Date.parse(schedule.run_at)) &&
+          typeof schedule.done === "boolean" &&
+          (schedule.enabled == null || typeof schedule.enabled === "boolean") &&
+          (schedule.rollout_percent == null ||
+            (Number.isSafeInteger(schedule.rollout_percent) &&
+              schedule.rollout_percent >= 0 &&
+              schedule.rollout_percent <= 100))
+      )
+  );
+}
+
+export async function createFlagSchedule(
+  id: string,
+  input: FlagScheduleInput,
+  signal?: AbortSignal
+): Promise<void> {
+  await request(`${keyPath(id)}/schedules`, { method: "POST", body: input, signal });
+}
+
+export async function cancelFlagSchedule(
+  id: string,
+  scheduleId: string,
+  signal?: AbortSignal
+): Promise<void> {
+  await request(`${keyPath(id)}/schedules/${encodeURIComponent(scheduleId)}`, {
+    method: "DELETE",
+    signal,
+  });
 }
 
 /** Загружает регламенты и проверяет формат шагов перед показом. */

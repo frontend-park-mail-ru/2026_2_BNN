@@ -1,0 +1,25 @@
+<section class="rollout-editor flag-schedules" aria-labelledby="flag-schedules-title">
+  <h2 id="flag-schedules-title">Плановая раскатка</h2>
+  <p class="onlineconf__description">Сервер проверяет расписание раз в минуту. Можно закрыть админку после создания задачи.</p>
+  <p role="status" data-schedules-status></p>
+  <ul data-schedules-list></ul>
+  <button type="button" data-schedules-reload>Обновить расписание</button>
+
+  <form data-schedules-form>
+    <p class="onlineconf__description" data-schedules-lock></p>
+    <fieldset disabled>
+      <legend>Запланировать изменение</legend>
+      <label for="schedule-run-at">Дата и время ({{zone}})</label>
+      <input id="schedule-run-at" type="datetime-local" required />
+      <label for="schedule-enabled">Состояние флага</label>
+      <select id="schedule-enabled">
+        <option value="">Оставить как есть</option>
+        <option value="true">Включить</option>
+        <option value="false">Выключить</option>
+      </select>
+      <label for="schedule-percent">Новый процент раскатки (необязательно)</label>
+      <input id="schedule-percent" type="number" min="0" max="100" step="1" />
+      <div class="rollout-editor__actions"><button type="submit">Запланировать</button></div>
+    </fieldset>
+  </form>
+</section>
