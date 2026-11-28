@@ -1,3 +1,4 @@
+import { SCOPES } from "../types/onlineconf";
 import type {
   AdminSession,
   AdminUser,
@@ -184,9 +185,7 @@ export function getScopes(signal?: AbortSignal) {
   return read<Scope[]>(
     "/scopes",
     signal,
-    (scopes) =>
-      Array.isArray(scopes) &&
-      scopes.every((scope) => ["Frontend", "Backend", "Auth", "Notes"].includes(scope))
+    (scopes) => Array.isArray(scopes) && scopes.every((scope) => SCOPES.includes(scope))
   );
 }
 

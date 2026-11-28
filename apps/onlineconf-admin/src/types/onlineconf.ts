@@ -1,4 +1,9 @@
-export type Scope = "Frontend" | "Backend" | "Auth" | "Notes";
+export const SCOPES = ["frontend", "backend", "auth", "notes"] as const;
+export type Scope = (typeof SCOPES)[number];
+
+export function scopeLabel(scope: Scope): string {
+  return scope.charAt(0).toUpperCase() + scope.slice(1);
+}
 export type KeyKind = "config" | "flag";
 export type AdminUser = { id: string; login: string };
 export type AdminSession = { login: string };

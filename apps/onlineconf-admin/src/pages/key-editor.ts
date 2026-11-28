@@ -5,7 +5,12 @@ import { mountFlagRollout } from "../components/flag-rollout";
 import { mountFlagSchedules } from "../components/flag-schedules";
 import { readConfig } from "../utils/config-value";
 import template from "../templates/key-editor.hbs";
-import type { CreateKeyInput, OnlineconfKey, Scope } from "../types/onlineconf";
+import {
+  scopeLabel,
+  type CreateKeyInput,
+  type OnlineconfKey,
+  type Scope,
+} from "../types/onlineconf";
 
 /** Подключает создание и редактирование ключа и управляет жизненным циклом формы. */
 export function mountKeyEditor(
@@ -181,7 +186,7 @@ export function mountKeyEditor(
 
   /** Заполняет форму сохранёнными данными и сбрасывает признаки изменений. */
   function populate(): void {
-    scope.replaceChildren(...scopes.map((item) => new Option(item, item)));
+    scope.replaceChildren(...scopes.map((item) => new Option(scopeLabel(item), item)));
     scope.value = saved?.scope ?? scopes.find((item) => item === requestedScope) ?? scopes[0] ?? "";
     name.value = saved?.key ?? "";
     onDraftChange?.(name.value, scope.value as Scope);
