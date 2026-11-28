@@ -1,96 +1,88 @@
 import { ApiError, getScopes, listKeys } from "../api/api";
 import catalog from "../templates/catalog.hbs";
 import results from "../templates/catalog-results.hbs";
+import type { Route } from "../router";
 import type { KeyFilters, KeyKind, KeyListItem, Scope } from "../types/onlineconf";
 
-/** Подключает каталог и возвращает функцию очистки запросов и обработчиков. */
 export function mountCatalog(
-  main: HTMLElement,
-  navigation: HTMLElement,
+  panel: HTMLElement,
+  list: HTMLElement,
   onAccessError: (error: ApiError) => void
-): () => void {
-  main.innerHTML = catalog({});
-  const form = main.querySelector<HTMLFormElement>("form")!;
+) {
+  panel.innerHTML = catalog({});
+  const form = panel.querySelector<HTMLFormElement>("form")!;
   const query = form.elements.namedItem("query") as HTMLInputElement;
+  const scope = form.elements.namedItem("scope") as HTMLSelectElement;
   const kind = form.elements.namedItem("kind") as HTMLSelectElement;
-  const content = main.querySelector<HTMLElement>("[data-catalog-results]")!;
+  const status = panel.querySelector<HTMLElement>("[data-catalog-status]")!;
+  const retry = panel.querySelector<HTMLButtonElement>("[data-catalog-retry]")!;
   const events = new AbortController();
-  const filters: KeyFilters = {};
+  let filters: KeyFilters = {};
   let scopes: Scope[] | undefined;
+  let keys: KeyListItem[] = [];
+  let activeId: string | undefined;
   let request: AbortController | undefined;
 
-  function showScopes(): void {
-    navigation.replaceChildren();
-    for (const scope of [undefined, ...(scopes ?? [])]) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = scope ?? "Все области";
-      button.dataset.scope = scope ?? "";
-      button.setAttribute("aria-pressed", String(scope === filters.scope));
-      navigation.append(button);
-    }
+  function renderKeys(): void {
+    list.innerHTML = results({
+      rows: keys.map(({ id, key, scope }) => ({
+        href: `/onlineconf/keys/${encodeURIComponent(id)}`,
+        key,
+        scope,
+        active: id === activeId,
+      })),
+    });
   }
 
-  /** Загружает фильтры и ключи. Ответ предыдущего запроса не меняет текущую выдачу. */
   async function load(): Promise<void> {
     request?.abort();
     const current = new AbortController();
     request = current;
     const timeout = window.setTimeout(() => current.abort(), 10_000);
-    content.setAttribute("aria-busy", "true");
-    content.innerHTML = results({ message: "Загружаем ключи…" });
+    list.setAttribute("aria-busy", "true");
+    status.textContent = "Загружаем ключи…";
+    retry.hidden = true;
     try {
       if (!scopes) {
-        scopes = await getScopes(current.signal);
+        const available = await getScopes(current.signal);
         if (request !== current || events.signal.aborted) return;
-        showScopes();
+        scopes = available;
+        scope.append(...scopes.map((item) => new Option(item, item)));
       }
-      const keys = await listKeys({ ...filters }, current.signal);
+      const found = await listKeys(filters, current.signal);
       if (request !== current || events.signal.aborted) return;
-      const rows = keys.map((key) => {
-        const date = new Date(key.updated_at);
-        return {
-          ...key,
-          href: `/onlineconf/keys/${encodeURIComponent(key.id)}`,
-          value: briefValue(key),
-          updatedAt: Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("ru-RU"),
-          login: key.updated_by.login,
-        };
-      });
-      content.innerHTML = results({
-        rows,
-        limited: keys.length === 200,
-        message: keys.length
-          ? `Получено ключей: ${keys.length}.`
-          : filters.query || filters.kind
-            ? "По выбранным условиям ключи не найдены."
-            : filters.scope
-              ? "В этой области пока нет ключей."
-              : "Пока нет ключей.",
-      });
+      keys = found;
+      renderKeys();
+      status.textContent =
+        keys.length === 200
+          ? "Показано 200 ключей. Уточните поиск."
+          : keys.length
+            ? `Найдено ключей: ${keys.length}.`
+            : filters.query || filters.scope || filters.kind
+              ? "По выбранным условиям ключи не найдены."
+              : "Пока нет ключей.";
     } catch (error) {
       if (request !== current || events.signal.aborted) return;
       if (error instanceof ApiError && (error.code === "NOT_FOUND" || error.status === 401)) {
         onAccessError(error);
         return;
       }
-      content.innerHTML = results({
-        message: current.signal.aborted
-          ? "Сервер не ответил вовремя. Попробуйте ещё раз."
-          : "Не удалось загрузить каталог. Попробуйте ещё раз.",
-        retry: true,
-      });
+      status.textContent = current.signal.aborted
+        ? "Сервер не ответил вовремя."
+        : "Не удалось загрузить ключи.";
+      retry.hidden = false;
     } finally {
       window.clearTimeout(timeout);
-      if (request === current && !events.signal.aborted) {
-        content.setAttribute("aria-busy", "false");
-      }
+      if (request === current && !events.signal.aborted) list.setAttribute("aria-busy", "false");
     }
   }
 
-  /** Применяет введённое имя к фильтрам каталога. */
   function search(): void {
     filters.query = query.value.trim() || undefined;
+    filters.scope = (scope.value || undefined) as Scope | undefined;
+    filters.kind = (kind.value || undefined) as KeyKind | undefined;
+    keys = [];
+    renderKeys();
     void load();
   }
 
@@ -102,11 +94,10 @@ export function mountCatalog(
     },
     { signal: events.signal }
   );
-  kind.addEventListener(
+  form.addEventListener(
     "change",
-    () => {
-      filters.kind = (kind.value || undefined) as KeyKind | undefined;
-      void load();
+    (event) => {
+      if (event.target === scope || event.target === kind) search();
     },
     { signal: events.signal }
   );
@@ -117,47 +108,32 @@ export function mountCatalog(
     },
     { signal: events.signal }
   );
-  main.addEventListener(
+  panel.querySelector("[data-search-clear]")?.addEventListener(
     "click",
-    (event) => {
-      if (!(event.target instanceof Element)) return;
-      if (event.target.closest("[data-catalog-retry]")) void load();
-      if (event.target.closest("[data-search-clear]")) {
-        query.value = "";
-        search();
-        query.focus();
-      }
+    () => {
+      form.reset();
+      search();
+      query.focus();
     },
     { signal: events.signal }
   );
-  navigation.addEventListener(
-    "click",
-    (event) => {
-      if (!(event.target instanceof Element)) return;
-      const button = event.target.closest<HTMLButtonElement>("button[data-scope]");
-      if (!button || !navigation.contains(button)) return;
-      filters.scope = (button.dataset.scope || undefined) as Scope | undefined;
-      for (const item of navigation.querySelectorAll("button[data-scope]")) {
-        item.setAttribute("aria-pressed", String(item === button));
-      }
+  retry.addEventListener("click", () => void load(), { signal: events.signal });
+
+  return {
+    show(route: Route) {
+      activeId = route.name === "key" ? route.id : undefined;
+      renderKeys();
       void load();
     },
-    { signal: events.signal }
-  );
-
-  void load();
-  return () => {
-    events.abort();
-    request?.abort();
-    navigation.replaceChildren();
+    reset() {
+      form.reset();
+      filters = {};
+      keys = [];
+    },
+    destroy() {
+      events.abort();
+      request?.abort();
+      list.replaceChildren();
+    },
   };
-}
-
-/** Формирует краткое значение конфига или состояние флага для таблицы. */
-function briefValue(key: KeyListItem): string {
-  if (key.kind === "flag") {
-    return `${key.flag.enabled ? "Включён" : "Выключен"} · rollout ${key.flag.rollout_percent}%`;
-  }
-  const value = key.config.value;
-  return typeof value === "string" ? value : JSON.stringify(value);
 }

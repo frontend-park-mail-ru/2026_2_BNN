@@ -1,32 +1,44 @@
 <div class="onlineconf">
   <header class="onlineconf__header">
-    <a class="onlineconf__brand" href="/onlineconf/" data-onlineconf-link>
-      <span class="onlineconf__logo">BNN</span>
-      <span>OnlineConf</span>
-    </a>
+    <div class="onlineconf__brand">
+      <button class="onlineconf__icon onlineconf__drawer" type="button" aria-label="Открыть список ключей" aria-controls="onlineconf-sidebar" aria-expanded="false" data-sidebar-open>
+        <svg width="20" height="20" aria-hidden="true"><use href="{{spriteUrl}}#menu"></use></svg>
+      </button>
+      <a class="onlineconf__logo" href="/" aria-label="На главную">
+        <img src="{{logoUrl}}" width="96" height="45" alt="Brand New Notes" data-brand-logo />
+      </a>
+    </div>
+    <span class="onlineconf__product">OnlineConf</span>
     <div class="onlineconf__account">
+      <a class="onlineconf__create" href="/onlineconf/keys/new" data-onlineconf-link data-create-key hidden>+ Создать ключ</a>
       <span data-admin-login></span>
     </div>
-    <button
-      class="onlineconf__theme"
-      type="button"
-      data-theme-toggle
-      aria-label="Сменить тему"
-      title="Сменить тему"
-      aria-pressed="false"
-    >
-      <svg width="30" height="30" aria-hidden="true">
-        <use></use>
-      </svg>
-    </button>
   </header>
   <div class="onlineconf__layout">
-    <aside class="onlineconf__sidebar">
-      <nav aria-label="Управление конфигурацией">
-        <a href="/onlineconf/" data-onlineconf-link data-catalog-link>Ключи</a>
-        <div class="catalog__scopes" data-scopes role="group" aria-label="Область ключей"></div>
-      </nav>
+    <div class="onlineconf__backdrop" data-sidebar-close hidden></div>
+    <aside class="onlineconf__sidebar" id="onlineconf-sidebar" aria-labelledby="onlineconf-sidebar-title">
+      <div class="onlineconf__rail">
+        <button class="onlineconf__icon" type="button" data-theme-toggle aria-label="Сменить тему" title="Сменить тему" aria-pressed="false">
+          <svg width="30" height="30" aria-hidden="true"><use></use></svg>
+        </button>
+      </div>
+      <div class="onlineconf__library">
+        <div class="onlineconf__heading">
+          <h2 id="onlineconf-sidebar-title">Ключи</h2>
+          <button class="onlineconf__icon onlineconf__drawer" type="button" aria-label="Закрыть список ключей" data-sidebar-close>
+            <svg width="20" height="20" aria-hidden="true"><use href="{{spriteUrl}}#close"></use></svg>
+          </button>
+        </div>
+        <nav class="onlineconf__keys" aria-label="Ключи" data-keys hidden>
+          <a class="onlineconf__key" href="/onlineconf/" data-onlineconf-link data-catalog-link>Все области</a>
+          <span class="onlineconf__key" data-draft-key aria-current="page" hidden>Новый ключ</span>
+          <div class="onlineconf__key-list" data-key-list aria-busy="true"></div>
+        </nav>
+      </div>
     </aside>
-    <main class="onlineconf__main" id="onlineconf-main"></main>
+    <main class="onlineconf__main">
+      <div class="onlineconf__view" data-catalog hidden></div>
+      <div class="onlineconf__view" id="onlineconf-main"></div>
+    </main>
   </div>
 </div>

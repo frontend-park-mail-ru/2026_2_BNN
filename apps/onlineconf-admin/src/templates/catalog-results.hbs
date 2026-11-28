@@ -1,41 +1,9 @@
-<p class="onlineconf__description" role="status">{{message}}</p>
-{{#if retry}}
-  <button type="button" data-catalog-retry>Повторить</button>
-{{/if}}
-{{#if limited}}
-  <p class="onlineconf__description">Показано 200 записей. Уточните поиск, чтобы найти нужный ключ.</p>
-{{/if}}
 {{#if rows.length}}
-  <div class="catalog__table-scroll" role="region" aria-label="Список ключей" tabindex="0">
-    <table class="catalog__table">
-      <caption class="catalog__caption">Ключи выбранной области</caption>
-      <thead>
-        <tr>
-          <th scope="col">Область</th>
-          <th scope="col">Ключ</th>
-          <th scope="col">Тип</th>
-          <th scope="col">Значение / состояние</th>
-          <th scope="col">Обновлён</th>
-          <th scope="col">Автор</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each rows}}
-          <tr>
-            <td>{{scope}}</td>
-            <td><a
-                class="catalog__key"
-                href="{{href}}"
-                title="{{key}}"
-                data-onlineconf-link
-              >{{key}}</a></td>
-            <td>{{kind}}</td>
-            <td><span class="catalog__value" title="{{value}}">{{value}}</span></td>
-            <td><time datetime="{{updated_at}}">{{updatedAt}}</time></td>
-            <td><span class="catalog__author" title="{{login}}">{{login}}</span></td>
-          </tr>
-        {{/each}}
-      </tbody>
-    </table>
-  </div>
+  <ul aria-label="Список ключей">
+    {{#each rows}}
+      <li>
+        <a class="onlineconf__key" href="{{href}}" title="{{scope}} / {{key}}" data-onlineconf-link {{#if active}}aria-current="page"{{/if}}>{{key}}</a>
+      </li>
+    {{/each}}
+  </ul>
 {{/if}}
