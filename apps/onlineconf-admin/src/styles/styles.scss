@@ -373,6 +373,10 @@ button {
       margin: 0 0 20px;
       font-size: 24px;
       line-height: 1.4;
+
+      &[tabindex="-1"]:focus {
+        outline: none;
+      }
     }
   }
 
@@ -393,10 +397,6 @@ button {
 @include theme-transition.circle(".onlineconf");
 
 .catalog {
-  h1:focus {
-    outline: none;
-  }
-
   &__filters,
   &__actions {
     display: flex;
