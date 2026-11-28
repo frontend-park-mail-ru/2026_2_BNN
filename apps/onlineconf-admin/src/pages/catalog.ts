@@ -90,7 +90,7 @@ export function mountCatalog(
         const available = await getScopes(current.signal);
         if (request !== current || events.signal.aborted) return;
         scopes = available;
-        if (showTable) selectScope();
+        if (showTable || location.pathname === "/onlineconf/keys/new") selectScope();
         renderKeys();
       }
 
@@ -197,12 +197,15 @@ export function mountCatalog(
 
   return {
     show(route: Route) {
-      if (route.name === "catalog") selectScope();
+      if (route.name === "catalog" || route.name === "new-key") selectScope();
       draft = undefined;
       refreshTree = true;
       activeId = route.name === "key" || route.name === "history" ? route.id : undefined;
       renderKeys();
       void load();
+    },
+    selectedScope() {
+      return filters.scope;
     },
     setDraft(name: string, scope: Scope) {
       if (draft?.scope !== scope) collapsed.delete(scope);

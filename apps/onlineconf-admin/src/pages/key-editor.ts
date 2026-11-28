@@ -10,7 +10,8 @@ export function mountKeyEditor(
   id: string | undefined,
   onAccessError: (error: ApiError) => void,
   navigate: (path: string, replace?: boolean) => void,
-  onDraftChange?: (name: string, scope: Scope) => void
+  onDraftChange?: (name: string, scope: Scope) => void,
+  requestedScope?: string | null
 ): { destroy: () => void; canLeave: () => boolean } {
   main.innerHTML = template({
     title: id ? "Карточка ключа" : "Создание ключа",
@@ -138,7 +139,7 @@ export function mountKeyEditor(
   /** Заполняет форму сохранёнными данными и сбрасывает признаки изменений. */
   function populate(): void {
     scope.replaceChildren(...scopes.map((item) => new Option(item, item)));
-    scope.value = saved?.scope ?? scopes[0] ?? "";
+    scope.value = saved?.scope ?? scopes.find((item) => item === requestedScope) ?? scopes[0] ?? "";
     name.value = saved?.key ?? "";
     onDraftChange?.(name.value, scope.value as Scope);
     kind.value = saved?.kind ?? "config";

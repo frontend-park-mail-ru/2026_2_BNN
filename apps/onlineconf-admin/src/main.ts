@@ -232,6 +232,11 @@ const render = (route: Route): void => {
 
   catalog ??= mountCatalog(catalogView, keyList, allScopes, handleAccessError);
   catalog.show(route);
+  const scope =
+    route.name === "catalog" || route.name === "new-key"
+      ? new URLSearchParams(window.location.search).get("scope")
+      : catalog.selectedScope();
+  create.search = scope ? new URLSearchParams({ scope }).toString() : "";
 
   if (search) {
     main.replaceChildren();
@@ -246,7 +251,8 @@ const render = (route: Route): void => {
         if (route.name === "new-key" && replace) catalog?.reset();
         router.navigate(path, replace);
       },
-      route.name === "new-key" ? (name, scope) => catalog?.setDraft(name, scope) : undefined
+      route.name === "new-key" ? (name, scope) => catalog?.setDraft(name, scope) : undefined,
+      route.name === "new-key" ? scope : undefined
     );
   } else {
     main.innerHTML = page({
