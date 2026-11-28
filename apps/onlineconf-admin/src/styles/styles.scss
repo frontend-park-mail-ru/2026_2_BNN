@@ -597,3 +597,38 @@ button {
     }
   }
 }
+.flag-evaluation {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+
+  h2 {
+    margin-top: 0;
+  }
+
+  fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-inline-size: 0;
+    margin: 12px 0;
+    padding: 0;
+    border: 0;
+  }
+
+  input,
+  select {
+    max-inline-size: 100%;
+  }
+
+  [data-evaluate-result] {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  [role="status"]:empty {
+    margin: 0;
+  }
+}

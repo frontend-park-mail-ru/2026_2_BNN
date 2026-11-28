@@ -2,6 +2,11 @@ export type Scope = "frontend" | "backend" | "auth" | "notes";
 export type KeyKind = "config" | "flag";
 export type AdminUser = { id: string; login: string };
 export type AdminSession = { login: string };
+export type FlagEvaluation = {
+  result: boolean;
+  reason: "disabled" | "excluded" | "included" | "rollout";
+  revision: number;
+};
 export type JsonObject = { [key: string]: JsonValue };
 export type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 

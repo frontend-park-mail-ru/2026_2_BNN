@@ -9,25 +9,70 @@ export interface RuntimeSnapshot {
 
 const DEFAULT_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
-class RuntimeConfigStore extends BaseStore<{ snapshot: RuntimeSnapshot | null }> {
+class RuntimeConfigStore extends BaseStore<{
+  snapshot: RuntimeSnapshot | null;
+  attachmentUploadDenied: boolean;
+  attachmentUploadRestored: boolean;
+}> {
   constructor() {
-    super({ snapshot: null });
+    super({ snapshot: null, attachmentUploadDenied: false, attachmentUploadRestored: false });
   }
 
   replace(snapshot: RuntimeSnapshot | null): void {
-    if (this.state.snapshot === snapshot) return;
+    if (
+      this.state.snapshot === snapshot &&
+      (snapshot !== null || !this.state.attachmentUploadDenied)
+    )
+      return;
 
-    this.state = { snapshot };
+    const sameSession =
+      snapshot !== null &&
+      (!this.state.snapshot || snapshot.user_id === this.state.snapshot.user_id);
+    const enabled = snapshot?.flags.backend?.["attachments.upload_enabled"] !== false;
+    const wasBlocked = !this.getAttachmentPolicy().uploadEnabled;
+
+    this.state = {
+      snapshot,
+      attachmentUploadDenied: sameSession && !enabled && this.state.attachmentUploadDenied,
+      attachmentUploadRestored:
+        sameSession && enabled && (wasBlocked || this.state.attachmentUploadRestored),
+    };
     this.emit();
   }
 
+  /** Запоминает отказ после попытки загрузки до снятия запрета или смены сессии. */
+  recordAttachmentUploadDenial(): void {
+    if (this.state.attachmentUploadDenied) return;
+
+    this.state = {
+      ...this.state,
+      attachmentUploadDenied: true,
+      attachmentUploadRestored: false,
+    };
+    this.emit();
+  }
+
+  /** Забирает одно уведомление о снятии запрета при открытии меню блока. */
+  consumeAttachmentUploadRestored(): boolean {
+    if (!this.state.attachmentUploadRestored) return false;
+
+    this.state = { ...this.state, attachmentUploadRestored: false };
+    this.emit();
+    return true;
+  }
+
+  /** Читает флаг голосового ввода. До получения настройки диктовка доступна. */
+  isVoiceInputEnabled(): boolean {
+    return this.getState().snapshot?.flags.frontend?.["notes.voice_input"] ?? true;
+  }
+
   getAttachmentPolicy(): { uploadEnabled: boolean; maxFileSizeBytes: number } {
-    const { snapshot } = this.getState();
+    const { snapshot, attachmentUploadDenied } = this.getState();
     const enabled = snapshot?.flags.backend?.["attachments.upload_enabled"];
     const limit = snapshot?.configs.backend?.["attachments.max_file_size_bytes"];
 
     return {
-      uploadEnabled: enabled ?? true,
+      uploadEnabled: !attachmentUploadDenied && (enabled ?? true),
       maxFileSizeBytes:
         typeof limit === "number" && Number.isSafeInteger(limit) && limit > 0
           ? limit

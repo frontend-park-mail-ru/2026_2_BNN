@@ -5,10 +5,24 @@ import { runtimeConfigStore } from "@/flux/runtime/runtime-store";
 
 export const UPLOAD_DISABLED_MESSAGE = "Загрузка новых вложений сейчас недоступна.";
 
+const FILE_SIZE_UNITS = ["Б", "КБ", "МБ", "ГБ", "ТБ"];
+const fileSizeNumber = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+
+/** Форматирует размер в десятичных единицах: 1 МБ равен 1 000 000 байт. */
+function formatFileSize(bytes: number): string {
+  let value = bytes;
+  let unit = 0;
+
+  while (value >= 1000 && unit < FILE_SIZE_UNITS.length - 1) {
+    value /= 1000;
+    unit++;
+  }
+
+  return `${fileSizeNumber.format(value)} ${FILE_SIZE_UNITS[unit]}`;
+}
+
 export function attachmentLimitMessage(limit: number): string {
-  const size =
-    limit % 1048576 === 0 ? `${limit / 1048576} МиБ` : `${limit.toLocaleString("ru-RU")} байт`;
-  return `Файл превышает допустимый размер (${size}).`;
+  return `Файл слишком большой. Максимальный размер — ${formatFileSize(limit)}.`;
 }
 
 export function getAttachmentPolicyError(file: File): string | null {
@@ -39,16 +53,7 @@ export function formatFileMeta(name: string, size?: number): string {
     return extension;
   }
 
-  const units = ["Б", "КБ", "МБ", "ГБ"];
-  const unitIndex = Math.min(
-    Math.floor(Math.log(Math.max(size, 1)) / Math.log(1024)),
-    units.length - 1
-  );
-  const value = new Intl.NumberFormat("ru-RU", {
-    maximumFractionDigits: 1,
-  }).format(size / 1024 ** unitIndex);
-
-  return `${extension} · ${value} ${units[unitIndex]}`;
+  return `${extension} · ${formatFileSize(size)}`;
 }
 
 /**

@@ -37,6 +37,12 @@ export function createAttachmentInput(options: {
   const { mainRegion, timerSave, finishSaving, showToast, goToLogin, closeBlockMenu } = options;
   const { replaceBlock, insertBlockAfter, readBlock } = options.document;
   const pending = new Set<Promise<void>>();
+
+  /** Объясняет отказ и обновляет пункты меню после попытки загрузки. */
+  function showUploadError(message: string): void {
+    showToast(message, true);
+    if (message === UPLOAD_DISABLED_MESSAGE) runtimeConfigStore.recordAttachmentUploadDenial();
+  }
   /**
    * Запоминает загрузку, чтобы уход со страницы мог её дождаться.
    *
@@ -91,7 +97,7 @@ export function createAttachmentInput(options: {
     given?: File
   ): Promise<HTMLElement | undefined> {
     if (!runtimeConfigStore.getAttachmentPolicy().uploadEnabled) {
-      showToast(UPLOAD_DISABLED_MESSAGE, true);
+      showUploadError(UPLOAD_DISABLED_MESSAGE);
       return;
     }
     const file = given ?? (await pickFile(requested === "image" ? IMAGE_ACCEPT : FILE_ACCEPT));
@@ -100,7 +106,7 @@ export function createAttachmentInput(options: {
     }
     const initialError = getAttachmentPolicyError(file);
     if (initialError) {
-      showToast(initialError, true);
+      showUploadError(initialError);
       return;
     }
     const type = await acceptedAttachment(file, requested, showToast);
@@ -110,7 +116,7 @@ export function createAttachmentInput(options: {
 
     const policyError = getAttachmentPolicyError(file);
     if (policyError) {
-      showToast(policyError, true);
+      showUploadError(policyError);
       return;
     }
     const inserted = !isEmptyParagraph(block);
@@ -161,7 +167,7 @@ export function createAttachmentInput(options: {
         trailing.remove();
       }
       timerSave();
-      showToast(message, true);
+      showUploadError(message);
       return restored;
     }
 
@@ -228,10 +234,11 @@ export function createAttachmentInput(options: {
     for (const file of files) {
       if (!anchor.isConnected || !options.isActive()) return;
       if (!runtimeConfigStore.getAttachmentPolicy().uploadEnabled) {
-        showToast(UPLOAD_DISABLED_MESSAGE, true);
+        showUploadError(UPLOAD_DISABLED_MESSAGE);
         return;
       }
       anchor = (await uploadFile(anchor, "auto", file)) ?? anchor;
+      if (runtimeConfigStore.getState().attachmentUploadDenied) return;
     }
   }
 
@@ -284,9 +291,9 @@ export function createAttachmentInput(options: {
   function onDragOver(event: DragEvent): void {
     if (event.dataTransfer?.types.includes("Files")) {
       event.preventDefault();
-      const target = runtimeConfigStore.getAttachmentPolicy().uploadEnabled
-        ? findDropTarget(event)
-        : null;
+      const target = runtimeConfigStore.getState().attachmentUploadDenied
+        ? null
+        : findDropTarget(event);
       event.dataTransfer.dropEffect = target ? "copy" : "none";
       mainRegion.querySelector(".notebook")?.classList.toggle("notebook_drop", target !== null);
     }
