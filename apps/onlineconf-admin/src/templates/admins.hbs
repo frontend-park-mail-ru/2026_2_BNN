@@ -1,0 +1,23 @@
+<section class="onlineconf__panel admins" aria-labelledby="admins-title">
+  <h1 id="admins-title" tabindex="-1">Администраторы</h1>
+  <p class="onlineconf__description">После выдачи или отзыва доступ может обновляться до 15 секунд.</p>
+  <p role="status" data-admins-status></p>
+
+  <fieldset data-admins-controls>
+    <legend>Текущие администраторы</legend>
+    <ul data-admins-list></ul>
+    <button type="button" data-admins-reload>Обновить список</button>
+  </fieldset>
+
+  <form data-admins-search role="search" aria-label="Поиск пользователя для выдачи доступа">
+    <fieldset data-admins-controls>
+      <legend>Выдать доступ</legend>
+      <div class="admins__search">
+        <label for="admins-query">Логин пользователя</label>
+        <input id="admins-query" type="search" autocomplete="off" required />
+        <button type="submit">Найти</button>
+      </div>
+      <ul data-admins-results></ul>
+    </fieldset>
+  </form>
+</section>

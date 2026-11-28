@@ -9,6 +9,8 @@ export function onlineconfReturnPath(value: string): string | null {
     const url = new URL(value, window.location.origin);
     if (url.origin !== window.location.origin || url.pathname !== value) return null;
     if (value === "/onlineconf" || value === "/onlineconf/") return "/onlineconf/";
+    if (value === "/onlineconf/admins" || value === "/onlineconf/admins/")
+      return "/onlineconf/admins";
     return value === "/onlineconf/keys/new" || KEY_PATH.test(value) ? value : null;
   } catch {
     return null;

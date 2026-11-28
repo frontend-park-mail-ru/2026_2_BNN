@@ -185,6 +185,35 @@ export function getScopes(signal?: AbortSignal) {
   );
 }
 
+/** Возвращает список пользователей с административным доступом. */
+export function listAdmins(signal?: AbortSignal): Promise<AdminUser[]> {
+  return read<AdminUser[]>(
+    "/admins",
+    signal,
+    (admins) =>
+      Array.isArray(admins) &&
+      admins.every(
+        (admin) =>
+          typeof admin?.id === "string" &&
+          Boolean(admin.id) &&
+          typeof admin.login === "string" &&
+          Boolean(admin.login)
+      )
+  );
+}
+
+/** Выдаёт или отзывает административный доступ без тела запроса. */
+export async function setAdminAccess(
+  userId: string,
+  granted: boolean,
+  signal?: AbortSignal
+): Promise<void> {
+  await request(`/admins/${encodeURIComponent(userId)}`, {
+    method: granted ? "PUT" : "DELETE",
+    signal,
+  });
+}
+
 export function listKeys(filters: KeyFilters = {}, signal?: AbortSignal) {
   const query = new URLSearchParams();
   if (filters.query !== undefined) query.set("query", filters.query);
