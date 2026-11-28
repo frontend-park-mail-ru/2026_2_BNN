@@ -1,6 +1,6 @@
-import { ApiError, searchUsers } from "./api";
-import template from "./flag-editor.hbs";
-import type { AdminUser, FlagRead, FlagWrite } from "./types";
+import { ApiError, searchUsers } from "../api/api";
+import template from "../templates/flag-editor.hbs";
+import type { AdminUser, FlagRead, FlagWrite } from "../types/onlineconf";
 
 const MAX_USERS = 100;
 type Rule = "include" | "exclude";
@@ -35,6 +35,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
   const searchButton = find<HTMLButtonElement>(host, "[data-flag-search]");
   const searchStatus = find<HTMLElement>(host, "[data-flag-search-status]");
   const results = find<HTMLUListElement>(host, "[data-flag-results]");
+  const percentError = find<HTMLElement>(host, "[data-flag-percent-error]");
   const feedback = find<HTMLElement>(host, "[data-flag-feedback]");
 
   const lists = {
@@ -112,6 +113,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
   function renderSelection(rule: Rule): void {
     const list = lists[rule];
     list.replaceChildren();
+    list.removeAttribute("aria-invalid");
     counts[rule].textContent = `(${selected[rule].size}/${MAX_USERS})`;
 
     for (const user of selected[rule].values()) {
@@ -189,10 +191,44 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     }
   }
 
+  function clearPercentError(): void {
+    percentError.textContent = "";
+    percent.removeAttribute("aria-invalid");
+    range.removeAttribute("aria-invalid");
+  }
+
+  function showPercentError(message = "Укажите целый процент от 0 до 100."): void {
+    percentError.textContent = message;
+    percent.setAttribute("aria-invalid", "true");
+    range.setAttribute("aria-invalid", "true");
+  }
+
+  function showError(message: string): HTMLElement | undefined {
+    if (/\brollout_percent\b/i.test(message)) {
+      showPercentError(message);
+      return percent;
+    }
+    for (const rule of ["include", "exclude"] as const) {
+      if (message.includes(`${rule}_user`)) {
+        feedback.textContent = message;
+        lists[rule].setAttribute("aria-invalid", "true");
+        return lists[rule];
+      }
+    }
+    if (/\benabled\b/i.test(message)) {
+      feedback.textContent = message;
+      enabled.setAttribute("aria-invalid", "true");
+      return enabled;
+    }
+    return undefined;
+  }
+
+  percent.addEventListener("invalid", () => showPercentError(), { signal });
+
   function read(): FlagWrite | null {
     const value = percent.valueAsNumber;
     if (!Number.isInteger(value) || value < 0 || value > 100) {
-      feedback.textContent = "Укажите целый процент от 0 до 100.";
+      showPercentError();
       percent.focus();
       return null;
     }
@@ -216,12 +252,21 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     };
   }
 
-  enabled.addEventListener("change", () => onChange?.(), { signal });
+  enabled.addEventListener(
+    "change",
+    () => {
+      enabled.removeAttribute("aria-invalid");
+      feedback.textContent = "";
+      onChange?.();
+    },
+    { signal }
+  );
 
   range.addEventListener(
     "input",
     () => {
       percent.value = range.value;
+      clearPercentError();
       feedback.textContent = "";
       onChange?.();
     },
@@ -233,6 +278,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
     () => {
       if (percent.validity.valid) {
         range.value = percent.value;
+        clearPercentError();
         feedback.textContent = "";
       }
       onChange?.();
@@ -257,6 +303,7 @@ export function mountFlagEditor(host: HTMLElement, options: FlagEditorOptions = 
 
   return {
     read,
+    showError,
     setDisabled(disabled: boolean): void {
       fieldset.disabled = disabled;
     },

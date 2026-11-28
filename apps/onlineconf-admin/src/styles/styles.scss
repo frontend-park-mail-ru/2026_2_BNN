@@ -1,6 +1,7 @@
 @font-face {
   font-family: Comfortaa;
-  src: url("../../../public/assets/fonts/Comfortaa/static/Comfortaa-Regular.woff2") format("woff2");
+  src: url("../../../../public/assets/fonts/Comfortaa/static/Comfortaa-Regular.woff2")
+    format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -8,7 +9,7 @@
 
 @font-face {
   font-family: Comfortaa;
-  src: url("../../../public/assets/fonts/Comfortaa/static/Comfortaa-Bold.woff2") format("woff2");
+  src: url("../../../../public/assets/fonts/Comfortaa/static/Comfortaa-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -22,6 +23,7 @@
   --accent: #73b0ff;
   --text: #0f2140;
   --muted: #596c88;
+  --focus: #245db3;
   font-family: Comfortaa, sans-serif;
   font-synthesis: none;
   color: var(--text);
@@ -36,6 +38,7 @@
   --accent: #70acc6;
   --text: #d7e3e7;
   --muted: #97c4cc;
+  --focus: #97c4cc;
 }
 
 * {
@@ -56,7 +59,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 4px;
 }
 
@@ -345,6 +348,9 @@ button {
     font-weight: 700;
     line-height: 1.6;
   }
+  &__error:empty {
+    display: none;
+  }
   [aria-invalid="true"] {
     border-width: 2px;
   }
@@ -374,6 +380,11 @@ button {
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+
+    > label {
+      min-width: 0;
+      max-width: 100%;
+    }
   }
 
   &__lists {

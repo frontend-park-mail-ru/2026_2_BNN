@@ -1,13 +1,13 @@
 import faviconUrl from "../../../public/assets/icons/logo-auth.svg";
 import spriteUrl from "../../../public/assets/icons/ui/sprite.svg";
-import layout from "./layout.hbs";
-import page from "./page.hbs";
+import layout from "./templates/layout.hbs";
+import page from "./templates/page.hbs";
 import { saveOnlineconfReturn } from "../../../src/utils/onlineconf-return";
 import { startRouter, type Route } from "./router";
-import { getAdminSession } from "./session";
-import { mountCatalog } from "./catalog";
-import { mountKeyEditor } from "./key-editor";
-import "./styles.scss";
+import { getAdminSession } from "./api/session";
+import { mountCatalog } from "./pages/catalog";
+import { mountKeyEditor } from "./pages/key-editor";
+import "./styles/styles.scss";
 
 const favicon = document.createElement("link");
 favicon.rel = "icon";

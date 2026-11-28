@@ -6,7 +6,7 @@ import type {
   OnlineconfKey,
   Scope,
   UpdateKeyInput,
-} from "./types";
+} from "../types/onlineconf";
 
 export class ApiError extends Error {
   constructor(

@@ -1,4 +1,4 @@
-import type { ConfigValue, JsonValue } from "./types";
+import type { ConfigValue, JsonValue } from "../types/onlineconf";
 
 function finiteJson(value: JsonValue): boolean {
   if (typeof value === "number") return Number.isFinite(value);
